@@ -212,20 +212,31 @@ def insert_pis(cur, grant_id: str, pis: list):
     # Inserts principal investigators into the database and links them to the research grant.
     
     for investigator in pis:
-        first, middle, last, canonical = normalize_name(investigator.get("full_name"))
-            cur.execute(
-                "INSERT INTO PIs (canonical_name, first_name, middle_name, last_name) "
-                "VALUES (%s, %s, %s, %s) RETURNING id",
+        
+        # Normalize the investigator's name to extract first, middle, last, and canonical forms
 
-            pi_id = cur.fetchone()[0]
+        first, middle, last, canonical = normalize_name(investigator.get("full_name"))
+
         if not canonical:
             continue
-        if row:
-            pi_id=row[0]
-        else:
-            cur.execute("INSERT INTO PIs (canonical_name, first_name, middle_name, last_name) VALUES (%s, %s, %s, %s)",
+        
+        # Insert the PI into the database, or update if they already exist
+        cur.execute("""
+                INSERT INTO PIs (canonical_name, first_name, middle_name, last_name)
+                VALUES (%s, %s, %s, %s) RETURNING id",
+                ON CONFLICT (canonical_name) DO UPDATE 
+                SET canonical_name = EXCLUDED.canonical_name -- This is a trick to force a RETURNING id
+                RETURNING id
+                """, (canonical, first, middle, last))
+
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT id FROM PIs WHERE canonical_name = %s", (canonical,))
                 (canonical, first, middle, last))
-            pi_id = cur.lastrowid  
+        else:
+            pi_id = row[0] 
+
+        # Link the PI to the research grant
         cur.execute("""
             INSERT INTO RGrantPIs (grant_id, pi_id, is_contact_pi) 
             VALUES (%s,%s,%s)

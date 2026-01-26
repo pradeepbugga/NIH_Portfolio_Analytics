@@ -1,4 +1,3 @@
-# ingest_nih.py
 #this script runs the NIH grant data ingestion pipeline for the specified fiscal years
 
 import json
@@ -75,7 +74,7 @@ if __name__ == "__main__":
         print("Ingest failed:", e)
         traceback.print_exc()
         conn.rollback()
-        mark_ingest_run_failed(cur, ingest_id, error_message = str(e))
+        mark_ingest_run_failed(cur, ingest_id, error_message=str(e))
         conn.commit()
         raise
 
