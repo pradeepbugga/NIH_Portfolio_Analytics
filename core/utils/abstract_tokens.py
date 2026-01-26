@@ -25,20 +25,24 @@ df["word_count"].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95, 0.99])
 
 tokenizer = AutoTokenizer.from_pretrained("NeuML/pubmedbert-base-embeddings")
 
-print(df["word_count"].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95, 0.99]))
-    return len(
-TOKENIZER = AutoTokenizer.from_pretrained("NeuML/pubmedbert-base-embeddings"))
+tokenizer = AutoTokenizer.from_pretrained("michiyasunaga/BioLinkBERT-base")
 
 def count_tokens(text):
     return len(
-        TOKENIZER.encode(
-    ))
+        tokenizer.encode(
+            text,
+            add_special_tokens=True,
+            truncation=False
+        )
+    )
 
 df["token_count"] = df["abstract"].apply(count_tokens)
 
 print(df["token_count"].describe(
     percentiles=[0.5, 0.75, 0.9, 0.95, 0.99]
 ))
+
+MAX_LEN = 512
 
 fraction_truncated = (df["token_count"] > MAX_LEN).mean()
 print(f"Fraction truncated at {MAX_LEN}: {fraction_truncated:.2%}")

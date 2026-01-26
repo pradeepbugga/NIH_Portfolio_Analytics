@@ -232,7 +232,7 @@ def insert_pis(cur, grant_id: str, pis: list):
         row = cur.fetchone()
         if not row:
             cur.execute("SELECT id FROM PIs WHERE canonical_name = %s", (canonical,))
-                (canonical, first, middle, last))
+               
         else:
             pi_id = row[0] 
 
