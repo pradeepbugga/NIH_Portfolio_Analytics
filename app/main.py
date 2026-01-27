@@ -5,7 +5,7 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder
-from core.search.reranker import warmup_reranker
+from core.search.modal_reranker import modal_rerank
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
@@ -85,7 +85,7 @@ def search(request: Request,
         cur.execute("SET hnsw.ef_search = 1000;")
      
         #perform semantic search
-        results = semantic_search_range(query, cur)
+        results = semantic_search_range(query, cur, rerank_fn=modal_rerank)
 
         #cache results
         save_cached_results(cur, query, results)
