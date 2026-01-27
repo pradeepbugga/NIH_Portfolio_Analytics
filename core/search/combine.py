@@ -31,7 +31,8 @@ def combine_and_sort(docs, scores):
                 "org_country": doc["org_country"],
                 "pi_first_name": doc["pi_first_name"],
                 "pi_middle_name": doc["pi_middle_name"],
-
+                "pi_last_name": doc["pi_last_name"],
+                "score": float(score),
                 "vector_similarity": doc.get("vector_similarity", 0.0)
             })
         
