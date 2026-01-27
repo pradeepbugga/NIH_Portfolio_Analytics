@@ -5,7 +5,6 @@
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
-from core.search.reranker import rerank_batch
 from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
 import time
@@ -13,8 +12,8 @@ import time
 def semantic_search_range(
     query: str,
     cur,
-    similarity_threshold: float = 0.25,
-
+    similarity_threshold: float = 0.25, 
+    rerank_fn
     ):
     """
     Perform semantic search over NIH grant documents within a similarity range.
@@ -87,7 +86,7 @@ def semantic_search_range(
 
     # 4) Rerank with cross-encoder
     doc_texts = [d["text"] for d in docs]
-    scores = rerank_batch(query, doc_texts)
+    scores = rerank_fn(query, doc_texts)
 
     print("Combining and sorting results...")
 
