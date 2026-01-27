@@ -1,5 +1,12 @@
 # this script contains helpers for caching search results
 import json
+from datetime import date, datetime
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError ("Type %s not serializable" % type(obj))
 
 def get_cached_results(cur, query):
     cur.execute(
@@ -10,13 +17,15 @@ def get_cached_results(cur, query):
     return row[0] if row else None
 
 def save_cached_results(cur, query, results):
+    version = results.get("model_version", "v1")
     cur.execute(
         """
-        INSERT INTO cached_searches (query, results)
-        VALUES (%s, %s)
+        INSERT INTO cached_searches (query, model_version, results)
+        VALUES (%s, %s, %s)
         ON CONFLICT (query) DO UPDATE
         SET results = EXCLUDED.results,
+            model_version = EXCLUDED.model_version,
             created_at = now()
         """,
-        (query, json.dumps(results))
+        (query, version, json.dumps(results, default=json_serial))
     )
