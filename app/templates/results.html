@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>{{ query }}</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body class="results">
+
+    <div class="results-header">
+        <div class="header-content">
+            <div class="header-left">
+                {% include 'partials/search_bar.html' %}
+            </div>
+
+            <div class="logo">
+                <a href="/" style="text-decoration: none; color: inherit;">The NIH Audit</a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="page-container">
+        <h1 class="query-title">{{ query }}</h1>
+
+        <div class="split-layout">
+            <div class="left-pane">
+                <div id="funding-stat-container">
+                    <div id="funding-amount"></div>
+                    <div class="funding-caption">2025 Funding</div>
+                </div>
+            </div>
+
+            <div class="right-pane">
+                <div id="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const years = {{ years | safe }};
+        const funding = {{ funding | safe }};
+
+        const index2025 = years.indexOf(2025);
+
+        if (index2025 !== -1) {
+            const amount = funding[index2025];
+
+            const formmattedAmount = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(amount);
+
+            document.getElementById("funding-amount").innerText = formmattedAmount;
+        }
+        else {
+            document.getElementById("funding-stat-container").style.display = "none";
+        }
+
+
+
+        Plotly.newPlot("chart", [{
+            x: years,
+            y: funding,
+            type: "scatter",
+            mode: "lines",
+            line: {
+                width: 3,
+            },
+            hovertemplate: '<b>Year</b>: %{x}<br><b>Funding</b>: $%{y:.2s}<extra></extra>',
+        }],
+
+            {
+                font: {
+                    family: "'Inter', sans-serif", // Matches your CSS font
+                    size: 14,
+                    color: "#1a365d"
+                },
+                title: {
+                    text: "Historical NIH Funding",
+                    font: { size: 30, weight: 800 },
+                    x: 0.5
+                },
+                width: 800,
+                hovermode: "x unified",
+                margin: { t: 80 },
+                xaxis: { title: "Year", showgrid: false },
+                yaxis: { title: "USD ($)" }
+            });
+    </script>
+    <script>lucide.createIcons(); </script>
+    <script src="/static/js/script.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,199 @@
+@font-face {
+    font-family: "primer";
+    src: url("/static/fonts/primer.ttf") format("truetype");
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 95%;
+    /* Use percentage to ensure it hits the edges */
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-left {
+    flex: 0 1 auto;
+    /* Don't force it to grow; let it take only what it needs */
+}
+
+.results-header {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    padding: 15px 0;
+}
+
+.results-header .logo {
+    font-size: 40px;
+    /* Much smaller than the 64px landing page version */
+    margin-bottom: 0;
+    /* Remove that 24px bottom margin from your landing style */
+    margin-left: 20px;
+    white-space: nowrap;
+    /* Keep it on one line */
+}
+
+body.landing {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+    background: white;
+}
+
+.logo {
+    font-family: "primer", serif;
+    font-size: 64px;
+    margin-bottom: 24px;
+}
+
+/* Container for the logo and form */
+.center-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* The form itself acts as the search bar wrapper */
+.search-form {
+    display: flex;
+    width: 200%;
+    max-width: 1200px;
+    border: 2px solid #12253d;
+    border-radius: 0px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background: white;
+}
+
+.search-form:focus-within {
+    border-color: #12253d;
+    box-shadow: 0 0 10px rgba(43, 108, 176, 0.2);
+}
+
+.search-form input {
+    flex: 1;
+    border: none;
+    padding: 15px 25px;
+    font-size: 1.1rem;
+    outline: none;
+}
+
+.search-button {
+    margin: -2px -2px -2px 0;
+    background: #12253d;
+    color: white;
+    border: none;
+    padding: 0 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    align-self: stretch;
+    border-radius: 0;
+}
+
+.search-button:hover {
+    background: #2c5282;
+}
+
+/* icon sizing */
+.search-button svg {
+    width: 40px;
+    height: 40px;
+}
+
+/* Loading animation for the search button */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.search-button.loading svg {
+    animation: spin 1s linear infinite;
+    pointer-events: none;
+    /* Prevents double-clicks */
+    opacity: 0.7;
+}
+
+.query-title {
+    font-family: "primer", serif;
+    /* Uses your custom font */
+    font-style: italic;
+    /* This italicizes the text */
+    font-size: 60px;
+    /* Adjust size as needed */
+    color: #333;
+    /* Adjust color as needed */
+    margin-top: 20px;
+    text-align: center;
+}
+
+#chart {
+    width: 80%;
+    /* Adjust width as needed */
+
+    margin-right: 0;
+}
+
+.split-layout {
+    display: flex;
+    width: 100%;
+    min-height: 500px;
+    /* Adjust based on how tall you want the section */
+}
+
+.left-pane {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    /* Horizontal center */
+    align-items: center;
+    /* Vertical center */
+    border-right: 1px solid #eee;
+    /* Optional divider */
+}
+
+.right-pane {
+    flex: 1;
+    padding: 20px;
+}
+
+
+#funding-stat-container {
+
+    text-align: center;
+
+}
+
+#funding-amount {
+    font-family: 'Inter', sans-serif;
+    font-size: 6rem;
+    /* Makes it big */
+    font-weight: bold;
+    color: #2c3e50;
+    /* Dark professional blue/grey */
+    line-height: 1;
+}
+
+.funding-caption {
+    font-family: 'Inter', sans-serif;
+    font-size: 2rem;
+    color: #7f8c8d;
+    /* Muted grey for caption */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
