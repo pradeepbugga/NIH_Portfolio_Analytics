@@ -13,7 +13,7 @@ import time
 def semantic_search_range(
     query: str,
     cur,
-    similarity_threshold: float = 0.5,
+    similarity_threshold: float = 0.25,
 
     ):
     """
@@ -30,12 +30,9 @@ def semantic_search_range(
         The natural language search query provided by the user.
     cur
         A database cursor used to execute queries against the grants database.
-    similarity_threshold : float, optional
+    similarity_threshold : float
         Minimum vector similarity score required for a grant to be considered as
-        a candidate during retrieval. Defaults to 0.5.
-    score_threshold : float, optional
-        Threshold for downstream scoring or filtering logic. Currently unused,
-        but reserved for future extensions. Defaults to -0.5.
+        a candidate during retrieval. Defaults to 0.25.
 
     Returns
     -------
