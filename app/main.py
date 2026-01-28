@@ -5,10 +5,10 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder
-from core.search.modal_reranker import modal_rerank
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
+from core.search.modal_reranker import rerank_fn
 
 app = FastAPI(title="NIH Grant Search API")
 
@@ -57,7 +57,7 @@ def search(request: Request,
     
     # warm up models to reduce initial latency
     warmup_query_encoder()
-    warmup_reranker()
+    
     
     #normalize query before searching
     query = normalize_query(query)
@@ -85,7 +85,7 @@ def search(request: Request,
         cur.execute("SET hnsw.ef_search = 1000;")
      
         #perform semantic search
-        results = semantic_search_range(query, cur, rerank_fn=modal_rerank)
+        results = semantic_search_range(query, cur, rerank_fn=rerank_fn)
 
         #cache results
         save_cached_results(cur, query, results)

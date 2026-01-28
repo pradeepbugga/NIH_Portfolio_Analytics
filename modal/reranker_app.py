@@ -15,36 +15,28 @@ image = (
         "transformers",
         "numpy"
     )
-    .copy_local_dir(
-        "./models/rerankers/v3",
-        "/model"
-    )
 )
+
+volume = modal.Volume.from_name("reranker-models")
 
 @app.cls(
     gpu="A10G",
     image=image,
+    volumes={"/model":volume},  
     timeout=60
 )
 
 class Reranker:
-    def __enter__(self):
-        self.model = CrossEncoder("/model", device="cuda")
-        self._warmup()
+    model_path: str = modal.parameter(default = "/model/v3")
 
-    def warmup(self):
-        dummy_query = "warmup"
-        dummy_docs = ["warmup"] * 128   # large batch
-                 
-        with torch.no_grad(), torch.amp.autocast("cuda"):
-            self.model.predict(
-                [(dummy_query, d) for d in dummy_docs],
-                batch_size=32,
-                show_progress_bar=False
-            )
+    @modal.enter()
+    def load_model(self):
+        self.model = CrossEncoder(self.model_path, device="cuda")
+            
 
     @modal.method()
     def rerank_batch(self, query, docs_list, batch_size=128):
+       
         inputs = [(query, doc) for doc in docs_list]    
 
         with torch.no_grad(), torch.amp.autocast("cuda"):  

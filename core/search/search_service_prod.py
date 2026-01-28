@@ -11,9 +11,9 @@ import time
 
 def semantic_search_range(
     query: str,
-    cur,
-    similarity_threshold: float = 0.25, 
-    rerank_fn
+    cur,rerank_fn,
+    similarity_threshold: float = 0.25
+    
     ):
     """
     Perform semantic search over NIH grant documents within a similarity range.
@@ -86,7 +86,7 @@ def semantic_search_range(
 
     # 4) Rerank with cross-encoder
     doc_texts = [d["text"] for d in docs]
-    scores = rerank_fn(query, doc_texts)
+    scores = rerank_fn.remote(query, doc_texts)
 
     print("Combining and sorting results...")
 
