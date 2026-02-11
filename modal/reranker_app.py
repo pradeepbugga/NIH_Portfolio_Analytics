@@ -23,7 +23,7 @@ volume = modal.Volume.from_name("reranker-models")
     gpu="A10G",
     image=image,
     volumes={"/model":volume},  
-    timeout=60
+    timeout=300
 )
 
 class Reranker:
