@@ -2,6 +2,7 @@
 #this script contains the configuration for the embedding job
 
 from dataclasses import dataclass
+import torch
 
 # pubmedbert is best for embedding biomedical text, such as PubMed abstracts and titles
 # we are embedding combined title and abstract of grants
