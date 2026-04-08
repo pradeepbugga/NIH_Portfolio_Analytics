@@ -92,23 +92,16 @@ from sklearn.calibration import CalibratedClassifierCV
 
 # build pipeline
 base_svc = LinearSVC(class_weight="balanced", dual=False, C=1.0, max_iter=10000)
+from sklearn.neighbors import KNeighborsClassifier
+
+# k=3 or k=5 is ideal for N=115
+# metric='cosine' is the KEY here for PubMedBERT
 pipeline = Pipeline([
-    ("scaler", StandardScaler()),
-    ("clf", CalibratedClassifierCV(base_svc,cv=2))
+    ("scaler", StandardScaler()), # Still good practice
+    ("clf", KNeighborsClassifier(n_neighbors=3, metric='cosine', weights='distance'))
 ])
 
-
-# 3. Use Cross-Val Predict instead of a hard Train/Test split
-# This allows us to see how the model performs on ALL 105 samples 
-# while ensuring it's never tested on data it was trained on.
-try:
-    # Use 3-fold CV because your smallest class has only 2 members
-    y_pred = cross_val_predict(pipeline, X, y, cv=2) 
-except ValueError:
-    # Fallback if classes are too small even for 2-fold
-    print("Classes too small for CV; falling back to basic fit.")
-    pipeline.fit(X, y)
-    y_pred = pipeline.predict(X)
+y_pred = cross_val_predict(pipeline, X, y, cv=5)
 
 # 4. Evaluate the results
 print("Classification Report (Leave-One-Out / Cross-Validation):")
