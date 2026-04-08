@@ -54,6 +54,23 @@ df = df.dropna(subset=["embedding"])
 # print length
 print(f"Number of examples with embeddings: {len(df)}")
 
+# merge categories 'clinical infra', 'clinical outcomes', and 'observational epidemiology' into a single 'clinical' category
+df["category"] = df["category"].replace({
+    "clinical infra": "clinical",
+    "clinical outcomes": "clinical",
+    "observational epidemiology": "clinical"
+})
+
+# merge categories 'therapeutic platform' and 'research tool' and 'therapeutic' into a single 'therapeutic and tools' category
+df["category"] = df["category"].replace({
+    "therapeutic platform": "therapeutic and tools",
+    "research tool": "therapeutic and tools",
+    "therapeutic": "therapeutic and tools",
+    "diagnostic": "therapeutic and tools"
+})
+
+
+
 
 
 # convert embedding from string to numpy array
@@ -67,8 +84,8 @@ def parse_embedding(embedding_str):
 df["embedding"] = df["embedding"].apply(parse_embedding)
 
 #print number of examples in each category
-#print("Category distribution:")
-#print(df["category"].value_counts())
+print("Category distribution:")
+print(df["category"].value_counts())
 
 # ---- TRAIN CLASSIFIER ----
 
@@ -81,8 +98,8 @@ X_scaled = scaler.fit_transform(X)
 # set up train test split maintaining class balance
 from sklearn.model_selection import train_test_split, cross_val_predict
 y = df["category"].values
-X_train, X_test, y_train, y_test = train_test_split(
-    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+X_train, X_test, y_train, y_test, indices_train, indices_test = train_test_split(
+    X_scaled, y, df.index, test_size=0.2, random_state=42, stratify=y
 )   
 
 # set up linear SVM
@@ -91,7 +108,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
 
 # build pipeline
-base_svc = LinearSVC(class_weight="balanced", dual=False, C=1.0, max_iter=10000)
+base_svc = LinearSVC(class_weight="balanced", dual=False, C=0.05, max_iter=10000)
 from sklearn.neighbors import KNeighborsClassifier
 
 # k=3 or k=5 is ideal for N=115
@@ -118,3 +135,19 @@ plt.title("Confusion Matrix (Full Dataset via Cross-Validation)")
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
+
+# 2. Attach these predictions directly to your original DataFrame
+# This works because cross_val_predict preserves the original row order
+df["predicted_category"] = y_pred
+
+# 3. Create the results view using the entire dataframe
+results_df = df[["grant_id", "category", "predicted_category"]].copy()
+
+# 2. Use a case-insensitive and space-stripped filter
+misclassified_mech = results_df[
+    (results_df["category"].str.strip().str.lower() == "mechanistic") & 
+    (results_df["predicted_category"].str.strip().str.lower() != "mechanistic")
+]
+
+print(f"Found {len(misclassified_mech)} misclassified mechanistic grants:")
+print(misclassified_mech)
