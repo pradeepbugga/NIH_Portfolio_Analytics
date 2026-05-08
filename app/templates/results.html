@@ -42,9 +42,126 @@
         </div>
     </div>
 
+
+
+    <div class="ontology-section">
+
+        <div class="ontology-left-pane">
+
+            <div class="portfolio-legend">
+
+                <div class="legend-title">
+                    CATEGORY DEFINITIONS
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Mechanistic / Basic Science</span>
+                    <span class="legend-desc">
+                        Studies fundamental biology and disease mechanisms.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Therapeutic</span>
+                    <span class="legend-desc">
+                        Tests or develops treatments that act on disease biology.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Diagnostic</span>
+                    <span class="legend-desc">
+                        Develops or validates tests to detect or predict disease.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Research Tool</span>
+                    <span class="legend-desc">
+                        Builds broadly reusable methods, assays, or platforms.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Clinical / Health Systems</span>
+                    <span class="legend-desc">
+                        Improves how care is delivered, accessed, or used.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Observational Epidemiology</span>
+                    <span class="legend-desc">
+                        Studies population patterns and risk factors without intervention.
+                    </span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">Research Infrastructure</span>
+                    <span class="legend-desc">
+                        Supports shared resources, networks, or research programs.
+                    </span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">Education / Training</span>
+                    <span class="legend-desc">
+                        Trains researchers or clinicians and builds workforce capacity.
+                    </span>
+                </div>
+
+
+            </div>
+        </div>
+        <div class="ontology-right-pane">
+
+            <div id="ontologyChart"></div>
+
+        </div>
+    </div>
+    <div id="grant-results-container">
+
+        <div id="grant-results-header">
+
+            <div>
+
+                <div id="grant-results-title">
+                    Grant Results
+                </div>
+
+                <div id="grant-results-filters">
+
+                    <div class="filter-pill">
+                        Query: {{ query }}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="grant-results-layout">
+
+            <div id="grant-results-list"></div>
+
+            <div id="grant-detail-pane">
+
+                <div id="grant-detail-placeholder">
+                    Select a grant to view abstract
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <script>
         const years = {{ years | safe }};
         const funding = {{ funding | safe }};
+        const grants = {{ results | tojson | safe }};
+
+        const ontologyLabels = {{ ontology_labels | safe }};
+        const ontologyValues = {{ ontology_values | safe }};
 
         const index2025 = years.indexOf(2025);
 
@@ -63,7 +180,26 @@
         else {
             document.getElementById("funding-stat-container").style.display = "none";
         }
+        function cleanAbstract(text) {
 
+            if (!text) return "";
+
+            return text
+
+                // remove carriage returns
+                .replace(/\r/g, "")
+
+                // collapse ALL single newlines into spaces
+                .replace(/\n/g, " ")
+
+                // collapse repeated spaces
+                .replace(/\s+/g, " ")
+
+                // restore paragraph breaks after periods followed by capital letters
+                .replace(/\. ([A-Z])/g, ".\n\n$1")
+
+                .trim();
+        }
 
 
         Plotly.newPlot("chart", [{
@@ -94,7 +230,200 @@
                 xaxis: { title: "Year", showgrid: false },
                 yaxis: { title: "USD ($)" }
             });
+
+        function showGrantDetail(grant) {
+
+
+
+            document.getElementById(
+                "grant-detail-pane"
+            ).innerHTML = `
+
+        <div class="grant-detail-title">
+            ${grant.title}
+        </div>
+
+        
+
+        <div class="grant-detail-abstract">
+
+            ${cleanAbstract(grant.abstract) || "No abstract available."}
+
+        </div>
+    `;
+        }
+        function renderGrants(grants) {
+
+            const container = document.getElementById(
+                "grant-results-list"
+            );
+
+            container.innerHTML = "";
+
+            grants.forEach(grant => {
+
+                const funding = new Intl.NumberFormat(
+                    'en-US',
+                    {
+                        style: 'currency',
+                        currency: 'USD',
+                        notation: 'compact',
+                        maximumFractionDigits: 1
+                    }
+                ).format(grant.amount || 0);
+
+                const card = document.createElement("div");
+
+                card.className = "grant-card";
+
+                card.innerHTML = `
+
+            <div class="grant-title">
+                ${grant.title || ""}
+            </div>
+
+            <div class="grant-meta">
+
+                ${grant.org_name || "Unknown Organization"}
+
+                •
+
+                ${funding}
+
+            </div>
+        `;
+
+                card.onclick = () => {
+                    showGrantDetail(grant);
+                };
+
+                container.appendChild(card);
+            });
+        }
+
+
+
+
+        Plotly.newPlot(
+
+            "ontologyChart",
+
+            [{
+
+                x: ontologyValues,
+
+                y: ontologyLabels,
+
+                type: "bar",
+
+                orientation: "h",
+
+                marker: {
+                    color: "#314a67"
+                },
+
+                width: 0.72,
+
+                hovertemplate:
+                    "<b>%{y}</b><br>$%{x:.2s}<extra></extra>"
+
+            }],
+
+            {
+
+                autosize: true,
+
+                font: {
+                    family: "'Inter', sans-serif",
+                    size: 14,
+                    color: "#243b53"
+                },
+
+                margin: {
+                    t: 30,
+                    l: 280,
+                    r: 40,
+                    b: 40
+                },
+
+                xaxis: {
+
+                    showgrid: false,
+
+                    zeroline: false,
+
+                    tickprefix: "$"
+                },
+
+                yaxis: {
+
+                    automargin: true,
+
+                    ticklabelstandoff: 30,
+
+                    showgrid: false,
+
+                    ticks: "",
+
+                    showline: false
+                },
+
+                paper_bgcolor: "white",
+
+                plot_bgcolor: "white"
+            }
+        );
+        const ontologyChart =
+            document.getElementById("ontologyChart");
+
+        ontologyChart.on(
+            "plotly_click",
+            function (data) {
+
+                const clickedCategory =
+                    data.points[0].y;
+
+                console.log(clickedCategory);
+
+                const filtered = grants.filter(grant => {
+
+                    const categoryMap = {
+
+                        "Mechanistic": "mechanistic",
+
+                        "Therapeutic": "therapeutic",
+
+                        "Diagnostic": "diagnostic",
+
+                        "Research Tool": "research_tool",
+
+                        "Clinical / Health Systems": "clinical",
+
+                        "Infrastructure": "infrastructure",
+
+                        "Education": "education",
+
+                        "Observational Epidemiology": "obs_ep"
+                    };
+
+                    const key = categoryMap[clickedCategory];
+
+                    return grant[key] === 1;
+                });
+
+                console.log(filtered);
+
+                renderGrants(filtered);
+
+            }
+        );
+
+        renderGrants(grants);
     </script>
+
+
+
+
     <script>lucide.createIcons(); </script>
     <script src="/static/js/script.js"></script>
 
