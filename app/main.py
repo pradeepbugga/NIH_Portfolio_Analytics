@@ -105,3 +105,163 @@ def search(request: Request,
     finally:
         conn.close()
 
+@ app.route("/portfolio")
+
+def portfolio_page(request: Request):
+
+    return templates.TemplateResponse(
+        "portfolio.html",
+        {"request": request}
+    )
+
+@app.get("/api/portfolio/categories")
+def portfolio_categories(
+    year: int,
+    request: Request
+):
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+
+        cur.execute("""
+            SELECT
+
+                SUM(CASE WHEN gl.mechanistic = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.therapeutic = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.diagnostic = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.research_tool = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.clinical = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.infrastructure = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.education = 1
+                    THEN rg.total_award_amount ELSE 0 END),
+
+                SUM(CASE WHEN gl.obs_ep = 1
+                    THEN rg.total_award_amount ELSE 0 END)
+
+            FROM grant_labels gl
+
+            JOIN ResearchGrants rg
+                ON gl.grant_id = rg.grant_id
+
+            WHERE rg.fiscal_year = %s
+
+        """, (year,))
+
+        row = cur.fetchone()
+
+        output = {
+            "Mechanistic": row[0] or 0,
+            "Therapeutic": row[1] or 0,
+            "Diagnostic": row[2] or 0,
+            "Research Tool": row[3] or 0,
+            "Clinical / Health Systems": row[4] or 0,
+            "Infrastructure": row[5] or 0,
+            "Education": row[6] or 0,
+            "Observational Epidemiology": row[7] or 0
+        }
+
+        return output
+
+    finally:
+        conn.close()
+
+@app.get("/api/portfolio/grants")
+def portfolio_grants(
+    year: int,
+    category: str,
+    request: Request
+):
+
+    category_columns = {
+        "mechanistic": "mechanistic",
+        "therapeutic": "therapeutic",
+        "diagnostic": "diagnostic",
+        "research_tool": "research_tool",
+        "clinical": "clinical",
+        "infrastructure": "infrastructure",
+        "education": "education",
+        "obs_ep": "obs_ep"
+    }
+
+    if category not in category_columns:
+        return {"error": "Invalid category"}
+
+    column = category_columns[category]
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+
+        query = f"""
+            SELECT
+                rg.grant_id,
+                rg.project_title,
+                o.name AS organization,
+                rg.contact_pi_id,
+                rg.total_award_amount,
+                rg.abstract
+
+            FROM ResearchGrants rg
+
+            JOIN grant_labels gl
+                ON rg.grant_id = gl.grant_id
+
+            LEFT JOIN organizations o
+                ON rg.organization_id = o.id
+
+            WHERE
+                rg.fiscal_year = %s
+                AND gl.{column} = 1
+
+            ORDER BY rg.total_award_amount DESC
+
+            LIMIT 100
+        """
+
+        cur.execute(query, (year,))
+
+        rows = cur.fetchall()
+
+        grants = []
+
+        for row in rows:
+
+            grants.append({
+                "grant_id": row[0],
+                "title": row[1],
+                "organization": row[2],
+                "pi": row[3],
+                "funding": row[4],
+                "abstract": row[5]
+            })
+
+        return {
+            "category": category,
+            "year": year,
+            "grants": grants
+        }
+
+    finally:
+        conn.close()
+
+@app.get("/api/portfolio/grants/search")
+def portfolio_grants_search(
+    year: int,
+    category: str,
+    query: str
+):
