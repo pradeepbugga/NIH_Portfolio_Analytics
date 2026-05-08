@@ -47,7 +47,7 @@ body.landing {
 .logo {
     font-family: "primer", serif;
     font-size: 64px;
-    margin-bottom: 24px;
+    margin-bottom: 10%;
 }
 
 /* Container for the logo and form */
@@ -58,12 +58,14 @@ body.landing {
     align-items: center;
     justify-content: center;
     height: 100vh;
+    width: min(90vw, 1100px);
+    transform: translateY(-10%);
 }
 
 /* The form itself acts as the search bar wrapper */
 .search-form {
     display: flex;
-    width: 200%;
+    width: 100%;
     max-width: 1200px;
     border: 2px solid #12253d;
     border-radius: 0px;
@@ -196,4 +198,656 @@ body.landing {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 10px;
+}
+
+.home-options {
+    width: 100%;
+    max-width: 920px;
+
+
+    margin-top: 8px;
+    margin-bottom: 10%;
+}
+
+.home-card {
+    display: flex;
+    align-items: stretch;
+
+    width: 100%;
+
+    border: 2px solid #12253d;
+
+    text-decoration: none;
+    color: #12253d;
+
+    background: white;
+
+    overflow: hidden;
+}
+
+.home-card-icon {
+    width: 78px;
+
+    background: #12253d;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+}
+
+.home-card-icon svg {
+    width: 28px;
+    height: 28px;
+
+    stroke: white;
+}
+
+.home-card-content {
+    flex: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 22px 30px;
+
+    text-align: center;
+
+    font-size: 1rem;
+    line-height: 1.5;
+
+    opacity: 0.82;
+}
+
+
+.search-divider {
+    width: 100%;
+    max-width: 620px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+
+    margin-bottom: 26px;
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: #12253d;
+    opacity: 0.5;
+}
+
+.divider-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.1;
+
+}
+
+.divider-or {
+    font-size: 22px;
+    color: #12253d;
+    font-family: 'primer', serif;
+    margin-bottom: 8px;
+}
+
+.divider-search {
+    font-size: 22px;
+    letter-spacing: 0.28em;
+    color: #12253d;
+
+    opacity: 0.75;
+}
+
+.section-label {
+    font-size: 22px;
+    letter-spacing: 0.28em;
+    color: #12253d;
+
+    opacity: 0.75;
+
+    text-align: center;
+
+    margin-bottom: 14px;
+}
+
+
+
+/* Portfolio page styles */
+.portfolio-page {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: white;
+    color: #12253d;
+}
+
+.portfolio-container {
+    max-width: 1200px;
+    margin: 0 auto;
+
+    padding: 40px 40px;
+}
+
+.portfolio-header {
+    margin-bottom: 60px;
+}
+
+.back-link {
+    text-decoration: none;
+    color: #12253d;
+
+    font-size: 15px;
+
+    opacity: 0.7;
+}
+
+.portfolio-title {
+    font-family: "primer", serif;
+    font-size: 56px;
+
+    margin-top: 18px;
+    margin-bottom: 14px;
+}
+
+.portfolio-subtitle {
+    font-size: 18px;
+    opacity: 0.75;
+
+    max-width: 720px;
+    line-height: 1.6;
+}
+
+.portfolio-grid {
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+
+    gap: 22px;
+}
+
+.portfolio-card {
+    border: 2px solid #12253d;
+
+    padding: 28px;
+
+    text-decoration: none;
+    color: #12253d;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 18px;
+
+    transition: background 0.2s;
+}
+
+.portfolio-card:hover {
+    background: #f8fafc;
+}
+
+.portfolio-card svg {
+    width: 32px;
+    height: 32px;
+}
+
+.portfolio-card span {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+/* Year Selector */
+
+.year-selector-container {
+    margin-top: 22px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    width: 220px;
+}
+
+.year-selector-label {
+    font-size: 23px;
+
+    letter-spacing: 0.1em;
+
+    color: #12253d;
+
+    opacity: 0.7;
+}
+
+.year-selector {
+    appearance: none;
+
+    border: 2px solid #12253d;
+
+    background: white;
+
+    padding: 14px 18px;
+
+    font-size: 16px;
+
+    color: #12253d;
+
+    cursor: pointer;
+
+    outline: none;
+
+    background-image:
+        linear-gradient(45deg, transparent 50%, #12253d 50%),
+        linear-gradient(135deg, #12253d 50%, transparent 50%);
+
+    background-position:
+        calc(100% - 22px) calc(50% - 3px),
+        calc(100% - 16px) calc(50% - 3px);
+
+    background-size: 6px 6px;
+
+    background-repeat: no-repeat;
+}
+
+.year-selector option:disabled {
+    color: #9ca3af;
+}
+
+/* Chart styles */
+.chart-container {
+    width: 100%;
+
+    margin-top: 50px;
+
+    padding: 30px;
+
+    border: 2px solid #12253d;
+
+    background: white;
+}
+
+.portfolio-split-layout {
+    display: flex;
+    width: 100%;
+    min-height: 700px;
+    margin-top: -80px;
+}
+
+
+.portfolio-left-pane {
+    flex: 0.7;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    border-right: 1px solid #e5e7eb;
+    padding-right: 100px;
+
+}
+
+.portfolio-right-pane {
+    flex: 1.6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 40px;
+}
+
+
+#portfolio-funding-stat-container {
+    text-align: right;
+
+}
+
+#portfolio-funding-amount {
+    font-family: 'Inter', sans-serif;
+    font-size: 6rem;
+    /* Makes it big */
+    font-weight: bold;
+    color: #2c3e50;
+    /* Dark professional blue/grey */
+    line-height: 1;
+}
+
+.portfolio-funding-caption {
+    font-family: 'Inter', sans-serif;
+    font-size: 2rem;
+    color: #7f8c8d;
+    /* Muted grey for caption */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+
+#categoryChart {
+    width: 100%;
+    /* Adjust width as needed */
+
+    height: 700px;
+    min-width: 800px;
+
+    margin-right: 0;
+}
+
+.portfolio-header-layout {
+
+    display: flex;
+
+    justify-content: flex-start;
+
+    align-items: flex-start;
+
+    gap: 80px;
+}
+
+.portfolio-header-left {
+
+    flex: 1;
+    margin-left: 250px;
+    margin-top: 140px;
+}
+
+.portfolio-header-right {
+
+    width: 800px;
+
+    margin-right: 250px;
+    margin-top: 200px;
+}
+
+
+/* Top Right Description Box */
+.portfolio-legend {
+
+    width: 100%;
+
+    max-width: 760px;
+    /* fill with light blue color */
+    background: #f0f4f8;
+}
+
+.legend-title {
+
+    font-family: 'Inter', sans-serif;
+
+    font-size: 0.95rem;
+
+    letter-spacing: 0.18em;
+
+    text-transform: uppercase;
+
+    color: #5b6b82;
+
+    margin-bottom: 30px;
+    margin-left: 20px;
+    padding-top: 10px;
+}
+
+.legend-item {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 18px;
+
+    margin-bottom: 18px;
+}
+
+.legend-label {
+
+    flex: 0 0 240px;
+
+    font-family: 'Inter', sans-serif;
+
+    font-size: 1rem;
+
+    font-weight: 500;
+
+    color: #243b53;
+
+    letter-spacing: 0.01em;
+    margin-left: 20px;
+    margin-bottom: 4px;
+}
+
+.legend-desc {
+
+    flex: 1;
+
+    font-family: 'Inter', sans-serif;
+
+    font-size: 0.98rem;
+
+    line-height: 1.2;
+
+    color: #6b7c93;
+
+    font-weight: 400;
+}
+
+/* Grant Results Section */
+#grant-results-container {
+
+    margin-top: 20px;
+
+    padding: 0 120px 120px 120px;
+    font-family: system-ui, sans-serif;
+}
+
+#grant-results-title {
+
+    font-size: 1.1rem;
+
+    letter-spacing: 0.16em;
+
+    text-transform: uppercase;
+
+    color: #5b6b82;
+
+    margin-bottom: 36px;
+
+}
+
+.grant-card {
+
+    padding: 28px 0;
+
+    border-bottom: 1px solid rgba(36, 59, 83, 0.10);
+}
+
+.grant-title {
+
+    font-size: 1.3rem;
+
+    font-weight: 500;
+
+    color: #243b53;
+
+    margin-bottom: 12px;
+
+    line-height: 1.4;
+    font-family: system-ui, sans-serif;
+}
+
+.grant-meta {
+
+    display: flex;
+
+    gap: 30px;
+
+    flex-wrap: wrap;
+
+    font-size: 0.95rem;
+
+    color: #6b7c93;
+}
+
+.grant-funding {
+
+    font-weight: 600;
+
+    color: #314a67;
+}
+
+#grant-results-filters {
+
+    display: flex;
+
+    gap: 14px;
+
+    flex-wrap: wrap;
+
+    margin-bottom: 40px;
+    margin-right: 120px;
+}
+
+.filter-pill {
+
+    padding: 10px 16px;
+
+    border: 1px solid rgba(36, 59, 83, 0.14);
+
+    font-size: 0.9rem;
+
+    letter-spacing: 0.04em;
+
+    color: #314a67;
+
+    background: rgba(255, 255, 255, 0.6);
+}
+
+#grant-results-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    margin-bottom: 40px;
+}
+
+#grant-search-container {
+
+    width: 380px;
+    margin-right: 120px;
+}
+
+#grant-search-input {
+
+    width: 100%;
+
+    padding: 14px 18px;
+
+    border: 1px solid rgba(36, 59, 83, 0.18);
+
+    background: white;
+
+    font-size: 0.95rem;
+
+    color: #243b53;
+
+    outline: none;
+}
+
+#grant-search-input:focus {
+
+    border-color: #314a67;
+}
+
+#grant-results-layout {
+
+    display: flex;
+
+    gap: 50px;
+
+    align-items: flex-start;
+}
+
+#grant-results-list {
+
+    flex: 1.1;
+}
+
+#grant-detail-pane {
+
+    flex: 0.9;
+
+    position: sticky;
+
+    top: 40px;
+
+    padding: 32px;
+
+    border: 1px solid rgba(36, 59, 83, 0.10);
+
+    background: rgba(255, 255, 255, 0.55);
+
+    min-height: 500px;
+}
+
+#grant-detail-placeholder {
+
+    color: #7b8794;
+
+    font-size: 0.95rem;
+}
+
+.grant-detail-title {
+
+    font-size: 1.4rem;
+
+    font-weight: 500;
+
+    line-height: 1;
+
+    color: #243b53;
+
+    margin-bottom: 18px;
+    font-family: "Inter", sans-serif;
+}
+
+.grant-detail-abstract {
+
+    font-size: 1.02rem;
+
+    line-height: 1.3;
+
+    color: #486581;
+
+    white-space: pre-wrap;
+}
+
+/* Search page bar plot styling */
+
+.ontology-section {
+
+    display: flex;
+
+    gap: 80px;
+
+    margin-top: 120px;
+
+    align-items: flex-start;
+}
+
+.ontology-left-pane {
+
+    flex: 0.9;
+}
+
+.ontology-right-pane {
+
+    flex: 1.1;
+}
+
+#ontologyChart {
+
+    width: 100%;
+
+    height: 700px;
 }
