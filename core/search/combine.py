@@ -33,7 +33,15 @@ def combine_and_sort(docs, scores):
                 "pi_middle_name": doc["pi_middle_name"],
                 "pi_last_name": doc["pi_last_name"],
                 "score": float(score),
-                "vector_similarity": doc.get("vector_similarity", 0.0)
+                "vector_similarity": doc.get("vector_similarity", 0.0),
+                "mechanistic": doc.get("mechanistic", None),
+                "therapeutic": doc.get("therapeutic", None),
+                "diagnostic": doc.get("diagnostic", None),
+                "clinical": doc.get("clinical", None),
+                "research_tool": doc.get("research_tool", None),
+                "infrastructure": doc.get("infrastructure", None),
+                "education": doc.get("education", None),
+                "obs_ep": doc.get("obs_ep", None),
             })
         
     results.sort(key=lambda x: x["score"], reverse=True)
