@@ -12,9 +12,9 @@
 
 <body class="portfolio-page">
 
-    <div class="portfolio-container">
+    <div class="portfolio-header-layout">
 
-        <div class="portfolio-header">
+        <div class="portfolio-header-left">
 
             <a href="/" class="back-link">
                 ← Back
@@ -31,7 +31,6 @@
             <div class="year-selector-container">
 
                 <label class="year-selector-label">
-                    <br>
                     Fiscal Year
                 </label>
 
@@ -45,6 +44,11 @@
                 </select>
 
             </div>
+
+        </div>
+
+        <div class="portfolio-header-right">
+
             <div class="portfolio-legend">
 
                 <div class="legend-title">
@@ -52,58 +56,56 @@
                 </div>
 
                 <div class="legend-item">
-                    <span class="legend-label">Mechanistic</span>
+                    <span class="legend-label">Mechanistic / Basic Science</span>
                     <span class="legend-desc">
-                        Basic science investigating biological mechanisms.
+                        Studies fundamental biology and disease mechanisms.
                     </span>
                 </div>
 
                 <div class="legend-item">
                     <span class="legend-label">Therapeutic</span>
                     <span class="legend-desc">
-                        Development or testing of interventions and treatments.
+                        Tests or develops treatments that act on disease biology.
                     </span>
                 </div>
 
                 <div class="legend-item">
                     <span class="legend-label">Diagnostic</span>
                     <span class="legend-desc">
-                        Detection, classification, or biomarker prediction.
+                        Develops or validates tests to detect or predict disease.
                     </span>
                 </div>
 
                 <div class="legend-item">
                     <span class="legend-label">Research Tool</span>
                     <span class="legend-desc">
-                        Methods, platforms, assays, or enabling technologies.
+                        Builds broadly reusable methods, assays, or platforms.
                     </span>
                 </div>
 
                 <div class="legend-item">
-                    <span class="legend-label">Clinical</span>
+                    <span class="legend-label">Clinical / Health Systems</span>
                     <span class="legend-desc">
-                        Care delivery, implementation, or patient outcomes research.
+                        Improves how care is delivered, accessed, or used.
                     </span>
                 </div>
 
                 <div class="legend-item">
-                    <span class="legend-label">Infrastructure</span>
+                    <span class="legend-label">Observational Epidemiology</span>
                     <span class="legend-desc">
-                        Shared resources, centers, databases, or networks.
+                        Studies population patterns and risk factors without intervention.
                     </span>
                 </div>
-
                 <div class="legend-item">
-                    <span class="legend-label">Education</span>
+                    <span class="legend-label">Research Infrastructure</span>
                     <span class="legend-desc">
-                        Workforce development and training programs.
+                        Supports shared resources, networks, or research programs.
                     </span>
                 </div>
-
                 <div class="legend-item">
-                    <span class="legend-label">Observational</span>
+                    <span class="legend-label">Education / Training</span>
                     <span class="legend-desc">
-                        Epidemiology, population studies, and non-interventional analysis.
+                        Trains researchers or clinicians and builds workforce capacity.
                     </span>
                 </div>
 
@@ -111,9 +113,7 @@
 
         </div>
 
-
     </div>
-
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <div class="portfolio-container">
@@ -199,7 +199,7 @@
 
                     margin: {
                         t: 40,
-                        l: 140,
+                        l: 210,
                         r: 30,
                         b: 40
                     },
@@ -225,7 +225,8 @@
 
                         ticks: "",
 
-                        showline: false
+                        showline: false,
+                        ticksuffix: "    "
                     }
                 },
 
