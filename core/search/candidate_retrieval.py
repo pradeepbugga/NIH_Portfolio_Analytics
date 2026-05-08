@@ -46,3 +46,70 @@ def retrieve_candidates_range(cur, query_vec_list, similarity_threshold, max_res
     )
     return cur.fetchall()
 
+
+def retrieve_candidates_range_portfolio(
+    cur,
+    query_vec_list,
+    similarity_threshold,
+    max_results=500000,
+    allowed_grant_ids=None
+):
+
+    # -----------------------------------------
+    # ONTOLOGY-CONSTRAINED VECTOR RETRIEVAL
+    # -----------------------------------------
+
+    if allowed_grant_ids:
+
+        cur.execute(
+            """
+            SELECT grant_id, 1 - d AS similarity
+            FROM (
+                SELECT
+                    grant_id,
+                    (embedding <=> %s::vector) AS d
+                FROM GrantEmbeddings
+                WHERE
+                    is_valid = TRUE
+                    AND grant_id = ANY(%s)
+            ) ge
+            WHERE d <= %s
+            ORDER BY d
+            LIMIT %s
+            """,
+            (
+                query_vec_list,
+                allowed_grant_ids,
+                1 - similarity_threshold,
+                max_results,
+            )
+        )
+
+    # -----------------------------------------
+    # GLOBAL VECTOR RETRIEVAL
+    # -----------------------------------------
+
+    else:
+
+        cur.execute(
+            """
+            SELECT grant_id, 1 - d AS similarity
+            FROM (
+                SELECT
+                    grant_id,
+                    (embedding <=> %s::vector) AS d
+                FROM GrantEmbeddings
+                WHERE is_valid = TRUE
+            ) ge
+            WHERE d <= %s
+            ORDER BY d
+            LIMIT %s
+            """,
+            (
+                query_vec_list,
+                1 - similarity_threshold,
+                max_results,
+            )
+        )
+
+    return cur.fetchall()
