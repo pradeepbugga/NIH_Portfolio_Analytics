@@ -152,7 +152,26 @@
 
             const total = values.reduce((a, b) => a + b, 0);
 
+            const categoryMap = {
 
+                "Mechanistic": "mechanistic",
+
+                "Therapeutic": "therapeutic",
+
+                "Diagnostic": "diagnostic",
+
+                "Research Tool": "research_tool",
+
+                "Clinical / Health Systems": "clinical",
+
+                "Infrastructure": "infrastructure",
+
+                "Education": "education",
+
+                "Observational Epidemiology": "obs_ep"
+            };
+
+            const chartDiv = document.getElementById("categoryChart");
             const formattedFunding = new Intl.NumberFormat(
                 'en-US',
                 {
@@ -166,6 +185,8 @@
             document.getElementById(
                 "portfolio-funding-amount"
             ).innerText = formattedFunding;
+
+
 
             Plotly.newPlot(
 
@@ -235,11 +256,103 @@
                     displayModeBar: false
                 }
             );
+            chartDiv.on("plotly_click", async function (data) {
+
+                const displayCategory = data.points[0].y;
+
+                const category = categoryMap[displayCategory];
+
+                const response = await fetch(
+                    `/api/portfolio/grants?year=2025&category=${category}`
+                );
+
+                const result = await response.json();
+
+                renderGrants(displayCategory, result.grants);
+
+            });
+        }
+        function renderGrants(category, grants) {
+
+            document.getElementById(
+                "grant-results-title"
+            ).innerText = "Grant Results";
+
+            document.getElementById(
+                "grant-results-filters"
+            ).innerHTML = `
+
+                <div class="filter-pill">
+                    Fiscal Year: 2025
+                </div>
+
+                <div class="filter-pill">
+                    Category: ${category}
+                </div>
+            `;
+
+            const container = document.getElementById(
+                "grant-results"
+            );
+
+            container.innerHTML = "";
+
+            grants.forEach(grant => {
+
+                const funding = new Intl.NumberFormat(
+                    'en-US',
+                    {
+                        style: 'currency',
+                        currency: 'USD',
+                        notation: 'compact',
+                        maximumFractionDigits: 1
+                    }
+                ).format(grant.funding);
+
+                const card = document.createElement("div");
+
+                card.className = "grant-card";
+
+                card.innerHTML = `
+
+            <div class="grant-title">
+                ${grant.title}
+            </div>
+
+            <div class="grant-meta">
+
+                <div>
+                    ${grant.organization || "Unknown Organization"}
+                </div>
+
+                <div>
+                    PI: ${grant.pi || "Unknown"}
+                </div>
+
+                <div class="grant-funding">
+                    ${funding}
+                </div>
+
+            </div>
+        `;
+
+                container.appendChild(card);
+            });
         }
 
         loadCategoryChart();
 
     </script>
+
+    <div id="grant-results-container">
+
+        <div id="grant-results-title"></div>
+        <div id="grant-results-filters"></div>
+
+
+        <div id="grant-results"></div>
+
+    </div>
 </body>
 
 </html>
