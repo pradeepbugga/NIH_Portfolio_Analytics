@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Explore NIH Portfolio</title>
+
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="portfolio-page">
+
+    <div class="portfolio-container">
+
+        <div class="portfolio-header">
+
+            <a href="/" class="back-link">
+                ← Back
+            </a>
+
+            <div class="portfolio-title">
+                Explore NIH Portfolio
+            </div>
+
+            <div class="portfolio-subtitle">
+                Navigate NIH funding across convenient categories.
+            </div>
+
+            <div class="year-selector-container">
+
+                <label class="year-selector-label">
+                    <br>
+                    Fiscal Year
+                </label>
+
+                <select class="year-selector">
+                    {% for year in range(2025, 1984, -1) %}
+                    <option value="{{ year }}" {% if year !=2025 %}disabled{% endif %} {% if year==2025 %}selected{%
+                        endif %}>
+                        {{ year }}
+                    </option>
+                    {% endfor %}
+                </select>
+
+            </div>
+            <div class="portfolio-legend">
+
+                <div class="legend-title">
+                    CATEGORY DEFINITIONS
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Mechanistic</span>
+                    <span class="legend-desc">
+                        Basic science investigating biological mechanisms.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Therapeutic</span>
+                    <span class="legend-desc">
+                        Development or testing of interventions and treatments.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Diagnostic</span>
+                    <span class="legend-desc">
+                        Detection, classification, or biomarker prediction.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Research Tool</span>
+                    <span class="legend-desc">
+                        Methods, platforms, assays, or enabling technologies.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Clinical</span>
+                    <span class="legend-desc">
+                        Care delivery, implementation, or patient outcomes research.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Infrastructure</span>
+                    <span class="legend-desc">
+                        Shared resources, centers, databases, or networks.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Education</span>
+                    <span class="legend-desc">
+                        Workforce development and training programs.
+                    </span>
+                </div>
+
+                <div class="legend-item">
+                    <span class="legend-label">Observational</span>
+                    <span class="legend-desc">
+                        Epidemiology, population studies, and non-interventional analysis.
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <div class="portfolio-container">
+        <div class="portfolio-split-layout">
+
+            <div class="portfolio-left-pane">
+
+                <div id="portfolio-funding-stat-container">
+                    <div id="portfolio-funding-amount"></div>
+                    <div class="portfolio-funding-caption">2025 Funding</div>
+                </div>
+
+            </div>
+
+            <div class="portfolio-right-pane">
+
+                <div id="categoryChart"></div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+
+        async function loadCategoryChart(year = 2025) {
+
+            const response = await fetch(
+                `/api/portfolio/categories?year=${year}`
+            );
+
+            const data = await response.json();
+
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+
+            const total = values.reduce((a, b) => a + b, 0);
+
+
+            const formattedFunding = new Intl.NumberFormat(
+                'en-US',
+                {
+                    style: 'currency',
+                    currency: 'USD',
+                    notation: 'compact',
+                    maximumFractionDigits: 1
+                }
+            ).format(total);
+
+            document.getElementById(
+                "portfolio-funding-amount"
+            ).innerText = formattedFunding;
+
+            Plotly.newPlot(
+
+                "categoryChart",
+
+                [{
+                    x: values,
+                    y: labels,
+
+                    type: "bar",
+                    orientation: "h",
+
+                    marker: {
+                        color: "#2f4763"
+                    },
+
+                    hovertemplate:
+                        "<b>%{y}</b><br>$%{x:,}<extra></extra>"
+                }],
+
+                {
+
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+
+                    font: {
+                        family: "'Inter', sans-serif",
+                        size: 14,
+                        color: "#243b53"
+                    },
+
+                    margin: {
+                        t: 40,
+                        l: 140,
+                        r: 30,
+                        b: 40
+                    },
+
+                    xaxis: {
+
+                        showgrid: true,
+
+                        gridcolor: "rgba(36,59,83,0.08)",
+
+                        zeroline: false,
+
+                        ticks: "",
+
+                        showline: false
+                    },
+
+                    yaxis: {
+
+                        autorange: "reversed",
+
+                        showgrid: false,
+
+                        ticks: "",
+
+                        showline: false
+                    }
+                },
+
+                {
+                    responsive: true,
+                    displayModeBar: false
+                }
+            );
+        }
+
+        loadCategoryChart();
+
+    </script>
+</body>
+
+</html>
