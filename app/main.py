@@ -9,6 +9,10 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from core.search.modal_reranker import rerank_fn
+from core.search.combine import combine_and_sort
+from core.search.query_embedding import embed_query
+from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
+from core.search.load_docs import load_grant_texts
 
 app = FastAPI(title="NIH Grant Search API")
 
@@ -49,6 +53,42 @@ def home(request: Request):
     )
 
 
+def extract_ontology_distribution(results):
+
+    labels = [
+        ("Mechanistic", "mechanistic"),
+        ("Therapeutic", "therapeutic"),
+        ("Diagnostic", "diagnostic"),
+        ("Research Tool", "research_tool"),
+        ("Clinical / Health Systems", "clinical"),
+        ("Infrastructure", "infrastructure"),
+        ("Education", "education"),
+        ("Observational Epidemiology", "obs_ep")
+    ]
+
+    totals = {}
+
+    for display_name, key in labels:
+
+        total = 0
+
+        for r in results["records"]:
+
+            if r.get(key)==1:
+
+                total += r.get("amount") or 0
+
+        totals[display_name] = total
+
+    ontology_labels = list(totals.keys())
+
+    ontology_values = list(totals.values())
+
+    
+
+    return ontology_labels, ontology_values
+
+
 @app.get("/search")
 
 def search(request: Request,
@@ -68,6 +108,8 @@ def search(request: Request,
     try:
         if cached_results := get_cached_results(cur, query):
             years, funding = extract_funding(cached_results)
+            ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
+            print(cached_results["records"][0].keys())
 
 
             return templates.TemplateResponse(
@@ -78,6 +120,8 @@ def search(request: Request,
                 "years": years,
                 "funding": funding,
                 "results": cached_results["records"],
+                "ontology_labels": ontology_labels,
+                "ontology_values": ontology_values
             }
     )
     
@@ -92,6 +136,11 @@ def search(request: Request,
         conn.commit()
         
         years, funding = extract_funding(results)
+
+        ontology_labels, ontology_values = extract_ontology_distribution(results)
+
+        print(results["records"][0].keys())
+
         return templates.TemplateResponse(
             "results.html",
            {
@@ -99,7 +148,9 @@ def search(request: Request,
             "query": query,
             "years": years,
             "funding": funding,
-            "results": results["records"]
+            "results": results["records"],
+            "ontology_labels": ontology_labels,
+            "ontology_values": ontology_values
             }
     )
     finally:
@@ -265,3 +316,93 @@ def portfolio_grants_search(
     category: str,
     query: str
 ):
+
+    category_columns = {
+        "mechanistic": "mechanistic",
+        "therapeutic": "therapeutic",
+        "diagnostic": "diagnostic",
+        "research_tool": "research_tool",
+        "clinical": "clinical",
+        "infrastructure": "infrastructure",
+        "education": "education",
+        "obs_ep": "obs_ep"
+    }
+
+    if category not in category_columns:
+        return {"error": "Invalid category"}
+
+    column = category_columns[category]
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+
+        sql = f"""
+
+            SELECT rg.grant_id
+
+            FROM ResearchGrants rg
+
+            JOIN grant_labels gl
+                ON rg.grant_id = gl.grant_id
+
+            WHERE
+                rg.fiscal_year = %s
+                AND gl.{column} = 1
+
+            """
+
+        cur.execute(sql, (year,))
+
+        allowed_grant_ids = [row[0] for row in cur.fetchall()]
+
+        query_vec = embed_query(query)
+        query_vec_list = query_vec.tolist()
+
+        candidates = retrieve_candidates_range_portfolio(
+            cur,
+            query_vec_list = query_vec_list,
+            similarity_threshold = 0.25,
+            allowed_grant_ids = allowed_grant_ids,
+        )
+
+        vector_sim_map = {gid: sim for gid, sim in candidates}
+
+        grant_ids = list(vector_sim_map.keys())
+
+        docs = load_grant_texts(cur, grant_ids)
+
+        for d in docs:
+            d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
+
+
+        # reranking
+        doc_texts = [d["text"] for d in docs]
+        scores = rerank_fn.remote(query, doc_texts)
+
+        ranked = combine_and_sort(docs, scores)
+
+        for g in ranked:
+
+            g["organization"] = g.get("org_name")
+
+            g["funding"] = g.get("amount")
+
+            first = g.get("pi_first_name") or ""
+            middle = g.get("pi_middle_name") or ""
+            last = g.get("pi_last_name") or ""
+
+            g["pi"] = " ".join(
+                x for x in [first, middle, last] if x
+            )
+
+        return {
+            "query": query,
+            "category": category,
+            "year": year,
+            "grants": ranked
+        }
+
+    finally:
+        conn.close()
