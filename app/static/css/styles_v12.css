@@ -3,6 +3,223 @@
     src: url("/static/fonts/primer.ttf") format("truetype");
 }
 
+
+
+
+body.landing {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+    background: white;
+}
+
+/* Container for the logo and form */
+.center-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: min(90vw, 1100px);
+    margin: 0 auto;
+    padding:
+        clamp(2rem, 5vh, 5rem) 0;
+    box-sizing: border-box;
+    transform: none;
+}
+
+
+.logo {
+    font-family: "primer", serif;
+    font-size: clamp(2.8rem, 6vw, 4rem);
+    margin-bottom: clamp(2rem, 6vh, 5rem);
+    line-height: 1.05;
+
+}
+
+.home-options {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+
+    margin-top: 8px;
+    margin-bottom: 10%;
+}
+
+
+.search-divider-top {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+}
+
+
+
+.top-divider {
+
+    width: 100%;
+
+    max-width: 920px;
+
+    display: flex;
+
+    justify-content: center;
+}
+
+.top-divider .divider-text {
+
+    display: flex;
+
+    justify-content: center;
+
+}
+
+.divider-search {
+    font-size: 22px;
+    letter-spacing: 0.28em;
+    color: #12253d;
+
+    opacity: 0.75;
+}
+
+
+
+
+.home-card {
+    display: flex;
+    align-items: stretch;
+
+    width: 100%;
+
+    border: 2px solid #12253d;
+
+    text-decoration: none;
+    color: #12253d;
+
+    background: white;
+
+    overflow: hidden;
+
+}
+
+.home-card-icon {
+    width: 78px;
+
+    background: #12253d;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+}
+
+.home-card-icon svg {
+    width: 28px;
+    height: 28px;
+
+    stroke: white;
+}
+
+.home-card-content {
+    flex: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 22px 30px;
+
+    text-align: center;
+
+    font-size: 1.1rem;
+    line-height: 1.5;
+
+    opacity: 0.82;
+}
+
+
+
+
+
+
+
+
+
+.search-divider {
+    width: 100%;
+    max-width: 620px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+
+    margin-bottom: 26px;
+}
+
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: #12253d;
+    opacity: 0.5;
+}
+
+.divider-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.1;
+
+}
+
+.divider-or {
+    font-size: 22px;
+    color: #12253d;
+    font-family: 'primer', serif;
+    margin-bottom: 8px;
+}
+
+
+
+.section-label {
+    font-size: 22px;
+    letter-spacing: 0.28em;
+    color: #12253d;
+
+
+    opacity: 0.75;
+    line-height: 1.1;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    margin-bottom: 14px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .header-content {
     display: flex;
     justify-content: space-between;
@@ -34,38 +251,9 @@
     /* Keep it on one line */
 }
 
-body.landing {
-    margin: 0;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: system-ui, sans-serif;
-    background: white;
-}
 
-.logo {
-    font-family: "primer", serif;
-    font-size: clamp(2.8rem, 6vw, 4rem);
-    margin-bottom: clamp(2rem, 6vh, 5rem);
-    line-height: 1.05;
-}
 
-/* Container for the logo and form */
-.center-container {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    width: min(90vw, 1100px);
-    margin: 0 auto;
-    padding:
-        clamp(2rem, 5vh, 5rem) 0;
-    box-sizing: border-box;
-    transform: none;
-}
+
 
 /* The form itself acts as the search bar wrapper */
 .search-form {
@@ -87,9 +275,27 @@ body.landing {
 .search-form input {
     flex: 1;
     border: none;
-    padding: 15px 25px;
+    padding: 22px 30px;
     font-size: 1.1rem;
+    line-height: 1.5;
     outline: none;
+    background: transparent;
+
+    /* This ensures typed text is the correct blue */
+    color: #12253d;
+    font-family: inherit;
+    /* Ensures it uses the same font as the card */
+}
+
+.search-form input::placeholder {
+    color: #12253d;
+    opacity: 0.82;
+    /* Matches the .home-card-content opacity */
+}
+
+.search-form input::-webkit-input-placeholder {
+    color: #12253d;
+    opacity: 0.82;
 }
 
 .search-button {
@@ -203,123 +409,6 @@ body.landing {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 10px;
-}
-
-.home-options {
-    width: 100%;
-    max-width: 920px;
-
-
-    margin-top: 8px;
-    margin-bottom: 10%;
-}
-
-.home-card {
-    display: flex;
-    align-items: stretch;
-
-    width: 100%;
-
-    border: 2px solid #12253d;
-
-    text-decoration: none;
-    color: #12253d;
-
-    background: white;
-
-    overflow: hidden;
-}
-
-.home-card-icon {
-    width: 78px;
-
-    background: #12253d;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-}
-
-.home-card-icon svg {
-    width: 28px;
-    height: 28px;
-
-    stroke: white;
-}
-
-.home-card-content {
-    flex: 1;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    padding: 22px 30px;
-
-    text-align: center;
-
-    font-size: 1rem;
-    line-height: 1.5;
-
-    opacity: 0.82;
-}
-
-
-.search-divider {
-    width: 100%;
-    max-width: 620px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-
-    margin-bottom: 26px;
-}
-
-.divider-line {
-    flex: 1;
-    height: 1px;
-    background: #12253d;
-    opacity: 0.5;
-}
-
-.divider-text {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: 'Inter', sans-serif;
-    line-height: 1.1;
-
-}
-
-.divider-or {
-    font-size: 22px;
-    color: #12253d;
-    font-family: 'primer', serif;
-    margin-bottom: 8px;
-}
-
-.divider-search {
-    font-size: 22px;
-    letter-spacing: 0.28em;
-    color: #12253d;
-
-    opacity: 0.75;
-}
-
-.section-label {
-    font-size: 22px;
-    letter-spacing: 0.28em;
-    color: #12253d;
-
-    opacity: 0.75;
-
-    text-align: center;
-
-    margin-bottom: 14px;
 }
 
 
