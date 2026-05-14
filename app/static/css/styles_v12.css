@@ -298,8 +298,13 @@ body.landing {
 
 
 /* ---------------------- RESULTS PAGE STYLES ---------------------- */
+.results-header {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    padding: 15px 0;
+}
 
-.header-content {
+.results-header .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -314,11 +319,6 @@ body.landing {
     /* Don't force it to grow; let it take only what it needs */
 }
 
-.results-header {
-    width: 100%;
-    border-bottom: 1px solid #eee;
-    padding: 15px 0;
-}
 
 .results-header .logo {
     font-size: 40px;
@@ -405,12 +405,45 @@ body.landing {
 
 
 /* Portfolio page styles */
+
+
+
+
 .portfolio-page {
     margin: 0;
     font-family: system-ui, sans-serif;
     background: white;
     color: #12253d;
 }
+
+.portfolio-top-header {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    padding: 15px 0;
+}
+
+.portfolio-top-header .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 95%;
+    /* Use percentage to ensure it hits the edges */
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+
+
+.portfolio-top-header .logo {
+    font-size: 40px;
+    /* Much smaller than the 64px landing page version */
+    margin-bottom: 0;
+    /* Remove that 24px bottom margin from your landing style */
+    white-space: nowrap;
+    /* Keep it on one line */
+}
+
+
 
 .portfolio-container {
     max-width: 1200px;
