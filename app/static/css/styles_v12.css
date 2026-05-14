@@ -125,8 +125,8 @@ body.landing {
 }
 
 .home-card-icon svg {
-    width: 28px;
-    height: 28px;
+    width: 43px;
+    height: 43px;
 
     stroke: white;
 }
@@ -147,9 +147,6 @@ body.landing {
 
     opacity: 0.82;
 }
-
-
-
 
 
 
@@ -208,58 +205,13 @@ body.landing {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 95%;
-    /* Use percentage to ensure it hits the edges */
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-.header-left {
-    flex: 0 1 auto;
-    /* Don't force it to grow; let it take only what it needs */
-}
-
-.results-header {
-    width: 100%;
-    border-bottom: 1px solid #eee;
-    padding: 15px 0;
-}
-
-.results-header .logo {
-    font-size: 40px;
-    /* Much smaller than the 64px landing page version */
-    margin-bottom: 0;
-    /* Remove that 24px bottom margin from your landing style */
-    margin-left: 20px;
-    white-space: nowrap;
-    /* Keep it on one line */
-}
-
-
-
-
+/* ---------------------- SEARCH BAR STYLES ---------------------- */
 
 /* The form itself acts as the search bar wrapper */
 .search-form {
     display: flex;
     width: 100%;
-    max-width: 1200px;
+    max-width: 920px;
     border: 2px solid #12253d;
     border-radius: 0px;
     overflow: hidden;
@@ -300,10 +252,10 @@ body.landing {
 
 .search-button {
     margin: -2px -2px -2px 0;
+    width: 78px;
     background: #12253d;
     color: white;
     border: none;
-    padding: 0 30px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -311,6 +263,7 @@ body.landing {
     transition: background 0.2s;
     align-self: stretch;
     border-radius: 0;
+    flex-shrink: 0;
 }
 
 .search-button:hover {
@@ -319,8 +272,9 @@ body.landing {
 
 /* icon sizing */
 .search-button svg {
-    width: 40px;
-    height: 40px;
+    width: 33px;
+    height: 33px;
+    transform: scale(1.2);
 }
 
 /* Loading animation for the search button */
@@ -340,6 +294,43 @@ body.landing {
     /* Prevents double-clicks */
     opacity: 0.7;
 }
+
+
+
+/* ---------------------- RESULTS PAGE STYLES ---------------------- */
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 95%;
+    /* Use percentage to ensure it hits the edges */
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-left {
+    flex: 0 1 auto;
+    /* Don't force it to grow; let it take only what it needs */
+}
+
+.results-header {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    padding: 15px 0;
+}
+
+.results-header .logo {
+    font-size: 40px;
+    /* Much smaller than the 64px landing page version */
+    margin-bottom: 0;
+    /* Remove that 24px bottom margin from your landing style */
+    margin-left: 20px;
+    white-space: nowrap;
+    /* Keep it on one line */
+}
+
+
 
 .query-title {
     font-family: "primer", serif;
@@ -946,37 +937,75 @@ body.landing {
     height: 700px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 768px) {
 
-    .portfolio-header-layout,
-    .ontology-section,
-    #grant-results-layout,
-    .portfolio-split-layout {
+    /* 1. Stop centering everything vertically so it can scroll */
+    body.landing {
+        height: auto;
+        display: block;
+    }
 
+    .center-container {
+        min-height: 100vh;
+        padding: 40px 15px;
+        width: 100%;
+    }
+
+    /* 2. Fix the Logo size (it's a bit small in the screenshot) */
+    .logo {
+        font-size: 2.5rem;
+        margin-bottom: 40px;
+    }
+
+    /* 3. Stack the Home Card (Icon on top of text) */
+    .home-card {
         flex-direction: column;
     }
 
-    .portfolio-right-pane,
-    .portfolio-left-pane,
-    .ontology-left-pane,
-    .ontology-right-pane {
-
+    .home-card-icon {
         width: 100%;
-
-        padding: 0;
-
-        border: none;
+        height: 50px;
+        /* Gives the icon a dedicated blue header row */
     }
 
-    #categoryChart,
-    #ontologyChart {
-
-        height: 500px;
+    .home-card-content {
+        padding: 20px 15px;
+        font-size: 0.95rem;
+        /* Slightly smaller to fit more words per line */
     }
 
-    .portfolio-title,
-    .query-title {
+    /* 4. Stack the Search Bar (Icon on top of Input) */
+    .search-form {
+        flex-direction: column;
+        border: 2px solid #12253d;
+    }
 
-        font-size: clamp(2.5rem, 8vw, 4rem);
+    /* Move the button to the TOP to match the card layout style */
+    .search-button {
+        order: -1;
+        width: 100%;
+        height: 50px;
+        margin: 0;
+        border-bottom: 2px solid #12253d;
+        /* Separator line */
+    }
+
+    .search-form input {
+        width: 100%;
+        padding: 15px;
+        text-align: center;
+        font-size: 1rem;
+    }
+
+    /* 5. Clean up the Divider */
+    .search-divider {
+        max-width: 100%;
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .divider-line {
+        display: none;
+        /* Hide lines on mobile to save horizontal space */
     }
 }
