@@ -158,8 +158,31 @@
         let activeCategory = null;
         let allGrants = [];
         let currentPage = 1;
-        const itemsPerPage = 10;
+        const itemsPerPage = 100;
         let activeYear = 2025;
+        let currentFilters = {
+            year: "2025",
+            category: "",
+            queries: []
+        };
+        const categoryMap = {
+
+            "Mechanistic / Basic Science": "mechanistic",
+
+            "Therapeutic": "therapeutic",
+
+            "Diagnostic": "diagnostic",
+
+            "Research Tool": "research_tool",
+
+            "Clinical / Health Systems": "clinical",
+
+            "Research Infrastructure": "infrastructure",
+
+            "Education": "education",
+
+            "Observational Epidemiology": "obs_ep"
+        };
 
         async function loadCategoryChart(year = 2025) {
 
@@ -177,24 +200,7 @@
             const displayValues = values.map(v => v / 1000000000);
 
             const grantContainer = document.getElementById('grant-results-container');
-            const categoryMap = {
 
-                "Mechanistic / Basic Science": "mechanistic",
-
-                "Therapeutic": "therapeutic",
-
-                "Diagnostic": "diagnostic",
-
-                "Research Tool": "research_tool",
-
-                "Clinical / Health Systems": "clinical",
-
-                "Research Infrastructure": "infrastructure",
-
-                "Education": "education",
-
-                "Observational Epidemiology": "obs_ep"
-            };
 
             const chartDiv = document.getElementById("categoryChart");
             const formattedFunding = new Intl.NumberFormat(
@@ -361,37 +367,37 @@
                 }
             );
             chartDiv.on("plotly_click", async function (data) {
-
-
-
+                // 1. Get the category from the chart
                 const displayCategory = data.points[0].y;
-
-                const category = categoryMap[displayCategory];
-
-
+                const categoryCode = categoryMap[displayCategory];
 
                 console.log("Chart clicked label:", displayCategory);
-                console.log("Mapped category code:", category); // If this is 'undefined', the map failed.
+                console.log("Mapped category code:", categoryCode);
 
-                if (!category) {
-                    alert(`Error: The category "${displayCategory}" is not recognized in categoryMap.`);
+                // 2. Validation
+                if (!categoryCode) {
+                    alert(`Error: The category "${displayCategory}" is not recognized.`);
                     return;
                 }
 
-                // Reveal container
-                grantContainer.classList.add('show');
+                // 3. Update the GLOBAL state
+                // We update the category but LEAVE the query alone 
+                // This allows "Successive Filtering" (Searching within the new category)
+                currentFilters.category = categoryCode;
+                activeCategory = categoryCode; // Keeping your existing global for compatibility
 
-                // Smooth scroll to container
+                // 4. Reset UI elements
+                // Optional: If you want clicking the chart to CLEAR the search bar, keep this:
+                // document.getElementById("grant-search-input").value = ""; 
+                // currentFilters.query = "";
+
+                // 5. Reveal and Scroll
+                grantContainer.classList.add('show');
                 grantContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-                activeCategory = category;
-
-                document.getElementById(
-                    "grant-search-input"
-                ).value = "";
-
-                loadCategoryGrants(displayCategory, category);
-
+                // 6. Fetch data using the new unified logic
+                // Instead of loadCategoryGrants, we call applyFilters which uses currentFilters
+                applyFilters(displayCategory);
             });
             chartDiv.on('plotly_hover', function (data) {
                 // Change the "glass" layer to a hand
@@ -405,7 +411,78 @@
                 if (dragLayer) dragLayer.style.setProperty('cursor', 'default', 'important');
             });
         }
+        async function applyFilters() {
+            // 1. DECLARE the variables from your global state
+            const loadingEl = document.getElementById("loading-message");
+            if (loadingEl) loadingEl.style.display = "flex";
+            const category = currentFilters.category || "";
+            const queriesArray = currentFilters.queries || [];
+            const year = "2025";
 
+
+
+
+            // Get ID of latest query entered
+            const latestQuery = queriesArray[queriesArray.length - 1] || "";
+
+            // Collect IDs of current results to "lock" the next search into this set
+            const validIds = allGrants
+                .map(g => g.grant_id)
+                .filter(id => id != null && id !== "");
+
+            const currentIds = validIds.join(",");
+
+
+            const categoryCode = currentFilters.category || "";
+
+            const humanName = Object.keys(categoryMap).find(key => categoryMap[key] === categoryCode) || categoryCode;
+
+
+            let url;
+
+            // Choose the endpoint based on presence of a query
+            if (latestQuery === "") {
+                // Use the standard endpoint that returns ALL grants for a category
+                url = `/api/portfolio/grants?year=${year}&category=${category}`;
+            } else {
+                // Use the search endpoint for semantic filtering
+                const params = new URLSearchParams({
+                    year: year,
+                    category: category,
+                    query: latestQuery,
+                    existing_ids: currentIds // within the OLD results
+                });
+                url = `/api/portfolio/grants/search?${params.toString()}`;
+            }
+
+            console.log("Fetching finalized URL:", url);
+            // This will now look like: .../search?year=2025&category=education&query=
+            console.log("Fetching URL:", url); // Debugging: Check if this looks correct
+
+            try {
+                const response = await fetch(url);
+
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    console.error("Error details:", errorBody);
+                    return;
+                }
+                const data = await response.json();
+
+                allGrants = data.grants || [];
+                currentPage = 1; // Always reset to page 1 on new filter
+
+                // Update the UI
+                renderFilters(humanName);
+                updateTotals(allGrants);
+                renderPage(1);
+            } catch (err) {
+                console.error("Filtering failed:", err);
+            } finally {
+                document.getElementById("loading-message").style.display = "none";
+            }
+        }
         function cleanAbstract(text) {
 
             if (!text) return "";
@@ -442,33 +519,56 @@
             updateTotals(allGrants); // Now .length won't crash
             renderPage(1);
         }
-        function renderFilters(category, query = null) {
-            const filterContainer = document.getElementById("grant-results-filters");
-            if (!filterContainer) return;
+        function renderFilters(category) {
+            const container = document.getElementById("grant-results-filters");
+            container.innerHTML = ""; // Clear existing
 
-            // Start with the standard pills
-            let filtersHTML = `
-        <div class="filter-pill">
-            Fiscal Year: 2025
-        </div>
-        <div class="filter-pill">
-            Category: ${category}
-        </div>
-    `;
-
-            // Add the "Query" pill only if a search was performed
-            if (query) {
-                filtersHTML += `
-            <div class="filter-pill">
-                Search: "${query}"
-            </div>
-        `;
+            const titleEl = document.getElementById("grant-results-title");
+            if (titleEl) {
+                titleEl.style.display = "block";
+                titleEl.innerText = "grant results"; // Ensures lowercase/uppercase consistency
             }
 
-            filterContainer.innerHTML = filtersHTML;
+
+            // Year Pill (Static)
+            addPill(container, `Year: 2025`);
+
+            // Category Pill (Removable)
+            if (category) {
+                addPill(container, `Category: ${category}`, () => {
+                    currentFilters.category = "";
+                    applyFilters();
+                });
+            }
+
+            // Query Pill (Removable)
+            if (currentFilters.queries.length > 0) {
+                currentFilters.queries.forEach((q, index) => {
+                    addPill(container, `Search: ${q}`, () => {
+                        currentFilters.queries.splice(index, 1); // Remove this query
+                        applyFilters();
+                    });
+                });
+            }
+
+
+
+        }
+        function addPill(target, text, onRemove = null) {
+            const pill = document.createElement("div");
+            pill.className = "filter-pill";
+            pill.innerHTML = text + (onRemove ? ` <span class="remove-pill" style="cursor:pointer; margin-left:8px;">×</span>` : "");
+            if (onRemove) pill.onclick = onRemove;
+            target.appendChild(pill);
         }
         function renderHeader(categoryName) {
-            document.getElementById("grant-results-title").innerText = "grant results";
+            console.log("renderHeader received category:", categoryName);
+
+            const titleEl = document.getElementById("grant-results-title");
+
+            titleEl.style.display = "block";
+            titleEl.innerText = "Grant Results";
+
             document.getElementById("grant-results-filters").innerHTML = `
             <div class="filter-pill">Fiscal Year: 2025</div>
             <div class="filter-pill">Category: ${categoryName}</div>
@@ -572,7 +672,7 @@
         };
 
         document.getElementById("next-btn").onclick = () => {
-            const totalPages = alLGrants ? Math.ceil(allGrants.length / itemsPerPage) : 0;
+            const totalPages = allGrants ? Math.ceil(allGrants.length / itemsPerPage) : 0;
             if (currentPage < totalPages) {
                 currentPage++;
                 renderPage(currentPage);
@@ -580,114 +680,6 @@
             }
         };
 
-        function renderGrants(category, grants, query = null) {
-
-            document.getElementById(
-                "grant-results-title"
-            ).innerText = "grant results";
-
-            let filtersHTML = `
-
-                    <div class="filter-pill">
-                        Fiscal Year: 2025
-            </div>
-
-                    <div class="filter-pill">
-                        Category: ${category}
-                    </div>
-                `;
-
-            if (query) {
-
-                filtersHTML += `
-
-                    <div class="filter-pill">
-                        Query: ${query}
-                </div>
-                    `;
-            }
-
-            document.getElementById(
-                "grant-results-filters"
-            ).innerHTML = filtersHTML;
-
-            const container = document.getElementById(
-                "grant-results-list"
-            );
-
-            container.innerHTML = "";
-
-            grants.forEach(grant => {
-
-                const funding = new Intl.NumberFormat(
-                    'en-US',
-                    {
-                        style: 'currency',
-                        currency: 'USD',
-                        notation: 'compact',
-                        maximumFractionDigits: 1
-                    }
-                ).format(grant.funding);
-
-                const card = document.createElement("div");
-
-                card.className = "grant-card";
-
-                card.onclick = () => {
-                    showGrantDetail(grant);
-                };
-
-                card.innerHTML = `
-
-                    <div class="grant-title">
-                        ${grant.title}
-            </div>
-
-                    <div class="grant-meta">
-
-                        <div>
-                            ${grant.organization || "Unknown Organization"}
-                        </div>
-
-                        <div>
-                            PI: ${grant.pi || "Unknown"}
-                        </div>
-
-                        <div class="grant-funding">
-                            ${funding}
-                        </div>
-
-                    </div>
-                `;
-
-                container.appendChild(card);
-            });
-            const count = grants.length;
-            const totalDollars = grants.reduce((sum, grant) => sum + (grant.funding || 0), 0);
-
-            // Format total dollars
-            const formattedTotal = new Intl.NumberFormat(
-                'en-US',
-                {
-                    style: 'currency',
-                    currency: 'USD',
-                    notation: 'compact',
-                    maximumFractionDigits: 1
-                }
-            ).format(totalDollars);
-
-            // Update stats display
-            const countEl = document.getElementById("filter-count");
-            const totalEl = document.getElementById("filter-total-funding");
-
-            if (count > 0) {
-                countEl.innerText = `${count} Grants Found`;
-                totalEl.innerText = `Total Funding: ${formattedTotal} `;
-            } else {
-                countEl.innerText = "No grants found matching this critera.";
-                totalEl.innerText = "";
-            }
-        }
         function showGrantDetail(grant) {
 
             const funding = new Intl.NumberFormat(
@@ -704,9 +696,9 @@
                 "grant-detail-pane"
             ).innerHTML = `
 
-                    < div class="grant-detail-title" >
+                    <div class="grant-detail-title">
                         ${grant.title}
-        </div >
+        </div>
 
 
 
@@ -718,71 +710,31 @@
                 `;
         }
         window.addEventListener("DOMContentLoaded", () => {
-
-            const searchInput = document.getElementById(
-                "grant-search-input"
-            );
-
-            searchInput.addEventListener(
-                "keydown",
-                async function (event) {
-
-                    if (event.key !== "Enter") return;
-
-                    event.preventDefault();
-
-                    if (!activeCategory) {
-
-                        alert("Select a category first.");
-
-                        return;
-                    }
-
-                    const query = searchInput.value.trim();
-                    if (!query) return;
-
-                    const searchButton = document.querySelector(".grant-filter-button");
-                    const loadingMessage = document.getElementById("loading-message");
-
-                    if (searchButton) searchButton.classList.add("loading");
-                    if (loadingMessage) loadingMessage.style.display = "flex";
-
-                    try {
-                        // 1. Fetch the search results
-                        const response = await fetch(
-                            `/api/portfolio/grants/search?year=${activeYear}&category=${activeCategory}&query=${encodeURIComponent(query)}`
-                        );
-
-                        const result = await response.json();
-
-                        // 2. Update the master data list
-                        // We use result.grants (or empty array if none found)
-                        allGrants = result.grants || [];
-
-                        // 3. Reset pagination to page 1
-                        currentPage = 1;
-
-                        // 4. Update the UI components
-                        // This updates the $ totals and the "X Grants Found" label
-                        updateTotals(allGrants);
-
-                        // This draws the first 10 search results and sets up the buttons
-                        renderPage(1);
-
-                        // Optional: Update the "filter pills" to show the search query
-                        renderFilters(activeCategory, query);
-
-                    } catch (error) {
-                        console.error("Search error:", error);
-                        alert("An error occurred while processing your search. Please try again.");
-                    } finally {
-                        if (searchButton) searchButton.classList.remove("loading");
-                        if (loadingMessage) loadingMessage.style.display = "none";
-                    }
+            const searchInput = document.getElementById("grant-search-input");
+            const searchForm = document.getElementById("grant-search-form");
 
 
+
+            searchForm.addEventListener("submit", function (event) {
+
+                event.preventDefault();
+
+                // 1. Check if a category is selected (Successive requirement)
+                if (!currentFilters.category) {
+                    alert("Please select a category from the chart first.");
+                    return;
                 }
-            );
+
+                // 2. Update the GLOBAL state with the search term
+                const queryValue = searchInput.value.trim();
+                if (queryValue) {
+                    // Add the new word to our array
+                    currentFilters.queries.push(queryValue);
+                    // Clear the input box so user can type the NEXT word
+                    searchInput.value = "";
+                    applyFilters();
+                }
+            });
         });
 
         loadCategoryChart();
