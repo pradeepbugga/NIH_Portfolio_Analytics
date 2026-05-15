@@ -165,6 +165,15 @@ def portfolio_page(request: Request):
         {"request": request}
     )
 
+@ app.route("/categories")
+
+def categories_page(request: Request):
+
+    return templates.TemplateResponse(
+        "categories.html",
+        {"request": request}
+    )
+
 @app.get("/api/portfolio/categories")
 def portfolio_categories(
     year: int,
@@ -215,12 +224,12 @@ def portfolio_categories(
         row = cur.fetchone()
 
         output = {
-            "Mechanistic": row[0] or 0,
+            "Mechanistic / Basic Science": row[0] or 0,
             "Therapeutic": row[1] or 0,
             "Diagnostic": row[2] or 0,
             "Research Tool": row[3] or 0,
             "Clinical / Health Systems": row[4] or 0,
-            "Infrastructure": row[5] or 0,
+            "Research Infrastructure": row[5] or 0,
             "Education": row[6] or 0,
             "Observational Epidemiology": row[7] or 0
         }
