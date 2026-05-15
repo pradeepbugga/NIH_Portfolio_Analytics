@@ -3,8 +3,7 @@
     src: url("/static/fonts/primer.ttf") format("truetype");
 }
 
-
-
+/* -------- LANDING PAGE STYLES -------- */
 
 body.landing {
     margin: 0;
@@ -56,112 +55,78 @@ body.landing {
 
 .search-divider-top {
     width: 100%;
-
     display: flex;
     align-items: center;
     justify-content: center;
 
 }
 
-
-
 .top-divider {
-
     width: 100%;
-
     max-width: 920px;
-
     display: flex;
-
     justify-content: center;
 }
 
 .top-divider .divider-text {
-
     display: flex;
-
     justify-content: center;
-
 }
 
 .divider-search {
     font-size: 22px;
     letter-spacing: 0.28em;
     color: #12253d;
-
     opacity: 0.75;
 }
-
-
-
 
 .home-card {
     display: flex;
     align-items: stretch;
-
     width: 100%;
-
     border: 2px solid #12253d;
-
     text-decoration: none;
     color: #12253d;
-
     background: white;
-
     overflow: hidden;
-
 }
 
 .home-card-icon {
     width: 78px;
-
     background: #12253d;
-
     display: flex;
     align-items: center;
     justify-content: center;
-
     flex-shrink: 0;
 }
 
 .home-card-icon svg {
     width: 43px;
     height: 43px;
-
     stroke: white;
 }
 
 .home-card-content {
     flex: 1;
-
     display: flex;
     align-items: center;
     justify-content: center;
-
     padding: 22px 30px;
-
     text-align: center;
-
     font-size: 1.1rem;
     line-height: 1.5;
-
     opacity: 0.82;
 }
-
-
-
 
 
 
 .search-divider {
     width: 100%;
     max-width: 620px;
-
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 28px;
-
     margin-bottom: 26px;
 }
 
@@ -179,7 +144,6 @@ body.landing {
     align-items: center;
     font-family: 'Inter', sans-serif;
     line-height: 1.1;
-
 }
 
 .divider-or {
@@ -189,14 +153,10 @@ body.landing {
     margin-bottom: 8px;
 }
 
-
-
 .section-label {
     font-size: 22px;
     letter-spacing: 0.28em;
     color: #12253d;
-
-
     opacity: 0.75;
     line-height: 1.1;
     text-align: center;
@@ -330,8 +290,6 @@ body.landing {
     /* Keep it on one line */
 }
 
-
-
 .query-title {
     font-family: "primer", serif;
     /* Uses your custom font */
@@ -375,11 +333,8 @@ body.landing {
     padding: 20px;
 }
 
-
 #funding-stat-container {
-
     text-align: center;
-
 }
 
 #funding-amount {
@@ -402,12 +357,7 @@ body.landing {
     margin-top: 10px;
 }
 
-
-
-/* Portfolio page styles */
-
-
-
+/* ----------------------- PORTFOLIO PAGE STYLES ---------------------- */
 
 .portfolio-page {
     margin: 0;
@@ -415,6 +365,8 @@ body.landing {
     background: white;
     color: #12253d;
 }
+
+/* PORTFOLIO HEADER */
 
 .portfolio-top-header {
     width: 100%;
@@ -432,8 +384,6 @@ body.landing {
     margin: 0 auto;
 }
 
-
-
 .portfolio-top-header .logo {
     font-size: 40px;
     /* Much smaller than the 64px landing page version */
@@ -444,33 +394,48 @@ body.landing {
 }
 
 
-
-.portfolio-container {
-    max-width: 1200px;
-    margin: 0 auto;
-
-    padding: 40px 40px;
-}
+/* PORTFOLIO MAIN CONTENT */
 
 .portfolio-header {
     margin-bottom: 60px;
 }
 
-.back-link {
-    text-decoration: none;
-    color: #12253d;
+.portfolio-header-layout {
 
-    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: clamp(2rem, 5vw, 6rem);
+    width: 100%;
+    padding-left: 5%;
+    padding-right: 5%;
+    box-sizing: border-box;
+    margin-bottom: 100px;
+}
 
-    opacity: 0.7;
+.portfolio-header-left {
+
+    flex: 1;
+    min-width: 0;
 }
 
 .portfolio-title {
     font-family: "primer", serif;
     font-size: 56px;
-
+    color: #333;
+    font-style: italic;
     margin-top: 18px;
     margin-bottom: 14px;
+}
+
+.subtitle-container {
+    display: flex;
+    align-items: baseline;
+    /* Aligns the bottom of the text strings */
+    gap: 15px;
+    /* Space between the subtitle and the link */
+    flex-wrap: wrap;
+    /* Allows the link to drop to the next line on very small screens */
 }
 
 .portfolio-subtitle {
@@ -479,6 +444,152 @@ body.landing {
 
     max-width: 720px;
     line-height: 1.6;
+}
+
+.category-link {
+    font-size: 16px;
+    font-style: italic;
+    color: #007bff;
+    /* Standard link blue, change to match your theme */
+    text-decoration: underline;
+    opacity: 0.9;
+}
+
+.category-link:hover {
+    opacity: 1;
+    text-decoration: none;
+    /* Optional: removes underline on hover */
+}
+
+
+/*  PORTFOLIO YEAR SELECTOR  */
+
+.year-selector-container {
+    margin-top: 22px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    width: 220px;
+    margin-right: 5%;
+    flex-shrink: 0;
+}
+
+.year-selector-label {
+    font-size: 23px;
+    letter-spacing: 0.1em;
+    color: #12253d;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.year-selector {
+    width: 60%;
+    appearance: none;
+    border: #12253d 2px solid;
+    border-radius: 8px;
+    background: white;
+    padding: 12px 10px 12px 10px;
+    font-size: 16px;
+    color: #12253d;
+    cursor: pointer;
+    outline: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, #12253d 50%),
+        linear-gradient(135deg, #12253d 50%, transparent 50%);
+    background-position:
+        calc(100% - 22px) calc(50% - 3px),
+        calc(100% - 16px) calc(50% - 3px);
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+}
+
+.year-selector option:disabled {
+    color: #9ca3af;
+}
+
+
+/* PORTFOLIO CHART AND CATEGORY STYLES */
+
+.portfolio-container {
+    padding-left: 5%;
+    padding-right: 5%;
+}
+
+.portfolio-split-layout {
+    display: flex;
+    width: 100%;
+    min-height: 700px;
+    margin-top: -80px;
+}
+
+.portfolio-left-pane {
+    flex: 0.7;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: white 2px solid;
+    border-radius: 8px;
+    background: #12253d;
+}
+
+
+/* Funding Cards */
+
+#portfolio-funding-stat-container {
+    text-align: center;
+
+}
+
+#portfolio-funding-amount {
+    font-family: 'Inter', sans-serif;
+    font-size: 6rem;
+    /* Makes it big */
+    font-weight: bold;
+    color: white;
+    line-height: 1;
+}
+
+.portfolio-funding-caption {
+    font-family: 'Inter', sans-serif;
+    font-size: 2rem;
+    color: #aab8b9;
+    /* Muted grey for caption */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+
+/* Chart Card */
+
+
+.portfolio-right-pane {
+    flex: 1.6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /*padding: 20px 40px;*/
+    /* add border */
+    border: #12253d 2px solid;
+    border-radius: 8px;
+    background: white;
+}
+
+
+#categoryChart {
+
+    width: 100%;
+    height: clamp(450px, 65vh, 700px);
+    min-width: 0;
+}
+
+.force-hand {
+    cursor: pointer !important;
+}
+
+/* Ensure the chart background is an arrow by default, not a plus sign */
+#categoryChart .nsewdrag {
+    cursor: default !important;
 }
 
 .portfolio-grid {
@@ -519,61 +630,6 @@ body.landing {
     font-weight: 500;
 }
 
-/* Year Selector */
-
-.year-selector-container {
-    margin-top: 22px;
-
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    width: 220px;
-}
-
-.year-selector-label {
-    font-size: 23px;
-
-    letter-spacing: 0.1em;
-
-    color: #12253d;
-
-    opacity: 0.7;
-}
-
-.year-selector {
-    appearance: none;
-
-    border: 2px solid #12253d;
-
-    background: white;
-
-    padding: 14px 18px;
-
-    font-size: 16px;
-
-    color: #12253d;
-
-    cursor: pointer;
-
-    outline: none;
-
-    background-image:
-        linear-gradient(45deg, transparent 50%, #12253d 50%),
-        linear-gradient(135deg, #12253d 50%, transparent 50%);
-
-    background-position:
-        calc(100% - 22px) calc(50% - 3px),
-        calc(100% - 16px) calc(50% - 3px);
-
-    background-size: 6px 6px;
-
-    background-repeat: no-repeat;
-}
-
-.year-selector option:disabled {
-    color: #9ca3af;
-}
 
 /* Chart styles */
 .chart-container {
@@ -588,116 +644,30 @@ body.landing {
     background: white;
 }
 
-.portfolio-split-layout {
-    display: flex;
-    width: 100%;
-    min-height: 700px;
-    margin-top: -80px;
-}
-
-
-.portfolio-left-pane {
-    flex: 0.7;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    border-right: 1px solid #e5e7eb;
-    padding-right: 100px;
-
-}
-
-.portfolio-right-pane {
-    flex: 1.6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 40px;
-}
-
-
-#portfolio-funding-stat-container {
-    text-align: right;
-
-}
-
-#portfolio-funding-amount {
-    font-family: 'Inter', sans-serif;
-    font-size: 6rem;
-    /* Makes it big */
-    font-weight: bold;
-    color: #2c3e50;
-    /* Dark professional blue/grey */
-    line-height: 1;
-}
-
-.portfolio-funding-caption {
-    font-family: 'Inter', sans-serif;
-    font-size: 2rem;
-    color: #7f8c8d;
-    /* Muted grey for caption */
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 10px;
-}
-
-#categoryChart {
-
-    width: 100%;
-    height: clamp(450px, 65vh, 700px);
-    min-width: 0;
-}
-
-.portfolio-header-layout {
-
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: clamp(2rem, 5vw, 6rem);
-    width: 100%;
-}
-
-.portfolio-header-left {
-
-    flex: 1;
-    margin-left: 0;
-    margin-top: clamp(4rem, 8vw, 9rem);
-    min-width: 0;
-}
-
-
-.portfolio-header-right {
-    flex: 1;
-    max-width: 760px;
-    margin-right: 0;
-    margin-top: clamp(5rem, 10vw, 12rem);
-}
-
 
 /* Top Right Description Box */
-.portfolio-legend {
+.category-legend {
 
     width: 100%;
+    justify-content: center;
 
     max-width: 760px;
     /* fill with light blue color */
     background: #f0f4f8;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .legend-title {
 
     font-family: 'Inter', sans-serif;
-
-    font-size: 0.95rem;
-
+    font-size: 1.1rem;
     letter-spacing: 0.18em;
-
     text-transform: uppercase;
-
     color: #5b6b82;
-
     margin-bottom: 30px;
-    margin-left: 20px;
     padding-top: 10px;
+    text-align: center;
 }
 
 .legend-item {
@@ -714,18 +684,14 @@ body.landing {
 .legend-label {
 
     flex: 0 0 240px;
-
     font-family: 'Inter', sans-serif;
-
     font-size: 1rem;
-
     font-weight: 500;
-
     color: #243b53;
-
     letter-spacing: 0.01em;
     margin-left: 20px;
     margin-bottom: 4px;
+    font-style: italic;
 }
 
 .legend-desc {
