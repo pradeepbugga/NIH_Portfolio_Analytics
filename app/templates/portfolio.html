@@ -442,6 +442,31 @@
             updateTotals(allGrants); // Now .length won't crash
             renderPage(1);
         }
+        function renderFilters(category, query = null) {
+            const filterContainer = document.getElementById("grant-results-filters");
+            if (!filterContainer) return;
+
+            // Start with the standard pills
+            let filtersHTML = `
+        <div class="filter-pill">
+            Fiscal Year: 2025
+        </div>
+        <div class="filter-pill">
+            Category: ${category}
+        </div>
+    `;
+
+            // Add the "Query" pill only if a search was performed
+            if (query) {
+                filtersHTML += `
+            <div class="filter-pill">
+                Search: "${query}"
+            </div>
+        `;
+            }
+
+            filterContainer.innerHTML = filtersHTML;
+        }
         function renderHeader(categoryName) {
             document.getElementById("grant-results-title").innerText = "grant results";
             document.getElementById("grant-results-filters").innerHTML = `
@@ -723,23 +748,30 @@
                     if (loadingMessage) loadingMessage.style.display = "flex";
 
                     try {
-
+                        // 1. Fetch the search results
                         const response = await fetch(
-
-                            `/api/portfolio/grants/search` +
-                            `? year = ${activeYear} ` +
-                            `& category=${activeCategory} ` +
-                            `& query=${encodeURIComponent(query)}`
-
+                            `/api/portfolio/grants/search?year=${activeYear}&category=${activeCategory}&query=${encodeURIComponent(query)}`
                         );
 
                         const result = await response.json();
 
-                        renderGrants(
-                            activeCategory,
-                            result.grants,
-                            query
-                        );
+                        // 2. Update the master data list
+                        // We use result.grants (or empty array if none found)
+                        allGrants = result.grants || [];
+
+                        // 3. Reset pagination to page 1
+                        currentPage = 1;
+
+                        // 4. Update the UI components
+                        // This updates the $ totals and the "X Grants Found" label
+                        updateTotals(allGrants);
+
+                        // This draws the first 10 search results and sets up the buttons
+                        renderPage(1);
+
+                        // Optional: Update the "filter pills" to show the search query
+                        renderFilters(activeCategory, query);
+
                     } catch (error) {
                         console.error("Search error:", error);
                         alert("An error occurred while processing your search. Please try again.");
