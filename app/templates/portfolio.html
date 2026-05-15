@@ -85,19 +85,29 @@
 
         </div>
     </div>
-
+    <div class="pulse-container">
+        <svg viewBox="0 0 800 100" preserveAspectRatio="none" class="pulse-svg">
+            <defs>
+                <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="transparent" />
+                    <stop offset="50%" stop-color="#a5b4fc" />
+                    <stop offset="100%" stop-color="transparent" />
+                </linearGradient>
+            </defs>
+            <path d="M0,50 L380,50 L385,35 L390,65 L395,20 L400,80 L405,40 L410,60 L415,50 L800,50"
+                class="pulse-back" />
+            <path d="M0,50 L380,50 L385,35 L390,65 L395,20 L400,80 L405,40 L410,60 L415,50 L800,50"
+                class="pulse-glow" />
+        </svg>
+    </div>
 
     <div id="grant-results-container">
 
+        <div id="grant-results-title"></div>
         <div id="grant-results-header">
 
-            <div>
 
-                <div id="grant-results-title"></div>
-
-                <div id="grant-results-filters"></div>
-
-            </div>
+            <div id="grant-results-filters"></div>
 
             <div id="grant-search-container">
 
@@ -143,7 +153,7 @@
             const total = values.reduce((a, b) => a + b, 0);
             const displayValues = values.map(v => v / 1000000000);
 
-
+            const grantContainer = document.getElementById('grant-results-container');
             const categoryMap = {
 
                 "Mechanistic / Basic Science": "mechanistic",
@@ -206,7 +216,7 @@
                             width: 1
                         }
                     },
-                    hovertemplate: "<b>%{y}</b><br>$%{x:.1f}B<extra></extra>"
+                    hovertemplate: "$%{x:.1f}B<extra></extra>"
                 }],
 
 
@@ -225,6 +235,16 @@
                     },
                     hovermode: 'closest',
                     hoverdistance: 5,
+                    hoverlabel: {
+                        bgcolor: "white", // Match your sidebar/dark blue
+                        font: {
+                            color: "#12253d",
+                            family: "Inter, sans-serif",
+                            size: 20
+                        },
+                        bordercolor: "#12253d",
+                        align: "left"
+                    },
                     annotations: [
                         // 1. The Text Label
                         {
@@ -319,9 +339,17 @@
             );
             chartDiv.on("plotly_click", async function (data) {
 
+
+
                 const displayCategory = data.points[0].y;
 
                 const category = categoryMap[displayCategory];
+
+                // Reveal container
+                grantContainer.classList.add('show');
+
+                // Smooth scroll to container
+                grantContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
                 activeCategory = category;
 
@@ -374,7 +402,7 @@
 
             document.getElementById(
                 "grant-results-title"
-            ).innerText = "Grant Results";
+            ).innerText = "grant results";
 
             let filtersHTML = `
 
