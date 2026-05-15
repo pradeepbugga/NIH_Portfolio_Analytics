@@ -248,7 +248,8 @@ body.landing {
     }
 }
 
-.search-button.loading svg {
+.search-button.loading svg,
+.grant-filter-button.loading svg {
     animation: spin 1s linear infinite;
     pointer-events: none;
     /* Prevents double-clicks */
@@ -443,7 +444,6 @@ body.landing {
     opacity: 0.75;
 
     max-width: 720px;
-    line-height: 1.6;
 }
 
 .category-link {
@@ -465,7 +465,6 @@ body.landing {
 /*  PORTFOLIO YEAR SELECTOR  */
 
 .year-selector-container {
-    margin-top: 22px;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -476,8 +475,7 @@ body.landing {
 }
 
 .year-selector-label {
-    font-size: 23px;
-    letter-spacing: 0.1em;
+    font-size: 18px;
     color: #12253d;
     opacity: 0.7;
     white-space: nowrap;
@@ -592,60 +590,445 @@ body.landing {
     cursor: default !important;
 }
 
-.portfolio-grid {
-    display: grid;
+/* ---- PORTFOLIO PULSE ANIMATION DIVIDER -------- */
 
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-
-    gap: 22px;
+.pulse-container {
+    width: 100%;
+    height: 80px;
+    margin: 40px 0;
+    display: flex;
+    align-items: center;
 }
 
-.portfolio-card {
-    border: 2px solid #12253d;
+.pulse-svg {
+    width: 100%;
+    height: 100%;
+}
 
-    padding: 28px;
+.pulse-back {
+    fill: none;
+    stroke: rgba(18, 37, 61, 0.1);
+    /* Very faint version of your dark blue */
+    stroke-width: 1;
+}
 
-    text-decoration: none;
-    color: #12253d;
+.pulse-glow {
+    fill: none;
+    stroke: #12253d;
+    stroke-width: 2;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: pulse-travel 4s linear infinite;
+}
 
+@keyframes pulse-travel {
+    0% {
+        stroke-dashoffset: 1000;
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        stroke-dashoffset: 0;
+        opacity: 0;
+    }
+}
+
+/* ------------------------ GRANT RESULTS PAGE STYLES ---------------------- */
+
+#grant-results-container {
+    margin-top: 20px;
+    padding:
+        0 clamp(1.5rem, 5vw, 6rem) clamp(4rem, 8vw, 7rem) clamp(1.5rem, 5vw, 6rem);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(20px);
+    /* Slight slide-up effect */
+
+}
+
+#grant-results-container.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+
+#grant-results-title {
+    display: none;
+    font-size: 3.5rem;
+    margin-bottom: 40px;
+    font-family: primer, serif;
+    color: #333;
+    font-style: italic;
+    /* center the title */
+    text-align: center;
+    min-height: 4.5rem;
+}
+
+#grant-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 80px;
+}
+
+
+#grant-results-filters {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-right: auto;
+}
+
+.filter-pill {
+    padding: 12.5px 20px;
+    border: 1px solid rgba(36, 59, 83, 0.14);
+    font-size: 1.2rem;
+    letter-spacing: 0.04em;
+    color: white;
+    background: #12253d;
+}
+
+
+#filter-stats-container {
     display: flex;
     flex-direction: column;
-
-    gap: 18px;
-
-    transition: background 0.2s;
+    align-items: flex-start;
+    text-align: left;
+    gap: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(36, 59, 83, 0.1);
+    margin-bottom: 20px;
+    margin-right: 15%;
+    border: white 2px solid;
+    border-radius: 8px;
+    padding: 20px;
+    background-color: #12253d;
 }
 
-.portfolio-card:hover {
-    background: #f8fafc;
-}
-
-.portfolio-card svg {
-    width: 32px;
-    height: 32px;
-}
-
-.portfolio-card span {
-    font-size: 20px;
+#filter-count,
+#filter-total-funding {
+    font-size: 2.1rem;
+    color: white;
+    line-height: 1;
     font-weight: 500;
 }
 
 
-/* Chart styles */
-.chart-container {
-    width: 100%;
 
-    margin-top: 50px;
 
-    padding: 30px;
 
-    border: 2px solid #12253d;
+#grant-search-container {
+    width: 600px;
+    display: block;
 
+}
+
+.grant-search-wrapper {
+    display: flex;
+    align-items: stretch;
+    /* Forces input and button to same height */
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: hidden;
+    /* Clips button corners to match radius */
     background: white;
+    margin-bottom: 10px;
+}
+
+#grant-search-input {
+    flex: 1;
+    width: 30%;
+    padding: 14px 18px;
+    border: 1px solid rgba(36, 59, 83, 0.18);
+    background: white;
+    font-size: 0.95rem;
+    color: #12253d;
+    outline: none;
+}
+
+#grant-search-input::placeholder {
+    color: #12253d;
+    /* A softer slate grey */
+    opacity: 1;
+    /* Firefox requires this */
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+#grant-search-input::-webkit-input-placeholder {
+    color: #12253d;
 }
 
 
-/* Top Right Description Box */
+#grant-search-input:focus {
+    border-color: #314a67;
+
+}
+
+.grant-filter-button {
+    background: #12253d;
+    border: none;
+    cursor: pointer;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    transition: color 0.2s;
+}
+
+.grant-filter-button:hover {
+    color: #1a3a5f;
+}
+
+.loading-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-top: 10px;
+    max-width: 600px;
+}
+
+.spinner-small {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(18, 37, 61, 0.1);
+    border-top-color: #a5b4fc;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.grant-filter-button.loading {
+    animation: none !important;
+}
+
+
+
+/* ==========================================================================
+   1 & 2: Grant Cards Hover & Pointer States
+   ========================================================================== */
+.grant-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 2. Soft, executive light slate blue tint on hover */
+.grant-card:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Immediate click feedback */
+.grant-card:active {
+    background-color: #e2e8f0;
+}
+
+
+.grant-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #12253d;
+    /* Dark theme blue */
+    line-height: 1.4;
+    margin-bottom: 12px;
+
+    /* Optional: Prevents run-away text by truncating titles longer than 2 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.grant-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.grant-details {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 14px;
+    color: #4a5568;
+    /* Soft charcoal neutral text */
+}
+
+.grant-org {
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.grant-divider {
+    color: #cbd5e1;
+}
+
+.grant-pi {
+    color: #718096;
+}
+
+/* --- Accent Funding Pill --- */
+.grant-funding {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a8a;
+    /* Rich dark blue accent text */
+    background-color: #eff6ff;
+    /* Soft sky blue pill background */
+    padding: 6px 12px;
+    border-radius: 9999px;
+    /* Perfect round pill shapes */
+    white-space: nowrap;
+    /* Prevents currency symbols from splitting onto new lines */
+    border: 1px solid #dbeafe;
+}
+
+/* ==========================================================================
+   3: Abstract Modal Window Layer
+   ========================================================================== */
+.grant-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(18, 37, 61, 0.4);
+    /* Matches your deep blue theme color with a transparent tint */
+    backdrop-filter: blur(4px);
+    /* Modern blur effect behind the popup overlay window */
+    z-index: 9999;
+    /* Higher than your charts, page wrappers, and headers */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: none;
+}
+
+/* Activated by JS class injection */
+.grant-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.grant-modal-content {
+    background-color: #ffffff;
+    width: 90%;
+    max-width: 750px;
+    max-height: 85vh;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow-y: auto;
+    /* Adds custom scroll bar if abstract text runs exceptionally long */
+    font-family: 'Inter', sans-serif;
+    color: #12253d;
+}
+
+.grant-modal-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    font-size: 32px;
+    font-weight: 300;
+    color: #a0aec0;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.grant-modal-close:hover {
+    color: #12253d;
+}
+
+.grant-detail-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    padding-right: 24px;
+    /* Prevents long titles from smashing into close icon */
+}
+
+.grant-modal-meta {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4a5568;
+}
+
+.modal-divider {
+    border: 0;
+    height: 1px;
+    background-color: #e2e8f0;
+    margin: 20px 0;
+}
+
+.grant-detail-abstract h3 {
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #718096;
+    margin-bottom: 8px;
+}
+
+.grant-detail-abstract p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #2d3748;
+    white-space: pre-line;
+    /* Keeps any original line break formatting inside abstract paragraphs intact */
+}
+
+/* Search page bar plot styling */
+
+.ontology-section {
+    display: flex;
+    gap: clamp(2rem, 4vw, 5rem);
+    margin-top: clamp(3rem, 8vw, 7rem);
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.ontology-left-pane {
+    flex: 0.9;
+}
+
+.ontology-right-pane {
+    flex: 1.1;
+}
+
+#ontologyChart {
+    width: 100%;
+    height: 700px;
+}
+
+
+
+
+
+
+
+/* --------- CATEGORY PAGE STYLES --------- */
 .category-legend {
 
     width: 100%;
@@ -695,246 +1078,23 @@ body.landing {
 }
 
 .legend-desc {
-
     flex: 1;
-
     font-family: 'Inter', sans-serif;
-
     font-size: 0.98rem;
-
     line-height: 1.2;
-
     color: #6b7c93;
-
     font-weight: 400;
 }
 
-/* Grant Results Section */
-#grant-results-container {
 
-    margin-top: 20px;
 
-    padding:
-        0 clamp(1.5rem, 5vw, 6rem) clamp(4rem, 8vw, 7rem) clamp(1.5rem, 5vw, 6rem);
-    font-family: system-ui, sans-serif;
-}
 
-#grant-results-title {
 
-    font-size: 1.1rem;
 
-    letter-spacing: 0.16em;
 
-    text-transform: uppercase;
 
-    color: #5b6b82;
 
-    margin-bottom: 36px;
 
-}
-
-.grant-card {
-
-    padding: 28px 0;
-
-    border-bottom: 1px solid rgba(36, 59, 83, 0.10);
-}
-
-.grant-title {
-
-    font-size: 1.3rem;
-
-    font-weight: 500;
-
-    color: #243b53;
-
-    margin-bottom: 12px;
-
-    line-height: 1.4;
-    font-family: system-ui, sans-serif;
-}
-
-.grant-meta {
-
-    display: flex;
-
-    gap: 30px;
-
-    flex-wrap: wrap;
-
-    font-size: 0.95rem;
-
-    color: #6b7c93;
-}
-
-.grant-funding {
-
-    font-weight: 600;
-
-    color: #314a67;
-}
-
-#grant-results-filters {
-
-    display: flex;
-
-    gap: 14px;
-
-    flex-wrap: wrap;
-
-    margin-bottom: 40px;
-    margin-right: 120px;
-}
-
-.filter-pill {
-
-    padding: 10px 16px;
-
-    border: 1px solid rgba(36, 59, 83, 0.14);
-
-    font-size: 0.9rem;
-
-    letter-spacing: 0.04em;
-
-    color: #314a67;
-
-    background: rgba(255, 255, 255, 0.6);
-}
-
-#grant-results-header {
-
-    display: flex;
-
-    justify-content: space-between;
-
-    align-items: flex-start;
-
-    margin-bottom: 40px;
-}
-
-#grant-search-container {
-
-    width: 380px;
-    margin-right: 120px;
-}
-
-#grant-search-input {
-
-    width: 100%;
-
-    padding: 14px 18px;
-
-    border: 1px solid rgba(36, 59, 83, 0.18);
-
-    background: white;
-
-    font-size: 0.95rem;
-
-    color: #243b53;
-
-    outline: none;
-}
-
-#grant-search-input:focus {
-
-    border-color: #314a67;
-}
-
-#grant-results-layout {
-
-    display: flex;
-
-    gap: clamp(1.5rem, 4vw, 3rem);
-
-    align-items: flex-start;
-
-    flex-wrap: wrap;
-}
-
-#grant-results-list {
-
-    flex: 1 1 600px;
-
-    min-width: 0;
-}
-
-#grant-detail-pane {
-
-    flex: 1 1 400px;
-
-    min-width: 320px;
-
-    position: sticky;
-
-    top: 40px;
-
-    padding: 32px;
-
-    border: 1px solid rgba(36, 59, 83, 0.10);
-
-    background: rgba(255, 255, 255, 0.55);
-
-    min-height: 500px;
-}
-
-#grant-detail-placeholder {
-
-    color: #7b8794;
-
-    font-size: 0.95rem;
-}
-
-.grant-detail-title {
-
-    font-size: 1.4rem;
-
-    font-weight: 500;
-
-    line-height: 1;
-
-    color: #243b53;
-
-    margin-bottom: 18px;
-    font-family: "Inter", sans-serif;
-}
-
-.grant-detail-abstract {
-
-    font-size: 1.02rem;
-
-    line-height: 1.3;
-
-    color: #486581;
-
-    white-space: pre-wrap;
-}
-
-/* Search page bar plot styling */
-
-.ontology-section {
-    display: flex;
-    gap: clamp(2rem, 4vw, 5rem);
-    margin-top: clamp(3rem, 8vw, 7rem);
-    align-items: flex-start;
-    flex-wrap: wrap;
-}
-
-.ontology-left-pane {
-
-    flex: 0.9;
-}
-
-.ontology-right-pane {
-
-    flex: 1.1;
-}
-
-#ontologyChart {
-
-    width: 100%;
-
-    height: 700px;
-}
 
 @media (max-width: 768px) {
 
