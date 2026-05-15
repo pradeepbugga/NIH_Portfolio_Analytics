@@ -136,13 +136,7 @@
 
             <div id="grant-results-list"></div>
 
-            <div id="grant-detail-pane">
 
-                <div id="grant-detail-placeholder">
-                    Select a grant to view abstract
-                </div>
-
-            </div>
 
         </div>
 
@@ -498,8 +492,6 @@
                 // collapse repeated spaces
                 .replace(/\s+/g, " ")
 
-                // restore paragraph breaks after periods followed by capital letters
-                .replace(/\. ([A-Z])/g, ".\n\n$1")
 
                 .trim();
         }
@@ -592,63 +584,108 @@
             document.getElementById("filter-total-funding").innerText = `Total Funding: ${formattedTotal}`;
 
         }
+        // --- PAGINATED RENDER SETUP ---
         function renderPage(page) {
             const container = document.getElementById("grant-results-list");
             container.innerHTML = "";
 
-            //calculate start and end indices
             const start = (page - 1) * itemsPerPage;
             const end = start + itemsPerPage;
-
-            // Slice master list to only 100
             const pageItems = allGrants.slice(start, end);
 
             pageItems.forEach(grant => {
-
-                const funding = new Intl.NumberFormat(
-                    'en-US',
-                    {
-                        style: 'currency',
-                        currency: 'USD',
-                        notation: 'compact',
-                        maximumFractionDigits: 1
-                    }
-                ).format(grant.funding);
-
-                const card = document.createElement("div");
-
-                card.className = "grant-card";
-
-                card.onclick = () => {
-                    showGrantDetail(grant);
-                };
-
-                card.innerHTML = `
-
-                    <div class="grant-title">
-                        ${grant.title}
-            </div>
-
-                    <div class="grant-meta">
-
-                        <div>
-                            ${grant.organization || "Unknown Organization"}
-                        </div>
-
-                        <div>
-                            PI: ${grant.pi || "Unknown"}
-                        </div>
-
-                        <div class="grant-funding">
-                            ${funding}
-                        </div>
-
-                    </div>
-                `;
-
+                const card = createGrantCard(grant);
                 container.appendChild(card);
             });
+
             updatePaginationControls();
+        }
+
+        // --- MODAL VIEW FOR ABSTRACTS ---
+        function showGrantDetail(grant) {
+            // 1. Remove old modal instance if it exists
+            const oldModal = document.getElementById("grant-modal");
+            if (oldModal) oldModal.remove();
+
+            // 2. Format currency nicely
+            const funding = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(grant.funding);
+
+            // 3. Create Modal layout structure dynamically
+            const modal = document.createElement("div");
+            modal.id = "grant-modal";
+            modal.className = "grant-modal-overlay";
+
+            modal.innerHTML = `
+                <div class="grant-modal-content">
+                    <span class="grant-modal-close">&times;</span>
+                    <div class="grant-modal-header">
+                        <h2 class="grant-detail-title">${grant.title}</h2>
+                        <div class="grant-modal-meta">
+                            <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
+                            <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
+                            <strong>Funding Amount:</strong> ${funding}
+                        </div>
+                    </div>
+                    <hr class="modal-divider">
+                    <div class="grant-detail-abstract">
+                        <h3>Abstract</h3>
+                        <p>${cleanAbstract(grant.abstract) || "No abstract available."}</p>
+                    </div>
+                </div>
+            `;
+
+            // 4. Append to body to bypass any parent container stacking restrictions
+            document.body.appendChild(modal);
+
+            // 5. Short delay to force reflow and allow CSS transition to animate smoothly
+            setTimeout(() => modal.classList.add("active"), 10);
+
+            // 6. Bind Close Events
+            modal.querySelector(".grant-modal-close").onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal(); // Close if background overlay is clicked
+            };
+        }
+
+        // --- CLEAN HELPER TO GENERATE GRANT CARDS ---
+        function createGrantCard(grant) {
+            const funding = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(grant.funding);
+
+            const card = document.createElement("div");
+            card.className = "grant-card";
+            card.onclick = () => showGrantDetail(grant);
+
+            card.innerHTML = `
+                <div class="grant-title">${grant.title}</div>
+                <div class="grant-meta-row">
+                    <div class="grant-details">
+                        <span class="grant-org">${grant.organization || "Unknown Organization"}</span>
+                        <span class="grant-divider">•</span>
+                        <span class="grant-pi">PI: ${grant.pi || "Unknown"}</span>
+                    </div>
+                    <div class="grant-funding">${funding}</div>
+                </div>
+            `;
+            return card;
+        }
+        // --- MODAL CLOSE HELPER ---
+        function closeModal() {
+            const modal = document.getElementById("grant-modal");
+            if (modal) {
+                modal.classList.remove("active");
+                // Remove from DOM completely after transition finishes
+                setTimeout(() => modal.remove(), 200);
+            }
         }
         function updatePaginationControls() {
             const totalPages = Math.ceil(allGrants.length / itemsPerPage);
@@ -679,36 +716,6 @@
                 document.getElementById("grant-results-container").scrollIntoView({ behavior: 'smooth' });
             }
         };
-
-        function showGrantDetail(grant) {
-
-            const funding = new Intl.NumberFormat(
-                'en-US',
-                {
-                    style: 'currency',
-                    currency: 'USD',
-                    notation: 'compact',
-                    maximumFractionDigits: 1
-                }
-            ).format(grant.funding);
-
-            document.getElementById(
-                "grant-detail-pane"
-            ).innerHTML = `
-
-                    <div class="grant-detail-title">
-                        ${grant.title}
-        </div>
-
-
-
-                    <div class="grant-detail-abstract">
-
-                        ${cleanAbstract(grant.abstract) || "No abstract available."}
-
-                    </div>
-                `;
-        }
         window.addEventListener("DOMContentLoaded", () => {
             const searchInput = document.getElementById("grant-search-input");
             const searchForm = document.getElementById("grant-search-form");
