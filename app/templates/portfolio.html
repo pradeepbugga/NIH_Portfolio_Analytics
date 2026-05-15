@@ -109,12 +109,27 @@
 
             <div id="grant-results-filters"></div>
 
-            <div id="grant-search-container">
-
-                <input type="text" id="grant-search-input" placeholder="Semantic filter within results...">
-
+            <div id="filter-stats-container" style="margin-bottom: 15px; font-family: 'Inter', sans-serif;">
+                <span id="filter-count" style="font-weight: bold; color: #12253d;"></span>
+                <span id="filter-total-funding" style="margin-left: 15px; font-weight: bold; color: #12253d;"></span>
             </div>
 
+        </div>
+        <div id="grant-search-container">
+            <form id="grant-search-form" class="grant-search-wrapper">
+                <input type="text" id="grant-search-input" placeholder="Semantic filter within results...">
+                <button type="submit" class="grant-filter-button">
+                    <i data-lucide="beaker"></i>
+                </button>
+            </form>
+        </div>
+
+        <div id="loading-message" class="loading-status-card" style="display: none;">
+            <div class="spinner-small"></div>
+            <div class="status-text">
+                <strong>Processing Search...</strong>
+                <span>(this may take a moment).</span>
+            </div>
         </div>
 
         <div id="grant-results-layout">
@@ -480,6 +495,31 @@
 
                 container.appendChild(card);
             });
+            const count = grants.length;
+            const totalDollars = grants.reduce((sum, grant) => sum + (grant.funding || 0), 0);
+
+            // Format total dollars
+            const formattedTotal = new Intl.NumberFormat(
+                'en-US',
+                {
+                    style: 'currency',
+                    currency: 'USD',
+                    notation: 'compact',
+                    maximumFractionDigits: 1
+                }
+            ).format(totalDollars);
+
+            // Update stats display
+            const countEl = document.getElementById("filter-count");
+            const totalEl = document.getElementById("filter-total-funding");
+
+            if (count > 0) {
+                countEl.innerText = `${count} Grants Found`;
+                totalEl.innerText = `Total Funding: ${formattedTotal}`;
+            } else {
+                countEl.innerText = "No grants found matching this critera.";
+                totalEl.innerText = "";
+            }
         }
         function showGrantDetail(grant) {
 
@@ -522,6 +562,8 @@
 
                     if (event.key !== "Enter") return;
 
+                    event.preventDefault();
+
                     if (!activeCategory) {
 
                         alert("Select a category first.");
@@ -530,25 +572,41 @@
                     }
 
                     const query = searchInput.value.trim();
-
                     if (!query) return;
 
-                    const response = await fetch(
+                    const searchButton = document.querySelector(".grant-filter-button");
+                    const loadingMessage = document.getElementById("loading-message");
 
-                        `/api/portfolio/grants/search` +
-                        `?year=${activeYear}` +
-                        `&category=${activeCategory}` +
-                        `&query=${encodeURIComponent(query)}`
+                    if (searchButton) searchButton.classList.add("loading");
+                    if (loadingMessage) loadingMessage.style.display = "flex";
 
-                    );
+                    try {
 
-                    const result = await response.json();
+                        const response = await fetch(
 
-                    renderGrants(
-                        activeCategory,
-                        result.grants,
-                        query
-                    );
+                            `/api/portfolio/grants/search` +
+                            `?year=${activeYear}` +
+                            `&category=${activeCategory}` +
+                            `&query=${encodeURIComponent(query)}`
+
+                        );
+
+                        const result = await response.json();
+
+                        renderGrants(
+                            activeCategory,
+                            result.grants,
+                            query
+                        );
+                    } catch (error) {
+                        console.error("Search error:", error);
+                        alert("An error occurred while processing your search. Please try again.");
+                    } finally {
+                        if (searchButton) searchButton.classList.remove("loading");
+                        if (loadingMessage) loadingMessage.style.display = "none";
+                    }
+
+
                 }
             );
         });
@@ -556,6 +614,8 @@
         loadCategoryChart();
 
     </script>
+    <script>lucide.createIcons(); </script>
+    <script src="/static/js/script.js"></script>
 
 </body>
 
