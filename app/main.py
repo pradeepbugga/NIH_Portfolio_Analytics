@@ -290,7 +290,6 @@ def portfolio_grants(
 
             ORDER BY rg.total_award_amount DESC
 
-            LIMIT 100
         """
 
         cur.execute(query, (year,))
@@ -323,7 +322,8 @@ def portfolio_grants(
 def portfolio_grants_search(
     year: int,
     category: str,
-    query: str
+    query: str,
+    existing_ids: str = None
 ):
 
     category_columns = {
@@ -347,24 +347,34 @@ def portfolio_grants_search(
 
     try:
 
-        sql = f"""
+        # determine pool of grants to search
 
-            SELECT rg.grant_id
+        # start with if frontend provides list of grants, use those
 
-            FROM ResearchGrants rg
+        if existing_ids: 
+            allowed_grant_ids = [str(x) for x in existing_ids.split(",") if x]
 
-            JOIN grant_labels gl
-                ON rg.grant_id = gl.grant_id
+        # if not, filter by category but not by existing list
+        else: 
+            
+            sql = f"""
 
-            WHERE
-                rg.fiscal_year = %s
-                AND gl.{column} = 1
+                SELECT rg.grant_id
 
-            """
+                FROM ResearchGrants rg
 
-        cur.execute(sql, (year,))
+                JOIN grant_labels gl
+                    ON rg.grant_id = gl.grant_id
 
-        allowed_grant_ids = [row[0] for row in cur.fetchall()]
+                WHERE
+                    rg.fiscal_year = %s
+                    AND gl.{column} = 1
+
+                """
+
+            cur.execute(sql, (year,))
+
+            allowed_grant_ids = [row[0] for row in cur.fetchall()]
 
         query_vec = embed_query(query)
         query_vec_list = query_vec.tolist()
