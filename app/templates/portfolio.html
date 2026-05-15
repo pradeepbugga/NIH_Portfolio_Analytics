@@ -6,6 +6,8 @@
     <title>Explore NIH Portfolio</title>
 
     <link rel="stylesheet" href="/static/css/styles_v12.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
 
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -25,12 +27,9 @@
 
         <div class="portfolio-header-left">
 
-
-
             <div class="portfolio-title">
                 explore NIH portfolio
             </div>
-
 
             <div class="subtitle-container">
 
@@ -42,22 +41,23 @@
                 </a>
             </div>
 
-            <div class="year-selector-container">
 
-                <label class="year-selector-label">
-                    Fiscal Year
-                </label>
+        </div>
 
-                <select class="year-selector">
-                    {% for year in range(2025, 1984, -1) %}
-                    <option value="{{ year }}" {% if year !=2025 %}disabled{% endif %} {% if year==2025 %}selected{%
-                        endif %}>
-                        {{ year }}
-                    </option>
-                    {% endfor %}
-                </select>
+        <div class="year-selector-container">
 
-            </div>
+            <label class="year-selector-label">
+                Fiscal Year
+            </label>
+
+            <select class="year-selector">
+                {% for year in range(2025, 1984, -1) %}
+                <option value="{{ year }}" {% if year !=2025 %}disabled{% endif %} {% if year==2025 %}selected{% endif
+                    %}>
+                    {{ year }}
+                </option>
+                {% endfor %}
+            </select>
 
         </div>
 
@@ -135,15 +135,18 @@
             );
 
             const data = await response.json();
+            const sortedEntries = Object.entries(data).sort((a, b) => b[1] - a[1]);
 
-            const labels = Object.keys(data);
-            const values = Object.values(data);
+            const labels = sortedEntries.map(entry => entry[0]);
+            const values = sortedEntries.map(entry => entry[1]);
 
             const total = values.reduce((a, b) => a + b, 0);
+            const displayValues = values.map(v => v / 1000000000);
+
 
             const categoryMap = {
 
-                "Mechanistic": "mechanistic",
+                "Mechanistic / Basic Science": "mechanistic",
 
                 "Therapeutic": "therapeutic",
 
@@ -153,7 +156,7 @@
 
                 "Clinical / Health Systems": "clinical",
 
-                "Infrastructure": "infrastructure",
+                "Research Infrastructure": "infrastructure",
 
                 "Education": "education",
 
@@ -177,26 +180,79 @@
 
 
 
+
+
+
             Plotly.newPlot(
 
                 "categoryChart",
 
                 [{
-                    x: values,
+                    x: displayValues,
                     y: labels,
 
                     type: "bar",
                     orientation: "h",
 
                     marker: {
-                        color: "#2f4763"
+                        color: displayValues,
+                        colorscale: [
+                            [0, '#a5b4fc'], // Lightest bar color (a soft slate blue)
+                            [1, '#12253d']  // Darkest bar color (matches your sidebar)
+                        ],
+                        reversescale: false,
+                        line: {
+                            color: '#12253d',
+                            width: 1
+                        }
                     },
-
-                    hovertemplate:
-                        "<b>%{y}</b><br>$%{x:,}<extra></extra>"
+                    hovertemplate: "<b>%{y}</b><br>$%{x:.1f}B<extra></extra>"
                 }],
 
+
                 {
+                    title: {
+                        text: 'NIH Funding Distribution by Category',
+                        font: {
+                            family: "'Inter', sans-serif",
+                            size: 25,
+                            color: '#12253d' // Matches your sidebar
+                        },
+                        xref: 'paper',
+                        x: 0, // Aligns title to the left edge of the chart area
+                        y: 1.1, // Moves it slightly above the bars
+                        pad: { b: 20 } // Adds some bottom padding
+                    },
+                    hovermode: 'closest',
+                    hoverdistance: 5,
+                    annotations: [
+                        // 1. The Text Label
+                        {
+                            x: 0.97,
+                            y: 0.05,
+                            xref: 'paper',
+                            yref: 'paper',
+                            text: "Click on a bar to see grants!",
+                            showarrow: false,
+                            xanchor: 'right',
+                            layer: 'above',
+                            font: { size: 15, color: '#12253d' }
+                        }
+
+                    ],
+                    images: [{
+                        // This is a small SVG of a curved arrow pointing top-left
+                        source: "/static/images/curved-thin-arrow-icon.svg",
+                        xref: "paper",
+                        yref: "paper",
+                        x: 0.9,        // Position in the bottom right
+                        y: 0.1,
+                        sizex: 0.15,    // Scale of the arrow
+                        sizey: 0.15,
+                        xanchor: "right",
+                        yanchor: "bottom",
+                        layer: "above"
+                    }],
 
                     paper_bgcolor: "rgba(0,0,0,0)",
                     plot_bgcolor: "rgba(0,0,0,0)",
@@ -209,29 +265,45 @@
 
                     margin: {
                         t: 40,
-                        l: 210,
+                        l: 250,
                         r: 30,
-                        b: 40
+                        b: 80
                     },
 
                     xaxis: {
+                        title: {
+                            text: "Total Funding (Billions USD)",
+                            font: {
+                                size: 18,
+                                color: "#12253d",
+                                weight: 700
+                            },
+                            standoff: 30
+                        },
+                        tickfont: {
+                            size: 16,
+                            color: "#243b53",
+                            weight: 700
 
-                        showgrid: true,
-
+                        },
+                        showgrid: false,
                         gridcolor: "rgba(36,59,83,0.08)",
-
                         zeroline: false,
-
                         ticks: "",
+                        showline: false,
 
-                        showline: false
+
                     },
 
                     yaxis: {
 
                         autorange: "reversed",
-
                         showgrid: false,
+                        tickfont: {
+                            size: 16,
+                            color: "#12253d",
+                            weight: 700
+                        },
 
                         ticks: "",
 
@@ -265,6 +337,17 @@
 
                 renderGrants(displayCategory, result.grants);
 
+            });
+            chartDiv.on('plotly_hover', function (data) {
+                // Change the "glass" layer to a hand
+                const dragLayer = chartDiv.querySelector('.nsewdrag');
+                if (dragLayer) dragLayer.style.setProperty('cursor', 'pointer', 'important');
+            });
+
+            chartDiv.on('plotly_unhover', function (data) {
+                // Change it back to a normal arrow
+                const dragLayer = chartDiv.querySelector('.nsewdrag');
+                if (dragLayer) dragLayer.style.setProperty('cursor', 'default', 'important');
             });
         }
         function cleanAbstract(text) {
