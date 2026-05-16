@@ -464,7 +464,11 @@ def summarize(
         if not active_grants:
             raise HTTPException(status_code=400, detail="No grants found.") 
 
+        # calculate total budget
+        total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
+        
         # run clustering on the active grants to group them into homogeneous fractions for better summarization by the LLM
+  
 
         clusters = cluster_filtered_grants(active_grants)
 
@@ -484,6 +488,10 @@ def summarize(
 
         cluster_summaries = []
         for cluster_id, items in clusters.items():
+            cluster_budget = sum(float(g.get("amount") or 0) for g in items)
+
+            budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
+
             cluster_context = "\n".join([f"- Title: {g['title']}" for g in items[:15]])
 
             map_prompt = f"""
@@ -492,11 +500,16 @@ def summarize(
             These grants also may or may not also be filtered by the following terms: {query_intersection}.
 
             
-            Review this highly concentrated, semantically linked group of research grants:
+            Review this highly concentrated, semantically linked group of research grants and their funding:
             {cluster_context}
             
-            Identify the singular unifying objective or theme of this specific group given the above category and filters. 
-            Provide a 2-sentence highly precise abstract technical summary of what this group aims to achieve.
+            CRITICAL FINANCIAL METRICS FOR THIS CLUSTER:
+            - Total Allocated Funds: ${cluster_budget:,.2f}
+            - Portfolio Budget Share: {budget_share_pct:.1f}% of the currently filtered view space.
+
+            Provide a highly technical, 2-sentence summary of this cluster's scientific objective. 
+            You MUST open the summary by explicitly stating its financial footprint, formatted exactly like this:
+            "Accounting for ${cluster_budget:,.2f} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
             """
             response = client.models.generate_content(model = "gemini-3-flash-preview", contents = map_prompt)
             cluster_summaries.append(response.text)
@@ -507,16 +520,37 @@ def summarize(
         You are a principal scientific program director. You are analyzing research grants that are categorized with intent of {category_human_name} and therefore are focused on {category_mapping[category_human_name]}.
         These grants also may or may not also be filtered by the following terms: {query_intersection}.
         
+        The total budget of the relevant space is: ${total_filtered_budget:,.2f}.
+
         Below are thematic summaries describing distinct clusters of grants within the above category and filters:
         
         {master_context}
         
-        Synthesize these into a cohesive, professional "Executive Portfolio Briefing". 
-        Organize your response cleanly with markdown headings (##, ###). Include:
-        1. A 'Landscape Overview' synthesizing the overarching focus given the category and filters.
-        2. 'Key Strategic Pillars' highlighting the primary distinct clusters discovered.
-        3. 'Underfunded Gaps / Observations' pointing out opportunities or overlaps.
-        Do not use generic buzzwords; be technically precise.
+        Synthesize these into an executive-level dossier. You must adhere to the following strict layout and formatting rules:
+        1. DO NOT use generic bolded bullet points like '** Cluster Name **' or '* **Focus:**'. Use clean, professional paragraph prose under standard markdown headers.
+        2. Every cluster mentioned must be contextualized by the dollar amount ($) or budget percentage (%) allocated to it.
+        3. NEVER explicitly mention internal rule labels such as "Condition A", "Condition B", "Pathway A", or "the instruction criteria" in your final output text.
+        
+        Structure your response exactly with these three clean markdown sections:
+
+        # Executive Portfolio Briefing: Resource Allocation & Strategic Alignment
+
+        ## 1. Landscape Overview
+        Synthesize the overarching focus of this unique technical intersection. State the total active filtered budget (${total_filtered_budget:,.2f}) upfront. Highlight where capital is heavily migrating versus where investment density is low.
+
+        ## 2. Key Strategic Pillars
+        Detail the primary distinct strategic avenues discovered. Integrate the financial metrics seamlessly into the narrative prose for each pillar (e.g., "Accounting for X% of total allocated capital, the second pillar centers on..."). Focus heavily on the scale of capital velocity behind each theme.
+
+        ## 3. Resource Allocation Discrepancies & Strategic Trajectory
+        Analyze whether the current distribution of capital is balanced using the following condition based on the current category:
+
+        If the active category intent is APPLIED (Therapeutic, Diagnostic, Clinical / Health Systems, Observation Epidemiology)]
+        Evaluate if the distribution of capital aligns with known clinical disease burdens, global prevalence, or patient delivery bottlenecks. Contrast early-stage emerging technology plays against mature, commoditized technologies within this search space (e.g., checking if the portfolio over-allocates to old paradigms vs emerging technical shifts). 
+
+        If the active category intent is FOUNDATIONAL (Mechanistic / Basic Science, Research Tool, Infrastructure, Education / Training)]
+        Evaluate the portfolio based on technological maturity, methodological breadth, and platform obsolescence. Identify if the capital is stuck funding legacy baseline frameworks (e.g., traditional mapping techniques or outdated standard assays) or if it is adequately backing next-generation infrastructure platforms (e.g., cross-disciplinary AI integration, automated pipelines, or high-throughput single-cell platforms) necessary to support downstream clinical breakthroughs.
+
+        Address the current active filters directly and do not speak in broad generalities.
         """
         
         final_briefing = client.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
