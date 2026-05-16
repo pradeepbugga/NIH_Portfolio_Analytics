@@ -144,10 +144,26 @@
             </div>
 
             <div id="grant-results-right-panel">
-                <div id="ai-summary-container">
-                    <div id="ai-summary-title">AI Summary</div>
-                    <div id="ai-summary-content">Select a grant to see an AI-generated summary here.</div>
+                <!-- Active Workspace Header -->
+                <div class="panel-header">
+                    <h3>Portfolio Intelligence</h3>
+                    <p>Analyze trends inside your active search parameters.</p>
                 </div>
+
+                <!-- Dynamic AI Button Container -->
+                <div id="ai-workspace-area">
+                    <div class="ai-summary-card">
+                        <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
+                        <h4>Synthesize Active View Space</h4>
+                        <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+                        <button id="trigger-ai-briefing-btn" class="ai-action-btn">
+                            <span>✨ Build Executive Briefing</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Container where the markdown text will eventually render -->
+                <div id="ai-output-display" style="display: none;"></div>
             </div>
 
         </div>
@@ -723,6 +739,106 @@
                 document.getElementById("grant-results-container").scrollIntoView({ behavior: 'smooth' });
             }
         };
+
+        // event listener for AI summary
+        document.addEventListener("DOMContentLoaded", () => {
+            const aiBtn = document.getElementById("trigger-ai-briefing-btn");
+            if (aiBtn) {
+                aiBtn.onclick = generatePortfolioBriefing;
+
+            }
+        });
+        async function generatePortfolioBriefing() {
+            const workspace = document.getElementById("ai-workspace-area");
+            const outputDisplay = document.getElementById("ai-output-display");
+            const currentCategory = currentFilters.category || "All Categories";
+            const activeTagsList = currentFilters.searchTags || [];
+
+            // 1. Collect current active grant IDs from your global state tracking array
+            // (Ensure 'allGrants' holds your current FILTERED dataset)
+            const activeIds = allGrants.map(grant => grant.id || grant.grant_id);
+
+            if (activeIds.length === 0) {
+                alert("No grants found in your current filter view to summarize.");
+                return;
+            }
+
+            // 2. Set an active visual Loading State
+            workspace.innerHTML = `
+                <div class="ai-loading-state">
+                    <div class="spinner"></div>
+                    <p>Running HDBSCAN semantic grouping...</p>
+                    <span class="loading-sub">Mapping clusters and executing synthesis chains...</span>
+                </div>
+            `;
+            outputDisplay.style.display = "none";
+
+            try {
+                // 3. Make POST Request to your python endpoint
+                const response = await fetch("/api/summarize-portfolio", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        grant_ids: activeIds,
+                        active_category: currentCategory,
+                        search_queries: activeTagsList
+                    })
+                });
+
+                if (!response.ok) throw new Error("Briefing generation failed.");
+                const data = await response.json();
+
+                // 4. Render output results
+                // Note: If using markdown headers from LLM, parse via a markdown library or standard replacements
+                workspace.style.display = "none";
+                outputDisplay.style.display = "block";
+                outputDisplay.innerHTML = `
+                    <button onclick="resetAIWorkspace()" class="ai-back-btn">← Back to Workspace</button>
+                    <div class="markdown-body">${formatMarkdown(data.summary)}</div>
+                `;
+
+            } catch (error) {
+                console.error(error);
+                workspace.innerHTML = `
+                    <div class="ai-error-state">
+                        <p>⚠️ Failed to complete AI synthesis portfolio modeling.</p>
+                        <button onclick="resetAIWorkspace()" class="ai-action-btn">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Quick helper to restore workspace block structure if user wants to run it again on a different search
+        function resetAIWorkspace() {
+            const workspace = document.getElementById("ai-workspace-area");
+            const outputDisplay = document.getElementById("ai-output-display");
+
+            outputDisplay.style.display = "none";
+            workspace.style.display = "block";
+
+            // Restore original button setup
+            workspace.innerHTML = `
+                <div class="ai-summary-card">
+                    <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
+                    <h4>Synthesize Active View Space</h4>
+                    <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+                    <button id="trigger-ai-briefing-btn" class="ai-action-btn" onclick="generatePortfolioBriefing()">
+                        <span>✨ Build Executive Briefing</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Simple text formatter to safely clean basic Markdown headers if you aren't using marked.js
+        function formatMarkdown(text) {
+            return text
+                .replace(/### (.*)\n/g, '<h3>$1</h3>')
+                .replace(/## (.*)\n/g, '<h2>$1</h2>')
+                .replace(/\n\n/g, '<br><br>');
+        }
+
         window.addEventListener("DOMContentLoaded", () => {
             const searchInput = document.getElementById("grant-search-input");
             const searchForm = document.getElementById("grant-search-form");
