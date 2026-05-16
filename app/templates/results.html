@@ -6,7 +6,7 @@
     <title>{{ query }}</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="/static/css/styles.css?v=12">
+    <link rel="stylesheet" href="/static/css/styles_v12.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
 </head>
 
@@ -24,9 +24,19 @@
         </div>
     </div>
 
+    <div class="portfolio-header-layout">
+
+        <div class="portfolio-header-left">
+
+            <div class="portfolio-title">
+                {{ query }}
+            </div>
+        </div>
+    </div>
+
+
 
     <div class="page-container">
-        <h1 class="query-title">{{ query }}</h1>
 
         <div class="split-layout">
             <div class="left-pane">
@@ -41,6 +51,38 @@
             </div>
         </div>
     </div>
+
+    <div class="portfolio-container">
+        <div class="portfolio-split-layout">
+
+            <div class="portfolio-left-pane">
+
+                <div id="portfolio-funding-stat-container">
+                    <div id="portfolio-funding-amount"></div>
+                    <div class="portfolio-funding-caption">2025 Funding</div>
+                </div>
+
+            </div>
+
+            <div class="portfolio-right-pane">
+
+                <div id="categoryChart"></div>
+
+            </div>
+
+        </div>
+    </div>
+    */
+
+
+
+
+
+
+
+
+
+
 
 
 
