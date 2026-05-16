@@ -1,6 +1,6 @@
 #main.py
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query, Request, HTTPException
 from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
@@ -13,11 +13,29 @@ from core.search.combine import combine_and_sort
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
+from core.cluster.grant_clustering import cluster_filtered_grants
+from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
+from google import genai
+from pydantic import BaseModel
+from typing import List
+from dotenv import load_dotenv
+import os
+from core.category.mapping import category_mapping, machine_human_map
+
+load_dotenv()
+
+client = genai.Client()
 
 app = FastAPI(title="NIH Grant Search API")
 
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
+
+class SummaryRequest(BaseModel):
+    grant_ids: List[str] # Looks for "grant_ids"
+    active_category: str
+    search_queries: List[str] = None
+
 
 
 def normalize_query(q: str) -> str:
@@ -423,5 +441,89 @@ def portfolio_grants_search(
             "grants": ranked
         }
 
+    finally:
+        conn.close()
+
+
+@app.post("/api/summarize-portfolio")
+def summarize(
+    payload: SummaryRequest
+):
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+
+        # first we will generate a list of grant_ids to summarize based on the input string of comma-separated ids from the frontend
+
+        ids = [str(x) for x in payload.grant_ids if x]
+
+        active_grants = load_grant_embeddings_and_text(cur, ids)
+
+        if not active_grants:
+            raise HTTPException(status_code=400, detail="No grants found.") 
+
+        # run clustering on the active grants to group them into homogeneous fractions for better summarization by the LLM
+
+        clusters = cluster_filtered_grants(active_grants)
+
+        # summarize clusters concurrently 
+
+        # --- CONSTRUCT INTERSECTIONAL SEARCH CONTEXT ---
+        category_human_name = machine_human_map.get(payload.active_category, payload.active_category) 
+
+        query_intersection = "No filters applied"
+
+        # Filter out empty strings or whitespaces from the query list
+        clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
+        
+        if clean_queries:
+            # e.g., ["CRISPR", "Oncology"] -> "CRISPR AND Oncology"
+            query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
+
+        cluster_summaries = []
+        for cluster_id, items in clusters.items():
+            cluster_context = "\n".join([f"- Title: {g['title']}" for g in items[:15]])
+
+            map_prompt = f"""
+            You are analyzing a specialized cohort of research grants.
+            These are grants that are categorized with intent of {category_human_name} and therefore are focused on {category_mapping[category_human_name]}.
+            These grants also may or may not also be filtered by the following terms: {query_intersection}.
+
+            
+            Review this highly concentrated, semantically linked group of research grants:
+            {cluster_context}
+            
+            Identify the singular unifying objective or theme of this specific group given the above category and filters. 
+            Provide a 2-sentence highly precise abstract technical summary of what this group aims to achieve.
+            """
+            response = client.models.generate_content(model = "gemini-3-flash-preview", contents = map_prompt)
+            cluster_summaries.append(response.text)
+
+        # create master briefing
+        master_context = "\n\n".join(cluster_summaries)
+        reduce_prompt = f"""
+        You are a principal scientific program director. You are analyzing research grants that are categorized with intent of {category_human_name} and therefore are focused on {category_mapping[category_human_name]}.
+        These grants also may or may not also be filtered by the following terms: {query_intersection}.
+        
+        Below are thematic summaries describing distinct clusters of grants within the above category and filters:
+        
+        {master_context}
+        
+        Synthesize these into a cohesive, professional "Executive Portfolio Briefing". 
+        Organize your response cleanly with markdown headings (##, ###). Include:
+        1. A 'Landscape Overview' synthesizing the overarching focus given the category and filters.
+        2. 'Key Strategic Pillars' highlighting the primary distinct clusters discovered.
+        3. 'Underfunded Gaps / Observations' pointing out opportunities or overlaps.
+        Do not use generic buzzwords; be technically precise.
+        """
+        
+        final_briefing = client.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
+        
+        return {"summary": final_briefing.text}
+            
+
+     
     finally:
         conn.close()
