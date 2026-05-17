@@ -276,8 +276,48 @@ body.landing {
 }
 
 .header-left {
-    flex: 0 1 auto;
-    /* Don't force it to grow; let it take only what it needs */
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.header-left .search-form {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    /* Constrained for header so it doesn't span 920px */
+    border: 2px solid #12253d;
+    border-radius: 0px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background: white;
+    height: 46px;
+    /* Explicit height ensures flex elements stretch perfectly */
+}
+
+
+.header-left .search-form input::placeholder {
+    color: #12253d;
+    opacity: 0.82;
+    font-family: Inter, sans-serif;
+    /* Matches the .home-card-content opacity */
+}
+
+
+.header-left .search-button {
+    margin: -2px -2px -2px 0;
+    width: 38px;
+    background: #12253d;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    align-self: stretch;
+    border-radius: 0;
+    flex-shrink: 0;
 }
 
 
@@ -291,46 +331,64 @@ body.landing {
     /* Keep it on one line */
 }
 
-.query-title {
-    font-family: "primer", serif;
-    /* Uses your custom font */
-    font-style: italic;
-    /* This italicizes the text */
-    font-size: 60px;
-    /* Adjust size as needed */
-    color: #333;
-    /* Adjust color as needed */
-    margin-top: 20px;
-    text-align: center;
+.query-header-layout {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: clamp(2rem, 5vw, 6rem);
+    width: 100%;
+    padding-left: 5%;
+    padding-right: 5%;
+    box-sizing: border-box;
+    margin: 0 auto;
+    max-width: 108rem;
 }
 
-#chart {
-    width: 80%;
-    /* Adjust width as needed */
 
-    margin-right: 0;
+.funding-container {
+    padding-left: 5%;
+    padding-right: 5%;
+    display: flex;
+    justify-content: center;
 }
 
 .split-layout {
     display: flex;
     width: 100%;
-    min-height: 500px;
+    min-height: 42.5rem;
+    max-width: 98rem;
+    margin: 0 auto;
     /* Adjust based on how tall you want the section */
 }
 
 .left-pane {
-    flex: 1;
+    flex: 0.7;
     display: flex;
     justify-content: center;
-    /* Horizontal center */
     align-items: center;
-    /* Vertical center */
-    border-right: 1px solid #eee;
-    /* Optional divider */
+    border: white 2px solid;
+    border-radius: 8px;
+    background: #12253d;
 }
 
+
+
+
 .right-pane {
-    flex: 1;
+    flex: 1.6;
+    display: flex;
+
+    /* Change these two lines to force stretching */
+    justify-content: stretch;
+    align-items: stretch;
+
+    /* Keep your aesthetics */
+    border: #12253d 2px solid;
+    border-radius: 8px;
+    background: white;
+
+    /* Add a little padding so the chart grid lines aren't choking against the border */
     padding: 20px;
 }
 
@@ -340,10 +398,10 @@ body.landing {
 
 #funding-amount {
     font-family: 'Inter', sans-serif;
-    font-size: clamp(3rem, 8vw, 6rem);
+    font-size: 6rem;
     /* Makes it big */
     font-weight: bold;
-    color: #2c3e50;
+    color: white;
     /* Dark professional blue/grey */
     line-height: 1;
 }
@@ -351,12 +409,113 @@ body.landing {
 .funding-caption {
     font-family: 'Inter', sans-serif;
     font-size: 2rem;
-    color: #7f8c8d;
+    color: #aab8b9;
     /* Muted grey for caption */
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 10px;
 }
+
+#chart {
+    width: 100%;
+    /* Adjust width as needed */
+    height: 100%;
+    min-height: 22.5rem;
+    margin-right: 0;
+}
+
+
+.divider-asymmetric {
+    position: relative;
+    width: 120px;
+    margin: 60px auto 40px auto;
+    text-align: center;
+}
+
+/* Thick top accent block */
+.divider-asymmetric::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: #12253d;
+    margin: 0 auto 6px auto;
+}
+
+/* Long thin baseline */
+.divider-asymmetric::after {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 1px;
+    background: rgba(18, 37, 61, 0.3);
+    margin: 0 auto;
+}
+
+.category-title {
+    display: block;
+    font-size: 3.5rem;
+    margin-bottom: 40px;
+    font-family: primer, serif;
+    color: #333;
+    font-style: italic;
+    /* center the title */
+    text-align: center;
+    min-height: 4.5rem;
+    width: 100%;
+    clear: both;
+    text-align: center;
+}
+
+.category-header-layout {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: clamp(2rem, 5vw, 6rem);
+    width: 100%;
+    padding-left: 5%;
+    padding-right: 5%;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+.category-header-left {
+
+    flex: 2;
+    min-width: 0;
+}
+
+/* ========================= CATEGORY CHART STYLES ======================== */
+
+
+
+.ontology-section {
+    display: flex;
+    margin-top: 60px;
+    align-items: center;
+    justify-content: center;
+    margin: 60px auto 0 auto;
+    border: #12253d 2px solid;
+    border-radius: 8px;
+    background: white;
+    max-width: 70rem;
+    box-sizing: border-box;
+}
+
+
+#ontologyChart {
+    width: 100%;
+    height: 700px;
+}
+
+#ontologyChart .ytick text {
+    font-weight: 700 !important;
+}
+
+
+
+
 
 /* ----------------------- PORTFOLIO PAGE STYLES ---------------------- */
 
@@ -816,6 +975,44 @@ body.landing {
 /* ==========================================================================
    1 & 2: Grant Cards Hover & Pointer States
    ========================================================================== */
+#grant-results-layout {
+    display: grid;
+    grid-template-columns: 55% 45%;
+    /* Left column takes 55%, right panel takes 45% */
+    gap: 24px;
+    /* Clean spacing gap between the columns */
+    width: 100%;
+    align-items: start;
+    margin-top: 20px;
+    height: 80vh;
+}
+
+#grant-results-left-panel {
+    display: flex;
+    flex-direction: column;
+    /* Optional: Pins list height and scrolls internally if list gets exceptionally long */
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 8px;
+    /* Room for a neat scrollbar */
+
+}
+
+#grant-results-right-panel {
+    background-color: #ffffff;
+
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: #12253d 2px solid;
+    border-radius: 8px;
+
+    /* Sticky Positioning: Keeps the panel locked on screen while scrolling the page */
+    position: sticky;
+    top: 20px;
+    height: 100%;
+    overflow-y: auto;
+}
+
 .grant-card {
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
@@ -999,28 +1196,83 @@ body.landing {
     /* Keeps any original line break formatting inside abstract paragraphs intact */
 }
 
-/* Search page bar plot styling */
+/* ==========================================================================
+   4: Grant Results Pagination Controls
+   ========================================================================== */
 
-.ontology-section {
+#pagination-controls {
     display: flex;
-    gap: clamp(2rem, 4vw, 5rem);
-    margin-top: clamp(3rem, 8vw, 7rem);
-    align-items: flex-start;
-    flex-wrap: wrap;
-}
-
-.ontology-left-pane {
-    flex: 0.9;
-}
-
-.ontology-right-pane {
-    flex: 1.1;
-}
-
-#ontologyChart {
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
     width: 100%;
-    height: 700px;
 }
+
+/* =======================================================================
+   AI Summary Section Styles
+   ======================================================================= */
+.ai-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #2563eb;
+    /* Blue engine accent color */
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 16px;
+}
+
+
+.loading-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.ai-back-btn {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    padding: 0;
+}
+
+.ai-back-btn:hover {
+    text-decoration: underline;
+}
+
+.markdown-body h2 {
+    font-size: 18px;
+    color: #12253d;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.markdown-body h3 {
+    font-size: 15px;
+    color: #334155;
+    margin-top: 14px;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+
+
 
 
 
