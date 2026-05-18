@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 import os
 from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
+import time
 
 load_dotenv()
 
@@ -225,25 +226,73 @@ def categories_page(request: Request):
 
 @app.get("/agency/{agency_code}", response_class=HTMLResponse)
 def agency_portal(request: Request, agency_code: str):
+    t0 = time.time()
     conn = get_db_connection()
     cur = conn.cursor()
 
     try: 
+       
         target_code = agency_code.upper()
 
-        # 1. Update query to pull the exact timeline and ontology columns your analytical blocks need
-        query = """
-            
+        # ====================================================================
+        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS (Blazing Fast DB Aggregations)
+        # ====================================================================
+        t_start = time.time()
+        # A. Fetch historical timeline totals (1985-2026)
+        timeline_query = """
+            SELECT fiscal_year, SUM(total_award_amount)
+            FROM ResearchGrants
+            WHERE agency_code = %s
+            GROUP BY fiscal_year
+            ORDER BY fiscal_year ASC;
+        """
+        cur.execute(timeline_query, (target_code,))
+        timeline_rows = cur.fetchall()
+        print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
+        years = [row[0] for row in timeline_rows]
+        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
+
+        # B. Fetch macro ontology distribution totals across all history
+        t_start = time.time()
+        ontology_query = """
+            SELECT               
+                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
+            FROM ResearchGrants rg
+            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            WHERE rg.agency_code = %s;
+        """
+        cur.execute(ontology_query, (target_code,))
+        onto_row = cur.fetchone()
+        print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
+        ontology_labels = [
+            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
+            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
+        ]
+        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+
+        # ====================================================================
+        # 📋 STEP 2: TABLE REVIEWS (Filtered Strictly to 2025 Viewport)
+        # ====================================================================
+        t_start = time.time()
+        table_query = """
             SELECT
                 rg.grant_id,
                 rg.project_title,
                 o.name AS organization,
                 rg.contact_pi_id,
-                rg.total_award_amount,  -- Maps to 'amount' below
-                rg.abstract,
+                rg.total_award_amount,
                 rg.agency_ic,
-                rg.fiscal_year,         -- Crucial for extract_funding()
-                gl.mechanistic,         -- Crucial for extract_ontology_distribution()
+                rg.abstract,
+                rg.fiscal_year,
+                gl.mechanistic,
                 gl.therapeutic,
                 gl.diagnostic,
                 gl.research_tool,
@@ -252,18 +301,16 @@ def agency_portal(request: Request, agency_code: str):
                 gl.education,
                 gl.obs_ep
             FROM ResearchGrants rg
-            LEFT JOIN grant_labels gl
-                ON rg.grant_id = gl.grant_id
-            LEFT JOIN organizations o
-                ON rg.organization_id = o.id
-            WHERE
-                rg.agency_code = %s
-            ORDER BY rg.fiscal_year ASC, rg.total_award_amount DESC
+            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            LEFT JOIN organizations o ON rg.organization_id = o.id
+            WHERE 
+                rg.agency_code = %s 
+                AND rg.fiscal_year = 2025 -- ✨ Keep memory completely flat
+            ORDER BY rg.total_award_amount DESC;
         """
-
-        cur.execute(query, (target_code,))
+        cur.execute(table_query, (target_code,))
         rows = cur.fetchall()
-
+        print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
         grants = []
         for row in rows:
             grants.append({
@@ -271,12 +318,10 @@ def agency_portal(request: Request, agency_code: str):
                 "title": row[1],
                 "organization": row[2] if row[2] else "Unknown Institution",
                 "pi": row[3],
-                "amount": float(row[4]) if row[4] else 0.0,  # ✨ Named 'amount' to feed extract functions!
-                "abstract": row[5] if row[5] else "",
-                "agency_ic": row[6],
-                "fiscal_year": int(row[7]) if row[7] else datetime.now().year, # ✨ Fed to extract_funding
-                
-                # ✨ Ontology keys matching your exact mapping structure lookups
+                "amount": float(row[4]) if row[4] else 0.0,
+                "agency_ic": row[5],
+                "abstract": row[6] if row[6] else "No abstract available.",
+                "fiscal_year": int(row[7]) if row[7] else 2025,                
                 "mechanistic": row[8],
                 "therapeutic": row[9],
                 "diagnostic": row[10],
@@ -287,14 +332,13 @@ def agency_portal(request: Request, agency_code: str):
                 "obs_ep": row[15]
             })
 
-        # 2. Package into the structure your helper systems expect
-        envelope = {"records": grants}
+        cur.close()
+        conn.close()
 
-        # 3. Leverage your existing core functional workflows instantly! 🚀
-        years, funding = extract_funding(envelope)
-        ontology_labels, ontology_values = extract_ontology_distribution(envelope)
-
-        # 4. Resolve the Human Readable Display Name from your localized asset mapping
+        # ====================================================================
+        # 🏢 STEP 3: RESOLVE CSV METADATA DISPLAY NAME
+        # ====================================================================
+        t_start = time.time()
         script_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
         
@@ -304,9 +348,11 @@ def agency_portal(request: Request, agency_code: str):
             matched_rows = df[df["funding_code"] == target_code]["agency_ic"].values
             if len(matched_rows) > 0:
                 display_title = matched_rows[0]
-
-
-        # 5. Hand over data to results.html dashboard canvas tracking variables
+        print(f"⏱️ CSV Metadata Parsing took: {time.time() - t_start:.4f}s")
+        # ====================================================================
+        # 🎨 STEP 4: RENDER RESULTS PAGE INSTANTLY
+        # ====================================================================
+        print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
         return templates.TemplateResponse(
             "results.html",
             {
@@ -314,7 +360,7 @@ def agency_portal(request: Request, agency_code: str):
                 "query": display_title,
                 "years": years,
                 "funding": funding,
-                "results": grants, # Keep passing the raw parsed list to your frontend cards table loop
+                "results": grants, # Populates the 2025 UI data table view flawlessly
                 "ontology_labels": ontology_labels,
                 "ontology_values": ontology_values
             }
