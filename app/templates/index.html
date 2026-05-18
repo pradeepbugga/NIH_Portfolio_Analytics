@@ -38,26 +38,40 @@
                     <div class="home-card-content-block">
                         <div class="home-card-title"> Explore Categories</div>
                         <div class="home-card-description">
-                            See breakdown of NIH funding categorized by grant intent
+                            See breakdown of NIH funding <br>categorized by grant intent
                         </div>
                     </div>
 
 
                 </a>
 
-                <a href="/agencies" class="home-card agency-accent-card">
+                <div class="home-card-control">
                     <div class="home-card-icon-block">
                         <i data-lucide="building-2"></i>
                     </div>
                     <div class="home-card-content-block">
                         <div class="home-card-title">Explore by Agency</div>
-                        <div class="home-card-description">
-                            See breakdown by individual NIH Institutes and
-                            Centers (ICs).
+
+                        <div class="home-card-dropdown-wrapper">
+                            <select id="landing-agency-selector" class="home-card-select-engine"
+                                onchange="routeToAgency(this.value)">
+                                <option value="" disabled selected hidden>Select an NIH Institute (IC)...</option>
+
+                                {% if agencies %}
+                                {% for agency in agencies %}
+                                <option value="{{ agency['funding_code'] }}">
+                                    {{ agency['agency_ic'] }} ({{ agency['abbreviation'] }})
+                                </option>
+                                {% endfor %}
+                                {% else %}
+                                <option value="" disabled>Error: No Agencies Found on Server</option>
+                                {% endif %}
+
+                            </select>
                         </div>
                     </div>
 
-                </a>
+                </div>
             </div>
         </div>
         <div class="search-divider">
@@ -76,6 +90,16 @@
 
     <script>lucide.createIcons(); </script>
     <script src="/static/js/script.js"></script>
+    <script>
+        function routeToAgency(fundingCode) {
+            if (!fundingCode) return;
+
+            // Redirects out cleanly to your master dynamic unified workspace!
+            // Example target format: /agency/ca or /agency/ai
+            window.location.href = `/agency/${fundingCode.toLowerCase()}`;
+        }
+
+    </script>
 
 </body>
 
