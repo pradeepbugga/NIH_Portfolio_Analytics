@@ -251,18 +251,39 @@
         }
 
         // --- LINE CHART: HISTORICAL TRENDS ---
-        Plotly.newPlot("chart", [{
-            x: years,
-            /* cut y off after 2025*/
-            y: funding.map((value, index) => years[index] > 2025 ? null : value),
-            type: "scatter",
-            mode: "lines",
-            line: {
-                width: 3,
-                color: "#5a82b0"
-            },
-            hovertemplate: '<b>Funding</b>: $%{y:.2s}<extra></extra>',
-        }],
+        Plotly.newPlot(
+            "chart",
+            // 1. DATA ARRAY
+            [{
+                x: years,
+                /* cut y off after 2025*/
+                y: funding.map((value, index) => years[index] > 2025 ? null : value),
+                type: "scatter",
+                mode: "lines",
+                line: {
+                    width: 3,
+                    color: "#5a82b0"
+                },
+                // Map custom text directly to avoid D3 formatting errors entirely
+                // DYNAMIC FIX: Check if the value hits the Billions or Millions threshold
+                text: funding.map((value, index) => {
+                    if (years[index] > 2025 || value === null || value === undefined) return "";
+
+                    if (value >= 1e9) {
+                        return `$${(value / 1e9).toFixed(1)}B`;  // Shows e.g., $1.5B
+                    } else if (value >= 1e6) {
+                        return `$${(value / 1e6).toFixed(0)}M`;  // Shows e.g., $200M
+
+                    } else if (value >= 1e3) {
+                        return `$${(value / 1e3).toFixed(0)}K`;  // Shows e.g., $850K 
+                    } else {
+                        return `$${value.toLocaleString()}`;      // Fallback for smaller thousands
+                    }
+                }),
+                // Tell the hovertemplate to display our custom text array string
+                hovertemplate: '<b>Funding</b>: %{text}<extra></extra>',
+            }],
+            // 2. LAYOUT OBJECT
             {
                 font: { family: "'Inter', sans-serif", size: 14, color: "#1a365d" },
                 title: {
@@ -276,14 +297,27 @@
                 xaxis: {
                     title: { text: "Year", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
                     tickfont: { size: 20, color: "#12253d", weight: 700 },
-                    showgrid: false, automargin: true
+                    showgrid: false,
+                    automargin: true
                 },
                 yaxis: {
                     title: { text: "USD ($)", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
                     tickfont: { size: 20, color: "#12253d", weight: 700 },
-                    ticks: "", automargin: true
+                    ticks: "",
+                    automargin: true,
+                    showgrid: false,
+
+                    // FIXES FOR THE Y-AXIS LOOK:
+                    tickprefix: "$",        // Prepends a dollar sign to numbers
+                    exponentformat: "B",    // Forces standard financial abbreviations (K, M, B) over (k, M, G)
                 }
-            }, { responsive: true, displayModeBar: false });
+            },
+            // 3. CONFIG OBJECT
+            {
+                responsive: true,
+                displayModeBar: false
+            }
+        );
 
 
         // --- MODAL VIEW FOR ABSTRACTS (Adapted for results.html) ---
@@ -515,7 +549,23 @@
                 reversescale: false,
                 line: { color: '#12253d', width: 1 }
             },
-            hovertemplate: "$%{x:.2s}<extra></extra>"
+            // 1. Map custom text directly to avoid D3 formatting errors entirely
+            text: sortedRawValues.map(value => {
+                if (value === null || value === undefined) return "";
+                // Dynamically handles values in Billions (B) or Millions (M)
+                if (value >= 1e9) {
+                    return `$${(value / 1e9).toFixed(1)}B`;
+                } else if (value >= 1e6) {
+                    return `$${(value / 1e6).toFixed(1)}M`;
+                } else if (value >= 1e3) {
+                    return `$${(value / 1e3).toFixed(0)}K`;
+                } else {
+                    return `$${value.toLocaleString()}`;
+                }
+            }),
+
+            // 2. Tell the hovertemplate to look at your custom text mapping
+            hovertemplate: "%{text}<extra></extra>"
         }],
             {
                 title: {
@@ -531,24 +581,29 @@
                     bordercolor: "#12253d", align: "left"
                 },
                 annotations: [{
-                    x: 0.97, y: 0.05, xref: 'paper', yref: 'paper',
-                    text: "Click on a bar to filter grants!",
+                    x: 0.76, y: 0.2, xref: 'paper', yref: 'paper',
+                    text: "Click on a bar<br> to filter grants!",
                     showarrow: false, xanchor: 'right', layer: 'above',
-                    font: { size: 15, color: '#12253d' }
+                    font: { size: 20, color: 'red' }
                 }],
                 images: [{
                     source: "/static/images/curved-thin-arrow-icon.svg",
-                    xref: "paper", yref: "paper", x: 0.9, y: 0.1, sizex: 0.15, sizey: 0.15,
+                    xref: "paper", yref: "paper", x: 0.7, y: 0.3, sizex: 0.15, sizey: 0.15,
                     xanchor: "right", yanchor: "bottom", layer: "above"
                 }],
                 paper_bgcolor: "rgba(0,0,0,0)",
                 plot_bgcolor: "rgba(0,0,0,0)",
                 font: { family: "'Inter', sans-serif", size: 14, color: "#243b53" },
                 margin: { t: 90, l: 250, r: 30, b: 80 },
+
+                // 3. APPLY FIXES TO THE X-AXIS (since numbers are on X here)
                 xaxis: {
                     title: { text: "Total Funding (USD)", font: { size: 18, color: "#12253d", weight: 700 }, standoff: 30 },
                     tickfont: { size: 16, color: "#243b53", weight: 700 },
                     showgrid: false, zeroline: false, ticks: "", showline: false,
+
+                    tickprefix: "$",        // Prepends a dollar sign to the axis labels
+                    exponentformat: "B",    // Forces standard financial abbreviations (K, M, B) over (k, M, G)
                 },
                 yaxis: {
                     autorange: "reversed", showgrid: false,
