@@ -7,8 +7,6 @@
 
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
-
-
     <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
 </head>
 
@@ -619,7 +617,7 @@
             updatePaginationControls();
         }
 
-        // --- MODAL VIEW FOR ABSTRACTS ---
+        // --- MODAL VIEW FOR ABSTRACTS (Lazy-Loading for portfolio.html) ---
         function showGrantDetail(grant) {
             // 1. Remove old modal instance if it exists
             const oldModal = document.getElementById("grant-modal");
@@ -631,31 +629,33 @@
                 currency: 'USD',
                 notation: 'compact',
                 maximumFractionDigits: 1
-            }).format(grant.funding);
+            }).format(grant.funding || 0);
 
-            // 3. Create Modal layout structure dynamically
+            // 3. Create Modal layout structure dynamically with an active loading state
             const modal = document.createElement("div");
             modal.id = "grant-modal";
             modal.className = "grant-modal-overlay";
 
             modal.innerHTML = `
-                <div class="grant-modal-content">
-                    <span class="grant-modal-close">&times;</span>
-                    <div class="grant-modal-header">
-                        <h2 class="grant-detail-title">${grant.title}</h2>
-                        <div class="grant-modal-meta">
-                            <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
-                            <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
-                            <strong>Funding Amount:</strong> ${funding}
-                        </div>
-                    </div>
-                    <hr class="modal-divider">
-                    <div class="grant-detail-abstract">
-                        <h3>Abstract</h3>
-                        <p>${cleanAbstract(grant.abstract) || "No abstract available."}</p>
-                    </div>
+        <div class="grant-modal-content">
+            <span class="grant-modal-close">&times;</span>
+            <div class="grant-modal-header">
+                <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
+                <div class="grant-modal-meta">
+                    <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
+                    <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
+                    <strong>Funding Amount:</strong> ${funding}
                 </div>
-            `;
+            </div>
+            <hr class="modal-divider">
+            <div class="grant-detail-abstract">
+                <h3>Abstract</h3>
+                <div id="modal-abstract-viewport" class="abstract-loading-state">
+                    <p style="color: #6b7280; font-style: italic;">Loading project documentation summary...</p>
+                </div>
+            </div>
+        </div>
+    `;
 
             // 4. Append to body to bypass any parent container stacking restrictions
             document.body.appendChild(modal);
@@ -668,6 +668,35 @@
             modal.onclick = (e) => {
                 if (e.target === modal) closeModal(); // Close if background overlay is clicked
             };
+
+            // 🚀 7. ASYNC LAZY FETCH: Pull the abstract from the micro API endpoint on demand
+            const targetId = grant.grant_id;
+            if (targetId) {
+                fetch(`/api/grant/${targetId}/abstract`)
+                    .then(response => {
+                        if (!response.ok) throw new Error("Network record fetch anomaly.");
+                        return response.json();
+                    })
+                    .then(data => {
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            // Inject and process the string text typography safely
+                            viewport.innerHTML = `<p>${cleanAbstract(data.abstract) || "No abstract data recorded for this entry."}</p>`;
+                        }
+                    })
+                    .catch(err => {
+                        console.error("❌ Lazy-loading failure on portfolio view:", err);
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            viewport.innerHTML = `<p style="color: #ef4444;">Failed to load project summary documentation dynamically.</p>`;
+                        }
+                    });
+            } else {
+                const viewport = document.getElementById("modal-abstract-viewport");
+                if (viewport) {
+                    viewport.innerHTML = `<p style="color: #6b7280; font-style: italic;">No grant tracking token found for this row index.</p>`;
+                }
+            }
         }
 
         // --- CLEAN HELPER TO GENERATE GRANT CARDS ---
