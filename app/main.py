@@ -13,7 +13,7 @@ from core.search.combine import combine_and_sort
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
-from core.cluster.grant_clustering import cluster_filtered_grants
+from core.cluster.agglomerative_clustering import cluster_filtered_grants
 from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
 from google import genai
 from pydantic import BaseModel
@@ -34,8 +34,13 @@ templates = Jinja2Templates(directory="./app/templates")
 class SummaryRequest(BaseModel):
     grant_ids: List[str] # Looks for "grant_ids"
     active_category: str
-    search_queries: List[str] = None
+    search_queries: List[str] 
 
+class SearchRequest(BaseModel):
+    year: str
+    category: str
+    query: str
+    existing_ids: List[str] # Validated as a native array of strings
 
 
 def normalize_query(q: str) -> str:
@@ -74,13 +79,13 @@ def home(request: Request):
 def extract_ontology_distribution(results):
 
     labels = [
-        ("Mechanistic", "mechanistic"),
+        ("Mechanistic / Basic Science", "mechanistic"),
         ("Therapeutic", "therapeutic"),
         ("Diagnostic", "diagnostic"),
         ("Research Tool", "research_tool"),
         ("Clinical / Health Systems", "clinical"),
-        ("Infrastructure", "infrastructure"),
-        ("Education", "education"),
+        ("Research Infrastructure", "infrastructure"),
+        ("Education / Training", "education"),
         ("Observational Epidemiology", "obs_ep")
     ]
 
@@ -248,7 +253,7 @@ def portfolio_categories(
             "Research Tool": row[3] or 0,
             "Clinical / Health Systems": row[4] or 0,
             "Research Infrastructure": row[5] or 0,
-            "Education": row[6] or 0,
+            "Education / Training": row[6] or 0,
             "Observational Epidemiology": row[7] or 0
         }
 
@@ -336,12 +341,9 @@ def portfolio_grants(
     finally:
         conn.close()
 
-@app.get("/api/portfolio/grants/search")
+@app.post("/api/portfolio/grants/search")
 def portfolio_grants_search(
-    year: int,
-    category: str,
-    query: str,
-    existing_ids: str = None
+    payload: SearchRequest
 ):
 
     category_columns = {
@@ -355,10 +357,10 @@ def portfolio_grants_search(
         "obs_ep": "obs_ep"
     }
 
-    if category not in category_columns:
+    if payload.category not in category_columns:
         return {"error": "Invalid category"}
 
-    column = category_columns[category]
+    column = category_columns[payload.category]
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -369,8 +371,8 @@ def portfolio_grants_search(
 
         # start with if frontend provides list of grants, use those
 
-        if existing_ids: 
-            allowed_grant_ids = [str(x) for x in existing_ids.split(",") if x]
+        if payload.existing_ids:
+           allowed_grant_ids = [str(x).strip() for x in payload.existing_ids if x]
 
         # if not, filter by category but not by existing list
         else: 
@@ -394,7 +396,7 @@ def portfolio_grants_search(
 
             allowed_grant_ids = [row[0] for row in cur.fetchall()]
 
-        query_vec = embed_query(query)
+        query_vec = embed_query(payload.query)
         query_vec_list = query_vec.tolist()
 
         candidates = retrieve_candidates_range_portfolio(
@@ -416,7 +418,7 @@ def portfolio_grants_search(
 
         # reranking
         doc_texts = [d["text"] for d in docs]
-        scores = rerank_fn.remote(query, doc_texts)
+        scores = rerank_fn.remote(payload.query, doc_texts)
 
         ranked = combine_and_sort(docs, scores)
 
@@ -435,11 +437,13 @@ def portfolio_grants_search(
             )
 
         return {
-            "query": query,
-            "category": category,
-            "year": year,
+            "query": payload.query,
+            "category": payload.category,
+            "year": payload.year,
             "grants": ranked
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search pipeline execution failed: {str(e)}")
 
     finally:
         conn.close()
@@ -477,6 +481,8 @@ def summarize(
         # --- CONSTRUCT INTERSECTIONAL SEARCH CONTEXT ---
         category_human_name = machine_human_map.get(payload.active_category, payload.active_category) 
 
+    
+
         query_intersection = "No filters applied"
 
         # Filter out empty strings or whitespaces from the query list
@@ -487,6 +493,8 @@ def summarize(
             query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
 
         cluster_summaries = []
+
+        print("filters", query_intersection)
         for cluster_id, items in clusters.items():
             cluster_budget = sum(float(g.get("amount") or 0) for g in items)
 
@@ -531,6 +539,9 @@ def summarize(
         2. Every cluster mentioned must be contextualized by the dollar amount ($) or budget percentage (%) allocated to it.
         3. NEVER explicitly mention internal rule labels such as "Condition A", "Condition B", "Pathway A", or "the instruction criteria" in your final output text.
         
+
+        
+
         Structure your response exactly with these three clean markdown sections:
 
         # Executive Portfolio Briefing: Resource Allocation & Strategic Alignment
@@ -543,6 +554,11 @@ def summarize(
 
         ## 3. Resource Allocation Discrepancies & Strategic Trajectory
         Analyze whether the current distribution of capital is balanced using the following condition based on the current category:
+
+        CRITICAL PRE-FILTER RULE: 
+        The user has applied the following explicit search constraints: {query_intersection}.
+        If a search constraint is active, DO NOT criticize the portfolio for lacking other diseases
+        (e.g., do not say it lacks cardiovascular or infectious disease focus). The user has intentionally isolated this subset. Instead, evaluate the internal allocation discrepancies *within* this restricted search space (e.g., inside this '{query_intersection}' portfolio, how is capital distributed between early-stage discovery vs longitudinal tracking, or high-cost assays vs screening?).
 
         If the active category intent is APPLIED (Therapeutic, Diagnostic, Clinical / Health Systems, Observation Epidemiology)]
         Evaluate if the distribution of capital aligns with known clinical disease burdens, global prevalence, or patient delivery bottlenecks. Contrast early-stage emerging technology plays against mature, commoditized technologies within this search space (e.g., checking if the portfolio over-allocates to old paradigms vs emerging technical shifts). 
