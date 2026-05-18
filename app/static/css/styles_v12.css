@@ -933,11 +933,45 @@ body.landing {
 }
 
 
+/* Skeleton Loader Structure */
+.chart-skeleton {
+    width: 100%;
+    height: 400px;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: chartShimmer 1.5s infinite linear;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4b5563;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+@keyframes chartShimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+
+
 #categoryChart {
 
     width: 100%;
     height: clamp(450px, 65vh, 700px);
     min-width: 0;
+    opacity: 0;
+}
+
+#categoryChart.loaded {
+    opacity: 1;
+    transition: opacity 0.5s ease-in;
 }
 
 .force-hand {
@@ -949,52 +983,6 @@ body.landing {
     cursor: default !important;
 }
 
-/* ---- PORTFOLIO PULSE ANIMATION DIVIDER -------- */
-
-.pulse-container {
-    width: 100%;
-    height: 80px;
-    margin: 40px 0;
-    display: flex;
-    align-items: center;
-}
-
-.pulse-svg {
-    width: 100%;
-    height: 100%;
-}
-
-.pulse-back {
-    fill: none;
-    stroke: rgba(18, 37, 61, 0.1);
-    /* Very faint version of your dark blue */
-    stroke-width: 1;
-}
-
-.pulse-glow {
-    fill: none;
-    stroke: #12253d;
-    stroke-width: 2;
-    stroke-dasharray: 200;
-    stroke-dashoffset: 200;
-    animation: pulse-travel 4s linear infinite;
-}
-
-@keyframes pulse-travel {
-    0% {
-        stroke-dashoffset: 1000;
-        opacity: 0;
-    }
-
-    50% {
-        opacity: 1;
-    }
-
-    100% {
-        stroke-dashoffset: 0;
-        opacity: 0;
-    }
-}
 
 /* ------------------------ GRANT RESULTS PAGE STYLES ---------------------- */
 
