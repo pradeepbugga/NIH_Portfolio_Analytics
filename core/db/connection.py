@@ -7,7 +7,14 @@ from core.config import POSTGRES_CONFIG
 
 
 def get_db_connection():
-    return psycopg2.connect(**POSTGRES_CONFIG)
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    cur = conn.cursor()
+
+    cur.execute("SET work_mem = '64MB';")
+    cur.close()
+    
+    return conn
+
 
 def get_sqlite_connection(db_path: str):
     conn = sqlite3.connect(db_path)
