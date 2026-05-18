@@ -320,7 +320,7 @@
         );
 
 
-        // --- MODAL VIEW FOR ABSTRACTS (Adapted for results.html) ---
+        // --- MODAL VIEW FOR ABSTRACTS (Optimized for On-Demand Fetching) ---
         function showGrantDetail(grant) {
             const oldModal = document.getElementById("grant-modal");
             if (oldModal) oldModal.remove();
@@ -351,24 +351,29 @@
             modal.id = "grant-modal";
             modal.className = "grant-modal-overlay";
 
+            // 🌟 Inject placeholder layout with an un-flickering loading state
             modal.innerHTML = `
-                <div class="grant-modal-content">
-                    <span class="grant-modal-close">&times;</span>
-                    <div class="grant-modal-header">
-                        <h2 class="grant-detail-title">${grantTitle}</h2>
-                        <div class="grant-modal-meta">
-                            <strong>Organization:</strong> ${organizationName}<br>
-                            <strong>Principal Investigator:</strong> ${principalInvestigator}<br>
-                            <strong>Funding Amount:</strong> ${funding}
-                        </div>
-                    </div>
-                    <hr class="modal-divider">
-                    <div class="grant-detail-abstract">
-                        <h3>Abstract</h3>
-                        <p>${cleanAbstract(grant.abstract) || "No abstract available."}</p>
-                    </div>
+        <div class="grant-modal-content">
+            <span class="grant-modal-close">&times;</span>
+            <div class="grant-modal-header">
+                <h2 class="grant-detail-title">${grantTitle}</h2>
+                <div class="grant-modal-meta">
+                    <strong>Organization:</strong> ${organizationName}<br>
+                    <strong>Principal Investigator:</strong> ${principalInvestigator}<br>
+                    <strong>Funding Amount:</strong> ${funding}
                 </div>
-            `;
+            </div>
+            <hr class="modal-divider">
+            <div class="grant-detail-abstract">
+                <h3>Abstract</h3>
+                <div id="modal-abstract-viewport" class="abstract-loading-state">
+                    <p style="color: #6b7280; font-style: italic; display: flex; align-items: center; gap: 8px;">
+                        <span>Loading project documentation summary...</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
 
             document.body.appendChild(modal);
             setTimeout(() => modal.classList.add("active"), 10);
@@ -377,6 +382,33 @@
             modal.onclick = (e) => {
                 if (e.target === modal) closeModal();
             };
+
+            // 🚀 ASYNC LAZY FETCH: Hits the microscopic primary key micro-endpoint 
+            const targetId = grant.grant_id;
+            if (targetId) {
+                fetch(`/api/grant/${targetId}/abstract`)
+                    .then(response => {
+                        if (!response.ok) throw new Error("Network record fetch anomaly.");
+                        return response.json();
+                    })
+                    .then(data => {
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            // Render clean, processed string typography
+                            viewport.innerHTML = `<p>${cleanAbstract(data.abstract) || "No abstract data recorded for this entry."}</p>`;
+                        }
+                    })
+                    .catch(err => {
+                        console.error("❌ Lazy-loading failure:", err);
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            viewport.innerHTML = `<p style="color: #ef4444;">Failed to load project summary documentation dynamically.</p>`;
+                        }
+                    });
+            } else {
+                const viewport = document.getElementById("modal-abstract-viewport");
+                if (viewport) viewport.innerHTML = `<p>No abstract validation identity index tracking associated with this node.</p>`;
+            }
         }
         // --- MODAL CLOSE HELPER ---
         function closeModal() {
@@ -405,6 +437,71 @@
         }
 
         // --- RECALCULATION ENGINES ---
+
+        async function applyFilters() {
+            const loadingEl = document.getElementById("loading-message");
+            if (loadingEl) loadingEl.style.display = "flex";
+
+            const category = currentFilters.category || null;
+            const queriesArray = currentFilters.queries || [];
+            const year = "2025";
+
+            // Grab the latest sub-filter query term entered by the user
+            const latestQuery = queriesArray[queriesArray.length - 1] || "";
+
+            // Lock subsequent semantic searches to your active filtered set of IDs
+            const validIds = allGrants
+                .map(g => g.grant_id || g.id)
+                .filter(id => id != null && id !== "");
+
+            let url;
+            let fetchOptions = { method: "GET" };
+
+            if (latestQuery === "") {
+                // Fallback or default view state: fetch category subset natively
+                url = `/api/portfolio/grants?year=${year}&category=${category}`;
+            } else {
+                // Hit the server-side semantic backend routing payload
+                url = `/api/portfolio/grants/search`;
+                fetchOptions = {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        year: year,
+                        category: category,
+                        query: latestQuery,
+                        existing_ids: validIds
+                    })
+                };
+            }
+
+            try {
+                const response = await fetch(url, fetchOptions);
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    console.error("Filter request error payload:", errorBody);
+                    return;
+                }
+
+                const data = await response.json();
+                allGrants = data.grants || [];
+                currentPage = 1; // Reset window indices back to page one
+
+                // Redraw dynamic page filters, headers, counts, and active tables
+                const humanName = Object.keys(localCategoryMap).find(key => localCategoryMap[key] === category) || category;
+                renderFilters(humanName);
+                updateTotals(allGrants);
+                renderGrants(allGrants);
+
+            } catch (err) {
+                console.error("Filtering engine pipeline failure:", err);
+            } finally {
+                if (loadingEl) loadingEl.style.display = "none";
+            }
+        }
+
+
         function updateTotals(grantsList) {
             const count = grantsList.length;
             // Evaluates both grant.funding and grant.amount fallback structures correctly
@@ -666,6 +763,30 @@
         if (aiBriefingBtn) {
             aiBriefingBtn.onclick = generatePortfolioBriefing;
         }
+
+
+        // ✨ ADD THIS FILTER FORM LISTENER TO PREVENT PAGE REFRESH:
+        const searchForm = document.getElementById("grant-search-form");
+        const searchInput = document.getElementById("grant-search-input");
+
+        if (searchForm && searchInput) {
+            searchForm.addEventListener("submit", function (event) {
+                // Prevent the browser from refreshing the page
+                event.preventDefault();
+
+                const queryValue = searchInput.value.trim();
+                if (queryValue) {
+                    // Push to state and clear input box
+                    currentFilters.queries.push(queryValue);
+                    searchInput.value = "";
+
+                    // Trigger your recalculation pipeline
+                    applyFilters();
+                }
+            });
+        }
+
+
 
         // Arrow Control Actions (Adapted to use results.html context variables)
         document.getElementById("next-btn").onclick = () => {
