@@ -115,6 +115,22 @@ body.landing {
     background-color: #c3d7eb;
 }
 
+.home-card-control {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    border: 2px solid #12253d;
+    text-decoration: none;
+    color: #12253d;
+    background: white;
+    overflow: hidden;
+
+    height: 120px;
+    box-sizing: border-box;
+    transition: all 0.2s ease-in-out;
+}
+
+
 .home-card-icon-block {
     width: 78px;
     background: #12253d;
@@ -173,6 +189,44 @@ body.landing {
     color: #4a5568;
     /* Balanced gray for readability */
 }
+
+
+/* --- Dropdown Form Container Variant (Pillar B) --- */
+.home-card-dropdown-wrapper {
+    position: relative;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.home-card-select-engine {
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85em;
+    font-weight: 400;
+    color: #12253d;
+    background-color: #ffffff;
+    border: 1px solid #12253d;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+.home-card-select-engine:hover {
+    background-color: #f7fafc;
+}
+
+.home-card-select-engine:focus {
+    border-color: #a5b4fc;
+    background-color: #ffffff;
+}
+
+
+
+
+
+
 
 .search-divider {
     width: 100%;
@@ -313,77 +367,7 @@ body.landing {
 
 
 /* ---------------------- RESULTS PAGE STYLES ---------------------- */
-.results-header {
-    width: 100%;
-    border-bottom: 1px solid #eee;
-    padding: 15px 0;
-}
 
-.results-header .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 95%;
-    /* Use percentage to ensure it hits the edges */
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-.header-left {
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-
-.header-left .search-form {
-    display: flex;
-    width: 100%;
-    max-width: 600px;
-    /* Constrained for header so it doesn't span 920px */
-    border: 2px solid #12253d;
-    border-radius: 0px;
-    overflow: hidden;
-    transition: border-color 0.3s, box-shadow 0.3s;
-    background: white;
-    height: 46px;
-    /* Explicit height ensures flex elements stretch perfectly */
-}
-
-
-.header-left .search-form input::placeholder {
-    color: #12253d;
-    opacity: 0.82;
-    font-family: Inter, sans-serif;
-    /* Matches the .home-card-content opacity */
-}
-
-
-.header-left .search-button {
-    margin: -2px -2px -2px 0;
-    width: 38px;
-    background: #12253d;
-    color: white;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-    align-self: stretch;
-    border-radius: 0;
-    flex-shrink: 0;
-}
-
-
-.results-header .logo {
-    font-size: 40px;
-    /* Much smaller than the 64px landing page version */
-    margin-bottom: 0;
-    /* Remove that 24px bottom margin from your landing style */
-    margin-left: 20px;
-    white-space: nowrap;
-    /* Keep it on one line */
-}
 
 .query-header-layout {
 
