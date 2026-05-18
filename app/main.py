@@ -7,6 +7,7 @@ from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from datetime import datetime
 from core.search.modal_reranker import rerank_fn
 from core.search.combine import combine_and_sort
@@ -21,6 +22,7 @@ from typing import List
 from dotenv import load_dotenv
 import os
 from core.category.mapping import category_mapping, machine_human_map
+import pandas as pd
 
 load_dotenv()
 
@@ -69,12 +71,36 @@ def extract_funding(results):
     return years, funding
 
 @app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request}
-    )
+def home_page(request: Request):
+    agencies_list = []
+    
+    # 1. This points to root/app/
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # 2. Step UP out of 'app' into 'root', then down into 'core/agency' ✨
+    csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
 
+    print(f"DEBUG: Actively mapping to dataset pipeline at: {csv_path}")
+
+    if os.path.exists(csv_path):
+        try:
+            df = pd.read_csv(csv_path)
+            df = df.fillna("")
+            df_sorted = df.sort_values(by="agency_ic")
+            agencies_list = df_sorted.to_dict(orient="records")
+            print(f"✅ SUCCESS: Connected path. Injecting {len(agencies_list)} rows.")
+        except Exception as e:
+            print(f"❌ ERROR reading/parsing CSV layout matrix: {e}")
+    else:
+        print(f"❌ CRITICAL FAILURE: Could not find your file at: {csv_path}")
+
+    return templates.TemplateResponse(
+        "index.html", 
+        {
+            "request": request, 
+            "agencies": agencies_list
+        }
+    )
 
 def extract_ontology_distribution(results):
 
@@ -196,6 +222,109 @@ def categories_page(request: Request):
         "categories.html",
         {"request": request}
     )
+
+@app.get("/agency/{agency_code}", response_class=HTMLResponse)
+def agency_portal(request: Request, agency_code: str):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try: 
+        target_code = agency_code.upper()
+
+        # 1. Update query to pull the exact timeline and ontology columns your analytical blocks need
+        query = """
+            
+            SELECT
+                rg.grant_id,
+                rg.project_title,
+                o.name AS organization,
+                rg.contact_pi_id,
+                rg.total_award_amount,  -- Maps to 'amount' below
+                rg.abstract,
+                rg.agency_ic,
+                rg.fiscal_year,         -- Crucial for extract_funding()
+                gl.mechanistic,         -- Crucial for extract_ontology_distribution()
+                gl.therapeutic,
+                gl.diagnostic,
+                gl.research_tool,
+                gl.clinical,
+                gl.infrastructure,
+                gl.education,
+                gl.obs_ep
+            FROM ResearchGrants rg
+            LEFT JOIN grant_labels gl
+                ON rg.grant_id = gl.grant_id
+            LEFT JOIN organizations o
+                ON rg.organization_id = o.id
+            WHERE
+                rg.agency_code = %s
+            ORDER BY rg.fiscal_year ASC, rg.total_award_amount DESC
+        """
+
+        cur.execute(query, (target_code,))
+        rows = cur.fetchall()
+
+        grants = []
+        for row in rows:
+            grants.append({
+                "grant_id": row[0],
+                "title": row[1],
+                "organization": row[2] if row[2] else "Unknown Institution",
+                "pi": row[3],
+                "amount": float(row[4]) if row[4] else 0.0,  # ✨ Named 'amount' to feed extract functions!
+                "abstract": row[5] if row[5] else "",
+                "agency_ic": row[6],
+                "fiscal_year": int(row[7]) if row[7] else datetime.now().year, # ✨ Fed to extract_funding
+                
+                # ✨ Ontology keys matching your exact mapping structure lookups
+                "mechanistic": row[8],
+                "therapeutic": row[9],
+                "diagnostic": row[10],
+                "research_tool": row[11],
+                "clinical": row[12],
+                "infrastructure": row[13],
+                "education": row[14],
+                "obs_ep": row[15]
+            })
+
+        # 2. Package into the structure your helper systems expect
+        envelope = {"records": grants}
+
+        # 3. Leverage your existing core functional workflows instantly! 🚀
+        years, funding = extract_funding(envelope)
+        ontology_labels, ontology_values = extract_ontology_distribution(envelope)
+
+        # 4. Resolve the Human Readable Display Name from your localized asset mapping
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
+        
+        display_title = f"Agency Portfolio: {target_code}"
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            matched_rows = df[df["funding_code"] == target_code]["agency_ic"].values
+            if len(matched_rows) > 0:
+                display_title = matched_rows[0]
+
+
+        # 5. Hand over data to results.html dashboard canvas tracking variables
+        return templates.TemplateResponse(
+            "results.html",
+            {
+                "request": request,
+                "query": display_title,
+                "years": years,
+                "funding": funding,
+                "results": grants, # Keep passing the raw parsed list to your frontend cards table loop
+                "ontology_labels": ontology_labels,
+                "ontology_values": ontology_values
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error generating metric analytics layer inside agency route: {e}")
+        raise HTTPException(status_code=500, detail="Internal server metric analytics error.")
+    finally:
+        conn.close()
 
 @app.get("/api/portfolio/categories")
 def portfolio_categories(
