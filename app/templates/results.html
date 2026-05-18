@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    <div class="portfolio-header-layout">
+    <div class="query-header-layout">
 
         <div class="portfolio-header-left">
 
@@ -36,7 +36,7 @@
 
 
 
-    <div class="page-container">
+    <div class="funding-container">
 
         <div class="split-layout">
             <div class="left-pane">
@@ -51,153 +51,139 @@
             </div>
         </div>
     </div>
+    <div class="dna-divider-container">
+        <div class="dna-strand">
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+        </div>
+    </div>
+    <div class="category-title">
+        category breakdown
+    </div>
+    <div class="category-header-layout">
 
-    <div class="portfolio-container">
-        <div class="portfolio-split-layout">
 
-            <div class="portfolio-left-pane">
 
-                <div id="portfolio-funding-stat-container">
-                    <div id="portfolio-funding-amount"></div>
-                    <div class="portfolio-funding-caption">2025 Funding</div>
+        <div class="category-header-left">
+
+            <div class="category-subtitle-container">
+
+                <div class="portfolio-subtitle">
+                    See grant breakdown across convenient categories.
                 </div>
-
+                <a href="/categories" class="category-link">
+                    See category definitions
+                </a>
             </div>
 
-            <div class="portfolio-right-pane">
 
-                <div id="categoryChart"></div>
+        </div>
 
-            </div>
+        <div class="category-year-selector-container">
+
+            <label class="year-selector-label">
+                Fiscal Year
+            </label>
+
+            <select class="year-selector">
+                {% for year in range(2025, 1984, -1) %}
+                <option value="{{ year }}" {% if year !=2025 %}disabled{% endif %} {% if year==2025 %}selected{% endif
+                    %}>
+                    {{ year }}
+                </option>
+                {% endfor %}
+            </select>
 
         </div>
     </div>
-    */
-
-
-
-
-
-
-
-
-
-
-
-
 
     <div class="ontology-section">
-
-        <div class="ontology-left-pane">
-
-            <div class="portfolio-legend">
-
-                <div class="legend-title">
-                    CATEGORY DEFINITIONS
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Mechanistic / Basic Science</span>
-                    <span class="legend-desc">
-                        Studies fundamental biology and disease mechanisms.
-                    </span>
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Therapeutic</span>
-                    <span class="legend-desc">
-                        Tests or develops treatments that act on disease biology.
-                    </span>
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Diagnostic</span>
-                    <span class="legend-desc">
-                        Develops or validates tests to detect or predict disease.
-                    </span>
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Research Tool</span>
-                    <span class="legend-desc">
-                        Builds broadly reusable methods, assays, or platforms.
-                    </span>
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Clinical / Health Systems</span>
-                    <span class="legend-desc">
-                        Improves how care is delivered, accessed, or used.
-                    </span>
-                </div>
-
-                <div class="legend-item">
-                    <span class="legend-label">Observational Epidemiology</span>
-                    <span class="legend-desc">
-                        Studies population patterns and risk factors without intervention.
-                    </span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-label">Research Infrastructure</span>
-                    <span class="legend-desc">
-                        Supports shared resources, networks, or research programs.
-                    </span>
-                </div>
-                <div class="legend-item">
-                    <span class="legend-label">Education / Training</span>
-                    <span class="legend-desc">
-                        Trains researchers or clinicians and builds workforce capacity.
-                    </span>
-                </div>
-
-
-            </div>
-        </div>
-        <div class="ontology-right-pane">
-
-            <div id="ontologyChart"></div>
-
-        </div>
+        <div id="ontologyChart"></div>
     </div>
-    <div id="grant-results-container">
+
+    <div class="divider-brace-container"></div>
+
+    <div class="category-title">
+        grant results
+    </div>
+    <div id="query-grant-results-container">
 
         <div id="grant-results-header">
 
-            <div>
 
-                <div id="grant-results-title">
-                    Grant Results
-                </div>
+            <div id="grant-results-filters"></div>
 
-                <div id="grant-results-filters">
-
-                    <div class="filter-pill">
-                        Query: {{ query }}
-                    </div>
-
-                </div>
-
+            <div id="filter-stats-container" style="margin-bottom: 15px; font-family: 'Inter', sans-serif;">
+                <span id="filter-count"></span>
+                <span id="filter-total-funding"></span>
             </div>
 
+        </div>
+        <div id="grant-search-container">
+            <form id="grant-search-form" class="grant-search-wrapper">
+                <input type="text" id="grant-search-input" placeholder="Semantic filter within results...">
+                <button type="submit" class="grant-filter-button">
+                    <i data-lucide="beaker"></i>
+                </button>
+            </form>
+        </div>
+
+        <div id="loading-message" class="loading-status-card" style="display: none;">
+            <div class="spinner-small"></div>
+            <div class="status-text">
+                <strong>Processing Search...</strong>
+                <span>(this may take a moment).</span>
+            </div>
         </div>
 
         <div id="grant-results-layout">
+            <div id="grant-results-left-panel">
 
-            <div id="grant-results-list"></div>
+                <div id="pagination-controls">
+                    <button id="prev-btn" class="nav-btn">← Previous</button>
+                    <span id="page-info">Page 1 of X</span>
+                    <button id="next-btn" class="nav-btn">Next →</button>
+                </div>
+                <div id="grant-results-list"></div>
+            </div>
 
-            <div id="grant-detail-pane">
-
-                <div id="grant-detail-placeholder">
-                    Select a grant to view abstract
+            <div id="grant-results-right-panel">
+                <!-- Active Workspace Header -->
+                <div class="panel-header">
+                    <h3>Portfolio Intelligence</h3>
+                    <p>Analyze trends inside your active search parameters.</p>
                 </div>
 
+                <!-- Dynamic AI Button Container -->
+                <div id="ai-workspace-area">
+                    <div class="ai-summary-card">
+                        <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
+                        <h4>Synthesize Active View Space</h4>
+                        <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+                        <button id="trigger-ai-briefing-btn" class="ai-action-btn">
+                            <span>✨ Build Executive Briefing</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Container where the markdown text will eventually render -->
+                <div id="ai-output-display" style="display: none;"></div>
             </div>
 
         </div>
-
     </div>
 
+
     <script>
+        // --- BACKEND TEMPLATE INJECTIONS ---
         const years = {{ years | safe }};
         const funding = {{ funding | safe }};
         const grants = {{ results | tojson | safe }};
@@ -205,6 +191,50 @@
         const ontologyLabels = {{ ontology_labels | safe }};
         const ontologyValues = {{ ontology_values | safe }};
 
+        // Dynamic string from backend representing the query phrase
+        const initialQuery = "{{ query }}";
+
+        // --- GLOBAL STATE TRACKING (Synchronized with portfolio.html) ---
+        let activeYear = 2025;
+        let activeCategory = null;
+        let allGrants = []; // Tracks the initial filtered subset
+        let currentPage = 1;
+        const itemsPerPage = 100;
+
+        let currentFilters = {
+            year: "2025",
+            category: "",
+            queries: []
+        };
+
+        const localCategoryMap = {
+            "Mechanistic / Basic Science": "mechanistic",
+            "Therapeutic": "therapeutic",
+            "Diagnostic": "diagnostic",
+            "Research Tool": "research_tool",
+            "Clinical / Health Systems": "clinical",
+            "Research Infrastructure": "infrastructure",
+            "Education / Training": "education",
+            "Observational Epidemiology": "obs_ep"
+        };
+
+        // 1. Combine arrays into an array of objects
+        let combinedOntology = ontologyLabels.map((label, index) => {
+            return {
+                label: label,
+                value: ontologyValues[index]
+            };
+        });
+
+        // 2. Sort descending (Largest value first) to cooperate with yaxis: { autorange: "reversed" }
+        combinedOntology.sort((a, b) => b.value - a.value);
+
+        // 3. Separate them back out
+        const sortedLabels = combinedOntology.map(item => item.label);
+        const sortedRawValues = combinedOntology.map(item => item.value);
+
+        // 4. Scale to Billions
+        const displayOntologyValues = sortedRawValues.map(v => v / 1000000000);
         const index2025 = years.indexOf(2025);
 
         if (index2025 !== -1) {
@@ -222,247 +252,494 @@
         else {
             document.getElementById("funding-stat-container").style.display = "none";
         }
-        function cleanAbstract(text) {
 
-            if (!text) return "";
-
-            return text
-
-                // remove carriage returns
-                .replace(/\r/g, "")
-
-                // collapse ALL single newlines into spaces
-                .replace(/\n/g, " ")
-
-                // collapse repeated spaces
-                .replace(/\s+/g, " ")
-
-                // restore paragraph breaks after periods followed by capital letters
-                .replace(/\. ([A-Z])/g, ".\n\n$1")
-
-                .trim();
-        }
-
-
+        // --- LINE CHART: HISTORICAL TRENDS ---
         Plotly.newPlot("chart", [{
             x: years,
-            y: funding,
+            /* cut y off after 2025*/
+            y: funding.map((value, index) => years[index] > 2025 ? null : value),
             type: "scatter",
             mode: "lines",
             line: {
                 width: 3,
+                color: "#5a82b0"
             },
-            hovertemplate: '<b>Year</b>: %{x}<br><b>Funding</b>: $%{y:.2s}<extra></extra>',
+            hovertemplate: '<b>Funding</b>: $%{y:.2s}<extra></extra>',
         }],
-
             {
-                font: {
-                    family: "'Inter', sans-serif", // Matches your CSS font
-                    size: 14,
-                    color: "#1a365d"
-                },
+                font: { family: "'Inter', sans-serif", size: 14, color: "#1a365d" },
                 title: {
                     text: "Historical NIH Funding",
-                    font: { size: 30, weight: 800 },
-                    x: 0.5
+                    font: { family: "'Inter', sans-serif", size: 35, color: '#12253d' },
+                    xref: 'paper',
                 },
-                width: 800,
+                autosize: true,
                 hovermode: "x unified",
-                margin: { t: 80 },
-                xaxis: { title: "Year", showgrid: false },
-                yaxis: { title: "USD ($)" }
-            });
+                margin: { t: 120, l: 70, r: 50, b: 120 },
+                xaxis: {
+                    title: { text: "Year", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
+                    tickfont: { size: 20, color: "#12253d", weight: 700 },
+                    showgrid: false, automargin: true
+                },
+                yaxis: {
+                    title: { text: "USD ($)", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
+                    tickfont: { size: 20, color: "#12253d", weight: 700 },
+                    ticks: "", automargin: true
+                }
+            }, { responsive: true, displayModeBar: false });
 
+
+        // --- MODAL VIEW FOR ABSTRACTS (Adapted for results.html) ---
         function showGrantDetail(grant) {
+            const oldModal = document.getElementById("grant-modal");
+            if (oldModal) oldModal.remove();
 
+            const grantFundingAmount = grant.funding || grant.amount || 0;
+            const funding = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(grantFundingAmount);
 
+            // Dynamic PI Name Stitching for the Modal View ✨
+            let principalInvestigator = "Unknown";
+            if (grant.pi_last_name) {
+                const first = grant.pi_first_name ? grant.pi_first_name + " " : "";
+                const middle = grant.pi_middle_name ? grant.pi_middle_name + " " : "";
+                const last = grant.pi_last_name;
+                principalInvestigator = `${first}${middle}${last}`.trim();
+            } else if (grant.pi || grant.PI) {
+                principalInvestigator = grant.pi || grant.PI;
+            }
 
-            document.getElementById(
-                "grant-detail-pane"
-            ).innerHTML = `
+            const organizationName = grant.org_name || grant.organization || "Unknown Organization";
+            const grantTitle = grant.title || grant.project_title || "No Title Provided";
 
-        <div class="grant-detail-title">
-            ${grant.title}
-        </div>
+            const modal = document.createElement("div");
+            modal.id = "grant-modal";
+            modal.className = "grant-modal-overlay";
 
-        
+            modal.innerHTML = `
+                <div class="grant-modal-content">
+                    <span class="grant-modal-close">&times;</span>
+                    <div class="grant-modal-header">
+                        <h2 class="grant-detail-title">${grantTitle}</h2>
+                        <div class="grant-modal-meta">
+                            <strong>Organization:</strong> ${organizationName}<br>
+                            <strong>Principal Investigator:</strong> ${principalInvestigator}<br>
+                            <strong>Funding Amount:</strong> ${funding}
+                        </div>
+                    </div>
+                    <hr class="modal-divider">
+                    <div class="grant-detail-abstract">
+                        <h3>Abstract</h3>
+                        <p>${cleanAbstract(grant.abstract) || "No abstract available."}</p>
+                    </div>
+                </div>
+            `;
 
-        <div class="grant-detail-abstract">
+            document.body.appendChild(modal);
+            setTimeout(() => modal.classList.add("active"), 10);
 
-            ${cleanAbstract(grant.abstract) || "No abstract available."}
-
-        </div>
-    `;
+            modal.querySelector(".grant-modal-close").onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
         }
-        function renderGrants(grants) {
+        // --- MODAL CLOSE HELPER ---
+        function closeModal() {
+            const modal = document.getElementById("grant-modal");
+            if (modal) {
+                modal.classList.remove("active");
+                // Remove from DOM completely after transition finishes
+                setTimeout(() => modal.remove(), 200);
+            }
+        }
 
-            const container = document.getElementById(
-                "grant-results-list"
-            );
+
+        function cleanAbstract(text) {
+
+            if (!text) return "";
+            return text
+
+                // remove carriage returns
+                .replace(/\r/g, "")
+                // collapse ALL single newlines into spaces
+                .replace(/\n/g, " ")
+                // collapse repeated spaces
+                .replace(/\s+/g, " ")
+
+                .trim();
+        }
+
+        // --- RECALCULATION ENGINES ---
+        function updateTotals(grantsList) {
+            const count = grantsList.length;
+            // Evaluates both grant.funding and grant.amount fallback structures correctly
+            const totalDollars = grantsList.reduce((sum, grant) => sum + (grant.funding || grant.amount || 0), 0);
+
+            const formattedTotal = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(totalDollars);
+
+            const countEl = document.getElementById("filter-count");
+            const fundingEl = document.getElementById("filter-total-funding");
+
+            if (countEl) countEl.innerText = `${count} Grants Found`;
+            if (fundingEl) fundingEl.innerText = `Total Funding: ${formattedTotal}`;
+        }
+
+        function renderFilters(humanCategoryName) {
+            const container = document.getElementById("grant-results-filters");
+            if (!container) return;
+
+            container.innerHTML = ""; // Wipe container row
+
+            // 1. Initial Query Pill (Placed furthest left as a structural base filter)
+            if (initialQuery) {
+                addPill(container, `Query: ${initialQuery}`);
+            }
+
+            // 2. Year Pill
+            addPill(container, `Year: 2025`);
+
+            // 3. Category Pill (Dynamic and removable)
+            if (humanCategoryName) {
+                addPill(container, `Category: ${humanCategoryName}`, () => {
+                    currentFilters.category = "";
+                    activeCategory = null;
+                    // Reset view back to displaying full foundational 2025 dataset
+                    renderFilters("");
+                    updateTotals(allGrants);
+                    renderGrants(allGrants);
+                });
+            }
+        }
+
+        function addPill(target, text, onRemove = null) {
+            const pill = document.createElement("div");
+            pill.className = "filter-pill";
+            pill.innerHTML = text + (onRemove ? ` <span class="remove-pill" style="cursor:pointer; margin-left:8px;">×</span>` : "");
+            if (onRemove) pill.onclick = onRemove;
+            target.appendChild(pill);
+        }
+        // --- RENDER PIPELINE INTERFACE ---
+        function renderGrants(grantsList) {
+            const container = document.getElementById("grant-results-list");
+            const pageInfo = document.getElementById("page-info");
+            const prevBtn = document.getElementById("prev-btn");
+            const nextBtn = document.getElementById("next-btn");
+
+            if (!container) return;
+
+            // Calculate total pages dynamically (Your 'X')
+            const totalPages = Math.ceil(grantsList.length / itemsPerPage) || 1;
+
+            // Adjust if current page goes out of bounds due to an active filter
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+
+            // Update the pagination stats text interface
+            if (pageInfo) {
+                pageInfo.innerText = `Page ${currentPage} of ${totalPages}`;
+            }
+
+            // Handle button disabled rules exactly like portfolio.html
+            if (prevBtn) prevBtn.disabled = (currentPage === 1);
+            if (nextBtn) nextBtn.disabled = (currentPage === totalPages || totalPages === 0);
+
+            // Slice down the global or filtered array to match the current page window
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedGrants = grantsList.slice(startIndex, endIndex);
 
             container.innerHTML = "";
 
-            grants.forEach(grant => {
+            // Render the cards onto the page view area
+            paginatedGrants.forEach(grant => {
+                const grantFundingAmount = grant.funding || grant.amount || 0;
+                const fundingValue = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    notation: 'compact',
+                    maximumFractionDigits: 1
+                }).format(grantFundingAmount);
 
-                const funding = new Intl.NumberFormat(
-                    'en-US',
-                    {
-                        style: 'currency',
-                        currency: 'USD',
-                        notation: 'compact',
-                        maximumFractionDigits: 1
-                    }
-                ).format(grant.amount || 0);
+                // Stitch your backend name segments into a single readable investigator string
+                let principalInvestigator = "Unknown";
+                if (grant.pi_last_name) {
+                    const first = grant.pi_first_name ? grant.pi_first_name + " " : "";
+                    const middle = grant.pi_middle_name ? grant.pi_middle_name + " " : "";
+                    const last = grant.pi_last_name;
+                    principalInvestigator = `${first}${middle}${last}`.trim();
+                } else if (grant.pi || grant.PI) {
+                    principalInvestigator = grant.pi || grant.PI;
+                }
 
                 const card = document.createElement("div");
-
                 card.className = "grant-card";
-
-                card.innerHTML = `
-
-            <div class="grant-title">
-                ${grant.title || ""}
-            </div>
-
-            <div class="grant-meta">
-
-                ${grant.org_name || "Unknown Organization"}
-
-                •
-
-                ${funding}
-
-            </div>
-        `;
 
                 card.onclick = () => {
                     showGrantDetail(grant);
                 };
 
+                card.innerHTML = `
+                <div class="grant-title">${grant.title || grant.project_title || "No Title Provided"}</div>
+                <div class="grant-meta-row">
+                    <div class="grant-details">
+                        <span class="grant-org">${grant.org_name || grant.organization || "Unknown Organization"}</span>
+                        <span class="grant-divider">•</span>
+                        <span class="grant-pi">PI: ${principalInvestigator}</span>
+                    </div>
+                    <div class="grant-funding">${fundingValue}</div>
+                </div>
+            `;
+
                 container.appendChild(card);
             });
         }
-
-
-
-
-        Plotly.newPlot(
-
-            "ontologyChart",
-
-            [{
-
-                x: ontologyValues,
-
-                y: ontologyLabels,
-
-                type: "bar",
-
-                orientation: "h",
-
-                marker: {
-                    color: "#314a67"
-                },
-
-                width: 0.72,
-
-                hovertemplate:
-                    "<b>%{y}</b><br>$%{x:.2s}<extra></extra>"
-
-            }],
-
+        // --- BAR CHART: ONTOLOGY DISTRIBUTION BREAKDOWN ---
+        Plotly.newPlot("ontologyChart", [{
+            x: sortedRawValues,
+            y: sortedLabels,
+            type: "bar",
+            orientation: "h",
+            marker: {
+                color: sortedRawValues,
+                colorscale: [
+                    [0, '#a5b4fc'],
+                    [1, '#12253d']
+                ],
+                reversescale: false,
+                line: { color: '#12253d', width: 1 }
+            },
+            hovertemplate: "$%{x:.2s}<extra></extra>"
+        }],
             {
-
-                autosize: true,
-
-                font: {
-                    family: "'Inter', sans-serif",
-                    size: 14,
-                    color: "#243b53"
+                title: {
+                    text: 'NIH Funding Distribution by Category',
+                    font: { family: "'Inter', sans-serif", size: 25, color: '#12253d' },
+                    xref: 'paper', x: 0, y: 1.1, pad: { b: 20 }
                 },
-
-                margin: {
-                    t: 30,
-                    l: 280,
-                    r: 40,
-                    b: 40
+                hovermode: 'closest',
+                hoverdistance: 5,
+                hoverlabel: {
+                    bgcolor: "white",
+                    font: { color: "#12253d", family: "'Inter', sans-serif", size: 20 },
+                    bordercolor: "#12253d", align: "left"
                 },
-
+                annotations: [{
+                    x: 0.97, y: 0.05, xref: 'paper', yref: 'paper',
+                    text: "Click on a bar to filter grants!",
+                    showarrow: false, xanchor: 'right', layer: 'above',
+                    font: { size: 15, color: '#12253d' }
+                }],
+                images: [{
+                    source: "/static/images/curved-thin-arrow-icon.svg",
+                    xref: "paper", yref: "paper", x: 0.9, y: 0.1, sizex: 0.15, sizey: 0.15,
+                    xanchor: "right", yanchor: "bottom", layer: "above"
+                }],
+                paper_bgcolor: "rgba(0,0,0,0)",
+                plot_bgcolor: "rgba(0,0,0,0)",
+                font: { family: "'Inter', sans-serif", size: 14, color: "#243b53" },
+                margin: { t: 90, l: 250, r: 30, b: 80 },
                 xaxis: {
-
-                    showgrid: false,
-
-                    zeroline: false,
-
-                    tickprefix: "$"
+                    title: { text: "Total Funding (USD)", font: { size: 18, color: "#12253d", weight: 700 }, standoff: 30 },
+                    tickfont: { size: 16, color: "#243b53", weight: 700 },
+                    showgrid: false, zeroline: false, ticks: "", showline: false,
                 },
-
                 yaxis: {
+                    autorange: "reversed", showgrid: false,
+                    tickfont: { size: 16, family: "'Inter', sans-serif", color: "#12253d", weight: 700 },
+                    ticks: "", showline: false, ticksuffix: "    "
+                }
+            }, { responsive: true, displayModeBar: false });
 
-                    automargin: true,
+        // Capture Chart Reference
+        const ontologyChartDiv = document.getElementById("ontologyChart");
 
-                    ticklabelstandoff: 30,
+        // --- INTERACTION: PLOTLY CLICK FILTERS ---
+        ontologyChartDiv.on("plotly_click", async function (data) {
+            const clickedCategory = data.points[0].y;
+            const key = localCategoryMap[clickedCategory];
 
-                    showgrid: false,
-
-                    ticks: "",
-
-                    showline: false
-                },
-
-                paper_bgcolor: "white",
-
-                plot_bgcolor: "white"
+            if (!key) {
+                alert(`Error: The ontology group "${clickedCategory}" is not mapped.`);
+                return;
             }
-        );
-        const ontologyChart =
-            document.getElementById("ontologyChart");
 
-        ontologyChart.on(
-            "plotly_click",
-            function (data) {
+            currentFilters.category = key;
+            activeCategory = key;
 
-                const clickedCategory =
-                    data.points[0].y;
+            // Target search space
+            const filtered = allGrants.filter(grant => grant[key] === 1);
 
-                console.log(clickedCategory);
+            renderFilters(clickedCategory);
+            updateTotals(filtered);
+            renderGrants(filtered);
 
-                const filtered = grants.filter(grant => {
+            const grantContainer = document.getElementById('query-grant-results-container');
+            if (grantContainer) {
+                grantContainer.classList.add('show');
+                grantContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
 
-                    const categoryMap = {
+        // --- INTERACTION: POINTER STATE GRAPH HOVERS ---
+        ontologyChartDiv.on('plotly_hover', function () {
+            const dragLayer = ontologyChartDiv.querySelector('.nsewdrag');
+            if (dragLayer) dragLayer.style.setProperty('cursor', 'pointer', 'important');
+        });
 
-                        "Mechanistic": "mechanistic",
+        ontologyChartDiv.on('plotly_unhover', function () {
+            const dragLayer = ontologyChartDiv.querySelector('.nsewdrag');
+            if (dragLayer) dragLayer.style.setProperty('cursor', 'default', 'important');
+        });
 
-                        "Therapeutic": "therapeutic",
+        // --- INITIAL PAGE LOAD BOOTSTRAPPER ---
+        allGrants = grants.filter(grant => {
+            return grant.year === 2025 || grant.year === "2025" || grant.fiscal_year === 2025;
+        });
 
-                        "Diagnostic": "diagnostic",
+        if (allGrants.length === 0) {
+            allGrants = grants;
+        }
+        // ✨ ADD THIS LISTENER AT THE BOTTOM OF THE BOOTSTRAPPER:
+        const aiBriefingBtn = document.getElementById("trigger-ai-briefing-btn");
+        if (aiBriefingBtn) {
+            aiBriefingBtn.onclick = generatePortfolioBriefing;
+        }
 
-                        "Research Tool": "research_tool",
+        // Arrow Control Actions (Adapted to use results.html context variables)
+        document.getElementById("next-btn").onclick = () => {
+            const activeDataset = activeCategory ? allGrants.filter(g => g[activeCategory] === 1) : allGrants;
+            const totalPages = Math.ceil(activeDataset.length / itemsPerPage);
 
-                        "Clinical / Health Systems": "clinical",
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderGrants(activeDataset);
 
-                        "Infrastructure": "infrastructure",
+                // Uses the corrected results ID attribute string: ✨
+                document.getElementById("query-grant-results-container").scrollIntoView({ behavior: 'smooth' });
+            }
+        };
 
-                        "Education": "education",
+        document.getElementById("prev-btn").onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                const activeDataset = activeCategory ? allGrants.filter(g => g[activeCategory] === 1) : allGrants;
+                renderGrants(activeDataset);
 
-                        "Observational Epidemiology": "obs_ep"
-                    };
+                // Uses the corrected results ID attribute string: ✨
+                document.getElementById("query-grant-results-container").scrollIntoView({ behavior: 'smooth' });
+            }
+        };
 
-                    const key = categoryMap[clickedCategory];
+        // Initialize user panels inside view tracking
+        renderFilters("");
+        updateTotals(allGrants);
+        renderGrants(allGrants);
 
-                    return grant[key] === 1;
+
+        // --- PORTFOLIO INTELLIGENCE AI BRIEFING ENGINES ---
+        async function generatePortfolioBriefing() {
+            const workspace = document.getElementById("ai-workspace-area");
+            const outputDisplay = document.getElementById("ai-output-display");
+
+            // Fallbacks to handle the results page filter structure
+            const currentCategory = activeCategory || "All Categories";
+
+            // 1. Collect current active grant IDs from your global state tracking array
+            const activeIds = allGrants.map(grant => grant.grant_id || grant.id);
+
+            if (activeIds.length === 0) {
+                alert("No grants found in your current filter view to summarize.");
+                return;
+            }
+
+            // 2. Set an active visual Loading State
+            workspace.innerHTML = `
+        <div class="ai-loading-state" style="text-align: center; padding: 20px;">
+            <div class="spinner-small" style="margin: 0 auto 15px auto;"></div>
+            <p><strong>Running HDBSCAN semantic grouping...</strong></p>
+            <span class="loading-sub" style="font-size: 0.85em; color: #666;">Mapping clusters and executing synthesis chains...</span>
+        </div>
+    `;
+            outputDisplay.style.display = "none";
+
+            try {
+                // 3. Make POST Request to your python endpoint
+                const response = await fetch("/api/summarize-portfolio", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        grant_ids: activeIds,
+                        active_category: currentCategory,
+                        search_queries: [initialQuery] // Includes initial main query phrase context
+                    })
                 });
 
-                console.log(filtered);
+                if (!response.ok) throw new Error("Briefing generation failed.");
+                const data = await response.json();
 
-                renderGrants(filtered);
+                // 4. Render output results
+                workspace.style.display = "none";
+                outputDisplay.style.display = "block";
+                outputDisplay.innerHTML = `
+            <button onclick="resetAIWorkspace()" class="ai-back-btn" style="margin-bottom: 15px; cursor: pointer;">← Back to Workspace</button>
+            <div class="markdown-body" style="font-family: 'Inter', sans-serif; line-height: 1.6;">${formatMarkdown(data.summary)}</div>
+        `;
 
+            } catch (error) {
+                console.error(error);
+                workspace.innerHTML = `
+            <div class="ai-error-state" style="text-align: center; padding: 20px;">
+                <p>⚠️ Failed to complete AI synthesis portfolio modeling.</p>
+                <button onclick="resetAIWorkspace()" class="ai-action-btn" style="margin-top: 10px; cursor: pointer;">Retry</button>
+            </div>
+        `;
             }
-        );
+        }
 
-        renderGrants(grants);
+        // Quick helper to restore workspace block structure if user wants to run it again
+        function resetAIWorkspace() {
+            const workspace = document.getElementById("ai-workspace-area");
+            const outputDisplay = document.getElementById("ai-output-display");
+
+            outputDisplay.style.display = "none";
+            workspace.style.display = "block";
+
+            // Restore original button layout structures
+            workspace.innerHTML = `
+            <div class="ai-summary-card">
+                <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
+                <h4>Synthesize Active View Space</h4>
+                <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+                <button id="trigger-ai-briefing-btn" class="ai-action-btn">
+                    <span>✨ Build Executive Briefing</span>
+                </button>
+            </div>
+        `;
+
+            // Re-bind click listener onto the newly injected button DOM element
+            document.getElementById("trigger-ai-briefing-btn").onclick = generatePortfolioBriefing;
+        }
+
+        // Simple text formatter to safely clean basic Markdown headers
+        function formatMarkdown(text) {
+            return text
+                .replace(/### (.*)\n/g, '<h3>$1</h3>')
+                .replace(/## (.*)\n/g, '<h2>$1</h2>')
+                .replace(/\n\n/g, '<br><br>');
+        }
     </script>
-
 
 
 
