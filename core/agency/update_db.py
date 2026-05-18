@@ -6,6 +6,7 @@ conn = get_db_connection()
 
 cur = conn.cursor()
 
+cur.execute("""ALTER TABLE ResearchGrants ADD COLUMN IF NOT EXISTS agency_code VARCHAR(10);""")
 
 batch_size = 50000  # We can use a much bigger batch size since it's efficient
 total_updated = 0
