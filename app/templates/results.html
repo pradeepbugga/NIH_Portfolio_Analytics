@@ -546,7 +546,20 @@
                     renderGrants(allGrants);
                 });
             }
+
+            // 4. Semantic Query Pills (Dynamic and removable)
+
+            if (currentFilters.queries && currentFilters.queries.length > 0) {
+                currentFilters.queries.forEach((q, index) => {
+                    addPill(container, `Search: ${q}`, () => {
+                        // Remove the clicked pill from state and trigger backend balance reload
+                        currentFilters.queries.splice(index, 1);
+                        applyFilters();
+                    });
+                });
+            }
         }
+
 
         function addPill(target, text, onRemove = null) {
             const pill = document.createElement("div");
