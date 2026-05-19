@@ -17,7 +17,7 @@ from core.search.combine import combine_and_sort_semantic_filter
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
-from core.cluster.agglomerative_clustering import cluster_filtered_grants
+from core.cluster.agglomerative_clustering import cluster_filtered_grants_for_map
 from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
 from google import genai
 from pydantic import BaseModel
@@ -27,10 +27,13 @@ import os
 from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
 import time
-from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE
+from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE, TOPIC_PROMPT_REGISTRY, DEFAULT_PROMPT_REDUCE_TOPIC
 #, REDUCE_PROMPT_CATEGORY, REDUCE_PROMPT_TOPIC
 from core.synthesis_prompts.prompt_utils import lookup_mission_by_name, format_currency_short
 import asyncio
+import numpy as np
+from collections import Counter
+from sklearn.metrics.pairwise import cosine_distances
 
 load_dotenv()
 
@@ -709,10 +712,7 @@ async def summarize(
         # calculate total budget
         total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
 
-        unique_codes_in_selection = set(str(g.get("agency_code", "NONE")) for g in active_grants)
-        print(f"DEBUG: Unique raw agency codes in active selection: {unique_codes_in_selection}")
-
-
+        
         # identify selected filter for analysis
         if payload.dimensions.agency: 
             active_lens = "agency"
@@ -773,15 +773,13 @@ async def summarize(
                     clusters.setdefault("Uncategorized Intent", []).append(g)
 
         elif active_lens == "topic":
-            clusters = cluster_filtered_grants(active_grants)
+            clusters = cluster_filtered_grants_for_map(active_grants)
 
 
         t_cluster_end = time.perf_counter()
         print(f"⏱️ [LATENCY] Sorting/Clustering ({len(clusters)} buckets via '{active_lens}'): {t_cluster_end - t_cluster_start:.4f} seconds")
 
         # --- CONSTRUCT RESILIENT SEARCH CONTEXT ---
-
-
 
         query_intersection = "N/A"
         clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
@@ -823,43 +821,93 @@ async def summarize(
         async def process_cluster_chunk(cluster_id, items):
             t_chunk_start = time.perf_counter()
             
-            # Slice metrics and construct array context text as before
-            cluster_budget = sum(float(g.get("amount") or 0) for g in items)
-            budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
+            # ======================================================================
+            # 🚀 FOR TOPIC LENS: READ PRE-CALCULATED METRICS DIRECTLY
+            # ======================================================================
+            if active_lens == "topic":
+                # Rename 'items' to 'cluster_payload' for semantic clarity
+                cluster_payload = items 
+                
+                # Pull pre-calculated budget footprints out of the payload
+                cluster_budget = float(cluster_payload.get("total_budget", 0))
+                budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
+                short_cluster_budget = format_currency_short(cluster_budget)
+                
+                # Read the pre-built search query string to use as a grounding phrase
+                suggested_search = cluster_payload.get("generated_web_search_query", "")
+                
+                # Unpack the pre-sorted consensus core projects
+                core_projects = cluster_payload.get("consensus_core", [])
+                core_titles_str = "\n      ".join([
+                    f"* Title: {p['title']} ({p.get('mechanism', 'R01')} - ${p['amount']/1e6:.1f}M)" 
+                    for p in core_projects
+                ])
+                
+                # Unpack the pre-filtered innovation outliers
+                outliers = cluster_payload.get("high_innovation_outliers", [])
+                if outliers:
+                    outliers_str = "\n      ".join([
+                        f"* Title: {p['title']} ({p.get('mechanism', 'R21')} - ${p['amount']/1e6:.1f}M) [Distance: {p.get('distance_score', 0):.3f}]"
+                        for p in outliers
+                    ])
+                else:
+                    outliers_str = "* None identified on the semantic periphery using agile vehicles."
+                    
+                # 🏢 GOOGLE GROUNDING CHANGE: We no longer execute a manual search api here.
+                # We pass the instruction straight to the final high-capability model instead.
 
-            # 🚀 Convert the raw numbers into short strings here
-            short_cluster_budget = format_currency_short(cluster_budget)
+                # Construct the final rich briefing payload for the REDUCE phase
+                chunk_payload = f"""
+                    - Mathematically Derived Topic Cluster ID: {cluster_id}
+                    - Total Aggregated Budget Footprint: ${short_cluster_budget}
+                    - Total Project Count Volume: {cluster_payload.get('project_count', 0)} grants ({budget_share_pct:.1f}% of total workspace share)
+                    - Core Consensus Projects (Cluster Center):
+                        {core_titles_str}
+                    - Structurally Protected High-Innovation Outliers (Semantic Boundary + Agile Mechanism):
+                        {outliers_str}
+                    - Suggested Grounding Search Phrase: "{suggested_search}"
+                    """
+                t_chunk_end = time.perf_counter()
+                print(f"   ↳ [SPATIAL MAP CHUNK] Resolved topic cluster '{cluster_id}': {t_chunk_end - t_chunk_start:.4f} seconds")
+                return chunk_payload
 
-            cluster_context = "\n".join([f"- Project Title: {g['title']}" for g in items[:15]])
+            # ======================================================================
+            # 🏢 FOR ALL OTHER LENSES (AGENCY, ACTIVITY CODE): RUN ORIGINAL UNPACKING
+            # ======================================================================
+            else:
+                # 'items' is guaranteed to be a list of raw grant dicts here
+                cluster_budget = sum(float(g.get("amount") or 0) for g in items)
+                budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
+                short_cluster_budget = format_currency_short(cluster_budget)
 
-            map_prompt = f"""
-            You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
-            CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
-            {global_filters_context}
-            CURRENT COHORT PERSPECTIVE:
-            - This cohort represents a discrete partition split by: {active_lens_desc}.
-            - Active Target Partition Key Name: **{cluster_id}**
-            ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to 15):
-            {cluster_context}
-            CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
-            - Allocated Total Capital: ${short_cluster_budget} 
-            - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
-            Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
-            CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
-            "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
-            """
+                cluster_context = "\n".join([f"- Project Title: {g['title']}" for g in items[:15]])
 
-            # 🚀 Non-blocking Async Network call
-            response = await client.aio.models.generate_content(
-                model="gemini-3-flash-preview", 
-                contents=map_prompt
-            )
-            
-            t_chunk_end = time.perf_counter()
-            print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
-            
-            # Prepend the partition key name to preserve mapping metadata
-            return f"### Institute Partition: {cluster_id}\n{response.text}"
+                map_prompt = f"""
+                You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
+                CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
+                {global_filters_context}
+                CURRENT COHORT PERSPECTIVE:
+                - This cohort represents a discrete partition split by: {active_lens_desc}.
+                - Active Target Partition Key Name: **{cluster_id}**
+                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to 15):
+                {cluster_context}
+                CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
+                - Allocated Total Capital: ${short_cluster_budget} 
+                - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
+                Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
+                CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
+                "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
+                """
+
+                response = await client.aio.models.generate_content(
+                    model="gemini-3-flash-preview", 
+                    contents=map_prompt
+                )
+                
+                t_chunk_end = time.perf_counter()
+                print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
+                
+                return f"### Institute Partition: {cluster_id}\n{response.text}"
 
         # 2. Build a task list of all coroutines to execute in parallel
         tasks = [
@@ -907,8 +955,11 @@ async def summarize(
                 master_context = master_context,
                 agency_missions_reference = agency_missions_reference
             )        
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
 
-        if active_lens == "project_type":
+        elif active_lens == "project_type":
             code_mapping_csv = os.path.abspath(os.path.join(script_dir, "..", "core", "synthesis_prompts", "ActivityCodes.csv"))
             
             project_type_reference = "No official activity code definitions available for the active cohort."
@@ -950,13 +1001,26 @@ async def summarize(
                 master_context = master_context,
                 project_type_reference = project_type_reference  # Injecting the mechanism dictionary
             )
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
           
+        elif active_lens == "topic":
 
-
+            target_template = TOPIC_PROMPT_REGISTRY.get(category_human_name, DEFAULT_PROMPT_REDUCE_TOPIC)
+            
+            reduce_prompt = target_template.format(
+                active_cat_name = category_human_name,  
+                query_intersection = query_intersection,
+                total_filtered_budget = short_total_budget,
+                master_context = master_context
+            )
+            # use google grounding for topic lens, no additional reference needed
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt, config={"tools": [{"google_search": {}}]})
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+            
         
-        final_briefing = client.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-        t_reduce_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
 
         t_total_end = time.perf_counter()
         print(f"🏁 [LATENCY] TOTAL PIPELINE EXECUTION LIFETIME: {t_total_end - t_start:.4f} seconds\n")
