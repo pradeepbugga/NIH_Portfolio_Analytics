@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, MiniBatchKMeans
 from sklearn.metrics.pairwise import cosine_distances
 import re
 from collections import Counter
@@ -79,30 +79,32 @@ def cluster_filtered_grants_for_map(active_grants_list):
     amounts = np.array([g.get("amount", 0.0) for g in active_grants_list], dtype=np.float32)
     mechanisms = [g["grant_id"][1:4].upper() if g.get("grant_id") and len(g["grant_id"]) >= 4 else "Other" for g in active_grants_list]
 
-
-    num_grants = len(active_grants_list)
-    
-    # Dynamically scale cluster counts so large datasets split beautifully
-    if num_grants > 1000:
-        n_clusters = 12  # Give the LLM more specialized pillars to analyze
-    elif num_grants > 200:
-        n_clusters = 8
-    else:
-        n_clusters = min(6, num_grants)
-
     # Unit-normalize embeddings for pristine cosine calculations
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     # Avoid divide-by-zero for safety
     norms[norms == 0] = 1.0
-    normalized_embeddings = embeddings / norms
+    normalized_embeddings = embeddings / norms.astype(np.float32)
 
-    # Execute Complete Linkage to ruthlessly break up massive clusters
-    clusterer = AgglomerativeClustering(
-        n_clusters=n_clusters, 
-        metric='cosine', 
-        linkage='complete' # Crucial switch to stop mega-clusters!
-    )
-    labels = clusterer.fit_predict(normalized_embeddings)
+    num_grants = len(active_grants_list)
+    
+    if num_grants > 15000:
+        # 🚀 SCALE MITIGATION: Quantize into 150 highly dense micro-centroids
+        # MiniBatchKMeans scales at O(N) memory and handles 25k vectors instantly
+        quantizer = MiniBatchKMeans(n_clusters=150, batch_size=2048, random_state=42)
+        macro_labels = quantizer.fit_predict(normalized_embeddings)
+        centroids = quantizer.cluster_centers_
+        
+        # Run your high-quality Complete Linkage on just the 150 centroids (Matrix is only 150x150!)
+        clusterer = AgglomerativeClustering(n_clusters=12, metric='cosine', linkage='complete')
+        centroid_labels = clusterer.fit_predict(centroids)
+        
+        # Map the centroid clusters back to the original 25,224 grants
+        labels = np.array([centroid_labels[ml] for ml in macro_labels])
+    else:
+        # Standard exact path for smaller, highly precise slices
+        n_clusters = 12 if num_grants > 1000 else (8 if num_grants > 200 else min(6, num_grants))
+        clusterer = AgglomerativeClustering(n_clusters=n_clusters, metric='cosine', linkage='complete')
+        labels = clusterer.fit_predict(normalized_embeddings)
 
     # 3. Create structural cluster groups
     raw_clusters = {}
