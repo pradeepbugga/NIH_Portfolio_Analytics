@@ -5,12 +5,15 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder
+
+
+
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from datetime import datetime
 from core.search.modal_reranker import rerank_fn
-from core.search.combine import combine_and_sort
+from core.search.combine import combine_and_sort_semantic_filter
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
@@ -18,7 +21,7 @@ from core.cluster.agglomerative_clustering import cluster_filtered_grants
 from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
 from google import genai
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 import os
 from core.category.mapping import category_mapping, machine_human_map
@@ -41,7 +44,7 @@ class SummaryRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     year: str
-    category: str
+    category: Optional[str] = None
     query: str
     existing_ids: List[str] # Validated as a native array of strings
 
@@ -290,7 +293,6 @@ def agency_portal(request: Request, agency_code: str):
                 rg.contact_pi_id,
                 rg.total_award_amount,
                 rg.agency_ic,
-                rg.abstract,
                 rg.fiscal_year,
                 gl.mechanistic,
                 gl.therapeutic,
@@ -320,16 +322,15 @@ def agency_portal(request: Request, agency_code: str):
                 "pi": row[3],
                 "amount": float(row[4]) if row[4] else 0.0,
                 "agency_ic": row[5],
-                "abstract": row[6] if row[6] else "No abstract available.",
-                "fiscal_year": int(row[7]) if row[7] else 2025,                
-                "mechanistic": row[8],
-                "therapeutic": row[9],
-                "diagnostic": row[10],
-                "research_tool": row[11],
-                "clinical": row[12],
-                "infrastructure": row[13],
-                "education": row[14],
-                "obs_ep": row[15]
+                "fiscal_year": int(row[6]) if row[6] else 2025,                
+                "mechanistic": row[7],
+                "therapeutic": row[8],
+                "diagnostic": row[9],
+                "research_tool": row[10],
+                "clinical": row[11],
+                "infrastructure": row[12],
+                "education": row[13],
+                "obs_ep": row[14]
             })
 
         cur.close()
@@ -471,8 +472,7 @@ def portfolio_grants(
                 rg.project_title,
                 o.name AS organization,
                 rg.contact_pi_id,
-                rg.total_award_amount,
-                rg.abstract
+                rg.total_award_amount
 
             FROM ResearchGrants rg
 
@@ -489,11 +489,8 @@ def portfolio_grants(
             ORDER BY rg.total_award_amount DESC
 
         """
-
         cur.execute(query, (year,))
-
         rows = cur.fetchall()
-
         grants = []
 
         for row in rows:
@@ -503,8 +500,7 @@ def portfolio_grants(
                 "title": row[1],
                 "organization": row[2],
                 "pi": row[3],
-                "funding": row[4],
-                "abstract": row[5]
+                "funding": row[4]
             })
 
         return {
@@ -532,10 +528,12 @@ def portfolio_grants_search(
         "obs_ep": "obs_ep"
     }
 
-    if payload.category not in category_columns:
-        return {"error": "Invalid category"}
-
-    column = category_columns[payload.category]
+    # handle category verification if it is not provided
+    column = None
+    if payload.category:
+        if payload.category not in category_columns:
+            return {"error": "Invalid category"}
+        column = category_columns[payload.category]
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -551,23 +549,36 @@ def portfolio_grants_search(
 
         # if not, filter by category but not by existing list
         else: 
-            
-            sql = f"""
+            if column: 
+                # year and category filter
+                sql = f"""
 
-                SELECT rg.grant_id
+                    SELECT rg.grant_id
 
-                FROM ResearchGrants rg
+                    FROM ResearchGrants rg
 
-                JOIN grant_labels gl
-                    ON rg.grant_id = gl.grant_id
+                    JOIN grant_labels gl
+                        ON rg.grant_id = gl.grant_id
 
-                WHERE
-                    rg.fiscal_year = %s
-                    AND gl.{column} = 1
+                    WHERE
+                        rg.fiscal_year = %s
+                        AND gl.{column} = 1
+
+                    """
+
+                cur.execute(sql, (int(payload.year),))
+
+            else: 
+                # year filter only, no category, no existing list
+                sql = """
+
+                    SELECT grant_id
+                    FROM ResearchGrants
+                    WHERE fiscal_year = %s
 
                 """
 
-            cur.execute(sql, (year,))
+                cur.execute(sql, (int(payload.year),))
 
             allowed_grant_ids = [row[0] for row in cur.fetchall()]
 
@@ -595,7 +606,7 @@ def portfolio_grants_search(
         doc_texts = [d["text"] for d in docs]
         scores = rerank_fn.remote(payload.query, doc_texts)
 
-        ranked = combine_and_sort(docs, scores)
+        ranked = combine_and_sort_semantic_filter(docs, scores)
 
         for g in ranked:
 
@@ -622,6 +633,31 @@ def portfolio_grants_search(
 
     finally:
         conn.close()
+
+@app.get("/api/grant/{grant_id}/abstract")
+def get_grant_abstract(grant_id: str):
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            SELECT abstract
+            FROM ResearchGrants
+            WHERE grant_id = %s
+        """, (grant_id,))
+
+        row = cur.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Grant not found.")
+            
+        return {"abstract": row[0] if row[0] else "No abstract available for this record."}
+
+    finally:
+        cur.close()
+        conn.close()
+
 
 
 @app.post("/api/summarize-portfolio")
