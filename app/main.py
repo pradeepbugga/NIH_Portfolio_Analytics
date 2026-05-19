@@ -27,6 +27,10 @@ import os
 from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
 import time
+from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE
+#, REDUCE_PROMPT_CATEGORY, REDUCE_PROMPT_TOPIC
+from core.synthesis_prompts.mission_utils import lookup_mission_by_name
+
 
 load_dotenv()
 
@@ -37,16 +41,6 @@ app = FastAPI(title="NIH Grant Search API")
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
 
-class SummaryRequest(BaseModel):
-    grant_ids: List[str] # Looks for "grant_ids"
-    active_category: str
-    search_queries: List[str] 
-
-class SearchRequest(BaseModel):
-    year: str
-    category: Optional[str] = None
-    query: str
-    existing_ids: List[str] # Validated as a native array of strings
 
 
 def normalize_query(q: str) -> str:
@@ -512,6 +506,15 @@ def portfolio_grants(
     finally:
         conn.close()
 
+
+class SearchRequest(BaseModel):
+    year: str
+    category: Optional[str] = None
+    query: str
+    existing_ids: List[str] # Validated as a native array of strings
+
+
+
 @app.post("/api/portfolio/grants/search")
 def portfolio_grants_search(
     payload: SearchRequest
@@ -658,12 +661,29 @@ def get_grant_abstract(grant_id: str):
         cur.close()
         conn.close()
 
+class FilterContext(BaseModel):
+    category: Optional[str] = None
+    agency: Optional[str] = None
+
+class DimensionFlags(BaseModel):
+    topic: bool = False
+    project_type: bool = False
+    category: bool = False
+    agency: bool = False
+
+class SummaryRequest(BaseModel):
+    grant_ids: List[str]
+    search_queries: List[str]
+    filters: FilterContext
+    dimensions: DimensionFlags  # ✨ Maps exactly to JavaScript layout
+
 
 
 @app.post("/api/summarize-portfolio")
 def summarize(
     payload: SummaryRequest
 ):
+    t_start = time.perf_counter()
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -672,6 +692,8 @@ def summarize(
 
         # first we will generate a list of grant_ids to summarize based on the input string of comma-separated ids from the frontend
 
+        t_db_start = time.perf_counter()
+
         ids = [str(x) for x in payload.grant_ids if x]
 
         active_grants = load_grant_embeddings_and_text(cur, ids)
@@ -679,109 +701,211 @@ def summarize(
         if not active_grants:
             raise HTTPException(status_code=400, detail="No grants found.") 
 
+        t_db_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] DB Ingestion ({len(active_grants)} grants): {t_db_end - t_db_start:.4f} seconds")
+
+        t_cluster_start = time.perf_counter()
+
         # calculate total budget
         total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
+
+        unique_codes_in_selection = set(str(g.get("agency_code", "NONE")) for g in active_grants)
+        print(f"DEBUG: Unique raw agency codes in active selection: {unique_codes_in_selection}")
+
+
+        # identify selected filter for analysis
+        if payload.dimensions.agency: 
+            active_lens = "agency"
+        elif payload.dimensions.project_type:
+            active_lens = "project_type"
+        elif payload.dimensions.category:
+            active_lens = "category"
+        elif payload.dimensions.topic:
+            active_lens = "topic"
+        else:
+            active_lens = "none"
         
-        # run clustering on the active grants to group them into homogeneous fractions for better summarization by the LLM
-  
 
-        clusters = cluster_filtered_grants(active_grants)
 
-        # summarize clusters concurrently 
+        # Route to different clustering strategies based on the selected lens
+        clusters: Dict[str, List[dict]] = {}
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # --- CONSTRUCT INTERSECTIONAL SEARCH CONTEXT ---
-        category_human_name = machine_human_map.get(payload.active_category, payload.active_category) 
+        if active_lens == "agency":
+            # Load agency lookup map ONCE outside the loops to optimize memory I/O
+            agency_lookup = {}
+            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                agency_lookup = dict(zip(df["funding_code"].astype(str), df["agency_ic"]))
 
-    
+            for g in active_grants:
+                raw_code = g.get("agency_code")
+                key = str(raw_code or "Unknown Agency")
+                
+                # Check if it exists in your lookup map
+                if key in agency_lookup:
+                    full_name = agency_lookup[key]
+                else:
+                    full_name = f"Unmapped Agency (Code: {key})"
+                    # 🚨 LOUD LOGGING INTERVENTION: Catch the culprit!
+                    print(f"⚠️ SERVER WARNING: Found unmapped funding code '{raw_code}' for Grant ID {g.get('grant_id')} (Amount: ${g.get('amount')})")
+                
+                clusters.setdefault(full_name, []).append(g)
+        
+        elif active_lens == "project_type":
+            for g in active_grants:
+                # Fallback safely if grant_id layout changes or is missing
+                gid = g.get("grant_id", "")
+                activity_code = gid[1:4].upper() if len(gid) >= 4 else "Other"
+                clusters.setdefault(activity_code, []).append(g)
+        
+        elif active_lens == "category":
+            intent_keys = ["mechanistic", "therapeutic", "diagnostic", "clinical", "research_tool", "infrastructure", "education", "obs_ep"]
+            for g in active_grants:
+                assigned = False
+                for k in intent_keys:
+                    if g.get(k) == 1 or g.get(k) == "1" or g.get(k) is True:
+                        human_label = k.replace("_", " ").title()
+                        clusters.setdefault(human_label, []).append(g)
+                        assigned = True
+                if not assigned:
+                    clusters.setdefault("Uncategorized Intent", []).append(g)
 
-        query_intersection = "No filters applied"
+        elif active_lens == "topic":
+            clusters = cluster_filtered_grants(active_grants)
 
-        # Filter out empty strings or whitespaces from the query list
+
+        t_cluster_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Sorting/Clustering ({len(clusters)} buckets via '{active_lens}'): {t_cluster_end - t_cluster_start:.4f} seconds")
+
+        # --- CONSTRUCT RESILIENT SEARCH CONTEXT ---
+
+
+
+        query_intersection = "N/A"
         clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
-        
         if clean_queries:
-            # e.g., ["CRISPR", "Oncology"] -> "CRISPR AND Oncology"
             query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
 
+        category_human_name = "N/A"
+        if payload.filters.category:
+            category_human_name = machine_human_map.get(payload.filters.category, payload.filters.category)
+
+        agency_human_name = "N/A"
+        if payload.filters.agency:
+            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                matched = df[df["funding_code"] == str(payload.filters.agency)]["agency_ic"].values
+                if len(matched) > 0:
+                    agency_human_name = matched[0]
+
+        # Build clean structural instructions for the Map LLM
+        global_filters_context = f"- Active Search Queries: {query_intersection}\n"
+        global_filters_context += f"- Active Agency Scope: {agency_human_name}\n"
+        if payload.filters.category and category_human_name in category_mapping:
+            global_filters_context += f"- Active Category Frame: {category_human_name} (Focus Area: {category_mapping[category_human_name]})\n"
+        else:
+            global_filters_context += f"- Active Category Frame: Broad/Unfiltered Dataset View\n"
+
+        lens_descriptions = {
+            "agency": "Administering NIH Institute/Center Classification",
+            "project_type": "NIH Grant Activity Mechanism (e.g., R01, R21, U54)",
+            "category": "Downstream Grant Intent Canvas Block",
+            "topic": "Semantic Research Abstract Focus Cluster"
+        }
+        active_lens_desc = lens_descriptions.get(active_lens, "Custom Research Cohort")
+
+        # --- THE MAP PHASE LOOP ---
+        t_map_start = time.perf_counter()
         cluster_summaries = []
 
-        print("filters", query_intersection)
         for cluster_id, items in clusters.items():
+            t_chunk_start = time.perf_counter()
             cluster_budget = sum(float(g.get("amount") or 0) for g in items)
-
             budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
-
-            cluster_context = "\n".join([f"- Title: {g['title']}" for g in items[:15]])
+            
+            # Sub-slice data layout context window cleanly
+            cluster_context = "\n".join([f"- Project Title: {g['title']}" for g in items[:15]])
 
             map_prompt = f"""
-            You are analyzing a specialized cohort of research grants.
-            These are grants that are categorized with intent of {category_human_name} and therefore are focused on {category_mapping[category_human_name]}.
-            These grants also may or may not also be filtered by the following terms: {query_intersection}.
-
+            You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
             
-            Review this highly concentrated, semantically linked group of research grants and their funding:
+            CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
+            {global_filters_context}
+            
+            CURRENT COHORT PERSPECTIVE:
+            - This cohort represents a discrete partition split by: {active_lens_desc}.
+            - Active Target Partition Key Name: **{cluster_id}**
+
+            ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to 15):
             {cluster_context}
             
-            CRITICAL FINANCIAL METRICS FOR THIS CLUSTER:
-            - Total Allocated Funds: ${cluster_budget:,.2f}
-            - Portfolio Budget Share: {budget_share_pct:.1f}% of the currently filtered view space.
+            CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
+            - Allocated Total Capital: ${cluster_budget:,.2f}
+            - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
 
-            Provide a highly technical, 2-sentence summary of this cluster's scientific objective. 
-            You MUST open the summary by explicitly stating its financial footprint, formatted exactly like this:
+            Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
+            
+            CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
             "Accounting for ${cluster_budget:,.2f} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
             """
-            response = client.models.generate_content(model = "gemini-3-flash-preview", contents = map_prompt)
-            cluster_summaries.append(response.text)
+            
+            response = client.models.generate_content(model="gemini-3-flash-preview", contents=map_prompt)
+
+            # 🚀 THE FIX: Prepend the partition key name to preserve the data mapping for the Reduce Phase
+            labeled_summary = f"### Institute Partition: {cluster_id}\n{response.text}"
+            
+            cluster_summaries.append(labeled_summary)
+
+            t_chunk_end = time.perf_counter()
+            print(f"   ↳ [MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
+
+        t_map_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Global Map Phase Total: {t_map_end - t_map_start:.4f} seconds")
 
         # create master briefing
+        t_reduce_start = time.perf_counter()
         master_context = "\n\n".join(cluster_summaries)
-        reduce_prompt = f"""
-        You are a principal scientific program director. You are analyzing research grants that are categorized with intent of {category_human_name} and therefore are focused on {category_mapping[category_human_name]}.
-        These grants also may or may not also be filtered by the following terms: {query_intersection}.
         
-        The total budget of the relevant space is: ${total_filtered_budget:,.2f}.
+        # route to different reduce_prompts depending on selection
+        if active_lens == "agency":
+            missions_json_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "nih_missions.json"))
+                        
+            agency_missions_reference = "No official mission statements available for the active cohort."
+            
+            if os.path.exists(missions_json_path):
+                with open(missions_json_path, "r") as f:
+                    missions_db = json.load(f)
+                    
+                # Build a text block of ONLY the agencies present in the user's active results
+                reference_lines = []
+                for cluster_id in clusters.keys():
+                    matching_data = lookup_mission_by_name(cluster_id, missions_db)
+                    if matching_data:
+                        reference_lines.append(f"- **{matching_data['full_name']}**: {matching_data['mission']}")
+                
+                if reference_lines:
+                    agency_missions_reference = "\n".join(reference_lines)
 
-        Below are thematic summaries describing distinct clusters of grants within the above category and filters:
-        
-        {master_context}
-        
-        Synthesize these into an executive-level dossier. You must adhere to the following strict layout and formatting rules:
-        1. DO NOT use generic bolded bullet points like '** Cluster Name **' or '* **Focus:**'. Use clean, professional paragraph prose under standard markdown headers.
-        2. Every cluster mentioned must be contextualized by the dollar amount ($) or budget percentage (%) allocated to it.
-        3. NEVER explicitly mention internal rule labels such as "Condition A", "Condition B", "Pathway A", or "the instruction criteria" in your final output text.
-        
+            
+            reduce_prompt = REDUCE_PROMPT_AGENCY.format(
+                active_cat_name = category_human_name,
+                query_intersection = query_intersection,
+                total_filtered_budget = total_filtered_budget,
+                master_context = master_context
+            )        
+          
 
-        
 
-        Structure your response exactly with these three clean markdown sections:
-
-        # Executive Portfolio Briefing: Resource Allocation & Strategic Alignment
-
-        ## 1. Landscape Overview
-        Synthesize the overarching focus of this unique technical intersection. State the total active filtered budget (${total_filtered_budget:,.2f}) upfront. Highlight where capital is heavily migrating versus where investment density is low.
-
-        ## 2. Key Strategic Pillars
-        Detail the primary distinct strategic avenues discovered. Integrate the financial metrics seamlessly into the narrative prose for each pillar (e.g., "Accounting for X% of total allocated capital, the second pillar centers on..."). Focus heavily on the scale of capital velocity behind each theme.
-
-        ## 3. Resource Allocation Discrepancies & Strategic Trajectory
-        Analyze whether the current distribution of capital is balanced using the following condition based on the current category:
-
-        CRITICAL PRE-FILTER RULE: 
-        The user has applied the following explicit search constraints: {query_intersection}.
-        If a search constraint is active, DO NOT criticize the portfolio for lacking other diseases
-        (e.g., do not say it lacks cardiovascular or infectious disease focus). The user has intentionally isolated this subset. Instead, evaluate the internal allocation discrepancies *within* this restricted search space (e.g., inside this '{query_intersection}' portfolio, how is capital distributed between early-stage discovery vs longitudinal tracking, or high-cost assays vs screening?).
-
-        If the active category intent is APPLIED (Therapeutic, Diagnostic, Clinical / Health Systems, Observation Epidemiology)]
-        Evaluate if the distribution of capital aligns with known clinical disease burdens, global prevalence, or patient delivery bottlenecks. Contrast early-stage emerging technology plays against mature, commoditized technologies within this search space (e.g., checking if the portfolio over-allocates to old paradigms vs emerging technical shifts). 
-
-        If the active category intent is FOUNDATIONAL (Mechanistic / Basic Science, Research Tool, Infrastructure, Education / Training)]
-        Evaluate the portfolio based on technological maturity, methodological breadth, and platform obsolescence. Identify if the capital is stuck funding legacy baseline frameworks (e.g., traditional mapping techniques or outdated standard assays) or if it is adequately backing next-generation infrastructure platforms (e.g., cross-disciplinary AI integration, automated pipelines, or high-throughput single-cell platforms) necessary to support downstream clinical breakthroughs.
-
-        Address the current active filters directly and do not speak in broad generalities.
-        """
         
         final_briefing = client.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-        
+        t_reduce_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+
+        t_total_end = time.perf_counter()
+        print(f"🏁 [LATENCY] TOTAL PIPELINE EXECUTION LIFETIME: {t_total_end - t_start:.4f} seconds\n")
         return {"summary": final_briefing.text}
             
 
