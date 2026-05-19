@@ -29,8 +29,8 @@ import pandas as pd
 import time
 from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE
 #, REDUCE_PROMPT_CATEGORY, REDUCE_PROMPT_TOPIC
-from core.synthesis_prompts.mission_utils import lookup_mission_by_name
-
+from core.synthesis_prompts.prompt_utils import lookup_mission_by_name, format_currency_short
+import asyncio
 
 load_dotenv()
 
@@ -680,7 +680,7 @@ class SummaryRequest(BaseModel):
 
 
 @app.post("/api/summarize-portfolio")
-def summarize(
+async def summarize(
     payload: SummaryRequest
 ):
     t_start = time.perf_counter()
@@ -817,57 +817,67 @@ def summarize(
         }
         active_lens_desc = lens_descriptions.get(active_lens, "Custom Research Cohort")
 
-        # --- THE MAP PHASE LOOP ---
         t_map_start = time.perf_counter()
-        cluster_summaries = []
 
-        for cluster_id, items in clusters.items():
+        # 1. Define an async worker function to handle an isolated cluster payload
+        async def process_cluster_chunk(cluster_id, items):
             t_chunk_start = time.perf_counter()
+            
+            # Slice metrics and construct array context text as before
             cluster_budget = sum(float(g.get("amount") or 0) for g in items)
             budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
-            
-            # Sub-slice data layout context window cleanly
+
+            # 🚀 Convert the raw numbers into short strings here
+            short_cluster_budget = format_currency_short(cluster_budget)
+
             cluster_context = "\n".join([f"- Project Title: {g['title']}" for g in items[:15]])
 
             map_prompt = f"""
             You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
-            
             CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
             {global_filters_context}
-            
             CURRENT COHORT PERSPECTIVE:
             - This cohort represents a discrete partition split by: {active_lens_desc}.
             - Active Target Partition Key Name: **{cluster_id}**
-
             ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to 15):
             {cluster_context}
-            
             CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
-            - Allocated Total Capital: ${cluster_budget:,.2f}
+            - Allocated Total Capital: ${short_cluster_budget} 
             - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
-
             Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
-            
             CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
-            "Accounting for ${cluster_budget:,.2f} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
+            "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
             """
-            
-            response = client.models.generate_content(model="gemini-3-flash-preview", contents=map_prompt)
 
-            # 🚀 THE FIX: Prepend the partition key name to preserve the data mapping for the Reduce Phase
-            labeled_summary = f"### Institute Partition: {cluster_id}\n{response.text}"
+            # 🚀 Non-blocking Async Network call
+            response = await client.aio.models.generate_content(
+                model="gemini-3-flash-preview", 
+                contents=map_prompt
+            )
             
-            cluster_summaries.append(labeled_summary)
-
             t_chunk_end = time.perf_counter()
-            print(f"   ↳ [MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
+            print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
+            
+            # Prepend the partition key name to preserve mapping metadata
+            return f"### Institute Partition: {cluster_id}\n{response.text}"
+
+        # 2. Build a task list of all coroutines to execute in parallel
+        tasks = [
+            process_cluster_chunk(cluster_id, items) 
+            for cluster_id, items in clusters.items()
+        ]
+
+        # 3. Dispatch all tasks simultaneously and wait for the batch to resolve
+        cluster_summaries = await asyncio.gather(*tasks)
 
         t_map_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Global Map Phase Total: {t_map_end - t_map_start:.4f} seconds")
+        print(f"⏱️ [LATENCY] Global Map Phase Total (Concurrent Parallel Batch): {t_map_end - t_map_start:.4f} seconds")
 
         # create master briefing
         t_reduce_start = time.perf_counter()
         master_context = "\n\n".join(cluster_summaries)
+
+        short_total_budget = format_currency_short(total_filtered_budget)
         
         # route to different reduce_prompts depending on selection
         if active_lens == "agency":
@@ -893,9 +903,53 @@ def summarize(
             reduce_prompt = REDUCE_PROMPT_AGENCY.format(
                 active_cat_name = category_human_name,
                 query_intersection = query_intersection,
-                total_filtered_budget = total_filtered_budget,
-                master_context = master_context
+                total_filtered_budget = short_total_budget,
+                master_context = master_context,
+                agency_missions_reference = agency_missions_reference
             )        
+
+        if active_lens == "project_type":
+            code_mapping_csv = os.path.abspath(os.path.join(script_dir, "..", "core", "synthesis_prompts", "ActivityCodes.csv"))
+            
+            project_type_reference = "No official activity code definitions available for the active cohort."
+            
+            if os.path.exists(code_mapping_csv):
+                df = pd.read_csv(code_mapping_csv)
+                
+                # 1. Build a rich lookup dictionary from the dataframe
+                # Note the corrected column name: 'Activity_Code'
+                code_lookup = {}
+                for _, row in df.iterrows():
+                    code = str(row["Activity_Code"]).strip()
+                    code_lookup[code] = {
+                        "title": row.get("Title", "Unknown Mechanism"),
+                        "description": row.get("Description", "No description provided.")
+                    }
+
+                # 2. Extract and format ONLY the activity codes present in this active run
+                reference_lines = []
+                for cluster_id in clusters.keys():
+                    # 💡 RESILIENCE TRICK: Extract the raw code prefix (e.g., turns "R01 - Research Project" into "R01")
+                    clean_code_key = str(cluster_id).split()[0].split('-')[0].strip().upper()
+                    
+                    if clean_code_key in code_lookup:
+                        meta = code_lookup[clean_code_key]
+                        reference_lines.append(f"- **{clean_code_key} ({meta['title']})**: {meta['description']}")
+                    else:
+                        # Fallback case if cluster keys are already descriptive but missing from CSV
+                        reference_lines.append(f"- **{cluster_id}**: Active project mechanism bucket.")
+
+                if reference_lines:
+                    project_type_reference = "\n".join(reference_lines)
+
+            # 3. Format the final Reduce prompt with the new reference block parameter
+            reduce_prompt = REDUCE_PROMPT_PROJECT_TYPE.format(
+                active_cat_name = category_human_name,
+                query_intersection = query_intersection,
+                total_filtered_budget = short_total_budget,
+                master_context = master_context,
+                project_type_reference = project_type_reference  # Injecting the mechanism dictionary
+            )
           
 
 
