@@ -147,25 +147,64 @@
             </div>
 
             <div id="grant-results-right-panel">
-                <!-- Active Workspace Header -->
                 <div class="panel-header">
-                    <h3>Portfolio Intelligence</h3>
+                    <h3>AI-Powered Portfolio Insights</h3>
                     <p>Analyze trends inside your active search parameters.</p>
                 </div>
 
-                <!-- Dynamic AI Button Container -->
                 <div id="ai-workspace-area">
                     <div class="ai-summary-card">
                         <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
                         <h4>Synthesize Active View Space</h4>
                         <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+
+                        <div class="clustering-options-group"
+                            style="margin: 16px 0; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                            <span
+                                style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; display: block; margin-bottom: 8px;">
+                                Select Synthesis Layer (Pick One)
+                            </span>
+                            <div
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; color: #374151;">
+                                <label id="lbl-cluster-topic" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-topic" name="cluster-dimension" value="topic"
+                                        checked style="accent-color: #111827;">
+                                    <span>Scientific Topics</span>
+                                </label>
+                                <label id="lbl-cluster-type" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-type" name="cluster-dimension"
+                                        value="project_type" style="accent-color: #111827;">
+                                    <span>Activity Code</span>
+                                </label>
+                                <label id="lbl-cluster-category" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-category" name="cluster-dimension"
+                                        value="category" style="accent-color: #111827;">
+                                    <span>Category</span>
+                                </label>
+                                <label id="lbl-cluster-agency" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-agency" name="cluster-dimension" value="agency"
+                                        style="accent-color: #111827;">
+                                    <span>Agency</span>
+                                </label>
+                                <label id="lbl-cluster-geography" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-geography" name="cluster-dimension"
+                                        value="geography" style="accent-color: #111827;">
+                                    <span>Geography</span>
+                                </label>
+                                <label id="lbl-cluster-career-stage" class="cluster-option-label">
+                                    <input type="radio" id="rad-cluster-career-stage" name="cluster-dimension"
+                                        value="career_stage" style="accent-color: #111827;">
+                                    <span>PI Career Stage</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <button id="trigger-ai-briefing-btn" class="ai-action-btn">
                             <span>✨ Build Executive Briefing</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Container where the markdown text will eventually render -->
                 <div id="ai-output-display" style="display: none;"></div>
             </div>
 
@@ -286,6 +325,7 @@
                             y: 1.1,
                             pad: { b: 20 }
                         },
+                        dragmode: false,
                         hovermode: 'closest',
                         hoverdistance: 5,
                         hoverlabel: {
@@ -351,6 +391,7 @@
                             zeroline: false,
                             ticks: "",
                             showline: false,
+                            fixedrange: true
                         },
                         yaxis: {
                             autorange: "reversed",
@@ -358,7 +399,8 @@
                             tickfont: { size: 16, color: "#12253d", weight: 700 },
                             ticks: "",
                             showline: false,
-                            ticksuffix: "    "
+                            ticksuffix: "    ",
+                            fixedrange: true
                         }
                     },
                     {
@@ -558,7 +600,7 @@
                     });
                 });
             }
-
+            updateClusteringTogglesVisibility();
 
 
         }
@@ -569,6 +611,7 @@
             if (onRemove) pill.onclick = onRemove;
             target.appendChild(pill);
         }
+
         function renderHeader(categoryName) {
             console.log("renderHeader received category:", categoryName);
 
@@ -581,6 +624,29 @@
             <div class="filter-pill">Fiscal Year: 2025</div>
             <div class="filter-pill">Category: ${categoryName}</div>
         `;
+        }
+        function updateClusteringTogglesVisibility() {
+            const radCategory = document.getElementById("rad-cluster-category");
+            const lblCategory = document.getElementById("lbl-cluster-category");
+            const radTopic = document.getElementById("rad-cluster-topic");
+
+            if (!radCategory || !lblCategory) return;
+
+            // If a category filter is active, gray out the radio option entirely
+            if (currentFilters.category) {
+                // If it was selected, clear it and fall back to 'topic'
+                if (radCategory.checked) {
+                    radTopic.checked = true;
+                }
+                radCategory.disabled = true;
+                lblCategory.classList.add("disabled");
+                lblCategory.querySelector("span").innerText = "Category (Filtered)";
+            } else {
+                // Re-enable option when category filter pill is cleared
+                radCategory.disabled = false;
+                lblCategory.classList.remove("disabled");
+                lblCategory.querySelector("span").innerText = "Ontology Category";
+            }
         }
         function updateTotals(grants) {
             const count = grants.length;
@@ -772,10 +838,13 @@
 
             }
         });
+
         async function generatePortfolioBriefing() {
+
+
             const workspace = document.getElementById("ai-workspace-area");
             const outputDisplay = document.getElementById("ai-output-display");
-            const currentCategory = currentFilters.category || "All Categories";
+            const currentCategory = currentFilters.category || null;
             const activeTagsList = currentFilters.queries || [];
 
             // 1. Collect current active grant IDs from your global state tracking array
@@ -786,6 +855,9 @@
                 alert("No grants found in your current filter view to summarize.");
                 return;
             }
+
+            // 🌟 Grabbing the value of whichever radio item is checked
+            const selectedDimension = document.querySelector('input[name="cluster-dimension"]:checked')?.value || "topic";
 
             // 2. Set an active visual Loading State
             workspace.innerHTML = `
@@ -806,8 +878,21 @@
                     },
                     body: JSON.stringify({
                         grant_ids: activeIds,
-                        active_category: currentCategory,
-                        search_queries: activeTagsList
+                        search_queries: activeTagsList,
+                        filters: {
+                            category: currentCategory,
+                            agency: currentFilters.agency || window.activeAgencyCode || null,
+                        },
+                        dimensions: {
+                            // Only set the explicitly selected dimension to true 🚀
+                            topic: selectedDimension === "topic",
+                            project_type: selectedDimension === "project_type",
+                            category: selectedDimension === "category",
+                            agency: selectedDimension === "agency",
+                            geography: selectedDimension === "geography",
+                            career_stage: selectedDimension === "career_stage"
+                        }
+
                     })
                 });
 
@@ -842,17 +927,53 @@
             outputDisplay.style.display = "none";
             workspace.style.display = "block";
 
-            // Restore original button setup
+            // Restore original button and configuration options setup
             workspace.innerHTML = `
                 <div class="ai-summary-card">
                     <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
                     <h4>Synthesize Active View Space</h4>
                     <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
+
+                    <div class="clustering-options-group" style="margin: 16px 0; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; display: block; margin-bottom: 8px;">
+                            Select Synthesis Layer (Pick One)
+                        </span>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; color: #374151;">
+                            <label id="lbl-cluster-topic" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-topic" name="cluster-dimension" value="topic" checked style="accent-color: #111827;">
+                                <span>Scientific Topics</span>
+                            </label>
+                            <label id="lbl-cluster-type" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-type" name="cluster-dimension" value="project_type" style="accent-color: #111827;">
+                                <span>Activity Code</span>
+                            </label>
+                            <label id="lbl-cluster-category" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-category" name="cluster-dimension" value="category" style="accent-color: #111827;">
+                                <span>Category</span>
+                            </label>
+                            <label id="lbl-cluster-agency" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-agency" name="cluster-dimension" value="agency" style="accent-color: #111827;">
+                                <span>Agency</span>
+                            </label>
+                            <label id="lbl-cluster-geography" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-geography" name="cluster-dimension" value="geography" style="accent-color: #111827;">
+                                <span>Geography</span>
+                            </label>
+                            <label id="lbl-cluster-career-stage" class="cluster-option-label">
+                                <input type="radio" id="rad-cluster-career-stage" name="cluster-dimension" value="career_stage" style="accent-color: #111827;">
+                                <span>Career Stage</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <button id="trigger-ai-briefing-btn" class="ai-action-btn" onclick="generatePortfolioBriefing()">
                         <span>✨ Build Executive Briefing</span>
                     </button>
                 </div>
             `;
+
+            // Maintain visual logic states for disabled elements if category filters are active
+            updateClusteringTogglesVisibility();
         }
 
         // Simple text formatter to safely clean basic Markdown headers if you aren't using marked.js
