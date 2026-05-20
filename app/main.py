@@ -28,8 +28,7 @@ from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
 import time
 from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE, TOPIC_PROMPT_REGISTRY, DEFAULT_PROMPT_REDUCE_TOPIC, REDUCE_PROMPT_GEOGRAPHY
-from core.synthesis_prompts.prompts import REDUCE_PROMPT_CAREER_STAGE
-#, REDUCE_PROMPT_CATEGORY
+from core.synthesis_prompts.prompts import REDUCE_PROMPT_CAREER_STAGE, REDUCE_PROMPT_CATEGORY
 from core.synthesis_prompts.prompt_utils import lookup_mission_by_name, format_currency_short
 import asyncio
 import numpy as np
@@ -781,13 +780,33 @@ async def summarize(
         elif active_lens == "category":
             intent_keys = ["mechanistic", "therapeutic", "diagnostic", "clinical", "research_tool", "infrastructure", "education", "obs_ep"]
             for g in active_grants:
-                assigned = False
+                # 1. First pass: Find all matching categories for this specific grant
+                matched_keys = []
                 for k in intent_keys:
                     if g.get(k) == 1 or g.get(k) == "1" or g.get(k) is True:
-                        human_label = k.replace("_", " ").title()
-                        clusters.setdefault(human_label, []).append(g)
-                        assigned = True
-                if not assigned:
+                        matched_keys.append(k)
+                
+                # 2. Second pass: Calculate fractional weight and distribute to clusters
+                if matched_keys:
+                    match_count = len(matched_keys)
+                    
+                    # Safely parse the original grant budget amount
+                    original_amount = float(g.get("amount") or 0)
+                    
+                    # Split the amount evenly across all matched categories
+                    fractional_amount = original_amount / match_count
+                    
+                    for k in matched_keys:
+                        human_label = machine_human_map.get(k, k.replace("_", " ").title())
+                        
+                        # Create a shallow copy of the grant dict so we don't mutate 
+                        # the shared reference for other categories or downstream loops
+                        fractional_grant = g.copy()
+                        fractional_grant["amount"] = fractional_amount
+                        
+                        clusters.setdefault(human_label, []).append(fractional_grant)
+                else:
+                    # Handle grants that carry zero intent flags
                     clusters.setdefault("Uncategorized Intent", []).append(g)
 
         elif active_lens == "topic":
@@ -1055,6 +1074,30 @@ async def summarize(
             final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
             t_reduce_end = time.perf_counter()
             print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+
+        elif active_lens == "category":
+            # 🚀 Cleanly stringify ONLY the definitions that are actually inside our active results
+            reference_lines = []
+            for cluster_id in clusters.keys():
+                if cluster_id in category_mapping:
+                    reference_lines.append(f"- **{cluster_id}**: {category_mapping[cluster_id]}")
+                else:
+                    reference_lines.append(f"- **{cluster_id}**: Supplementary uncategorized raw database partition.")
+            
+            category_definitions_reference = "\n".join(reference_lines)
+
+            reduce_prompt = REDUCE_PROMPT_CATEGORY.format(
+                active_cat_name = category_human_name,
+                query_intersection = query_intersection,
+                total_filtered_budget = short_total_budget,
+                master_context = master_context,
+                category_definitions_reference = category_definitions_reference
+            )
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt, config={"tools": [{"google_search": {}}]})
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+
+            
           
         elif active_lens == "topic":
 
