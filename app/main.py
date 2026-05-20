@@ -27,8 +27,9 @@ import os
 from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
 import time
-from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE, TOPIC_PROMPT_REGISTRY, DEFAULT_PROMPT_REDUCE_TOPIC
-#, REDUCE_PROMPT_CATEGORY, REDUCE_PROMPT_TOPIC
+from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE, TOPIC_PROMPT_REGISTRY, DEFAULT_PROMPT_REDUCE_TOPIC, REDUCE_PROMPT_GEOGRAPHY
+from core.synthesis_prompts.prompts import REDUCE_PROMPT_CAREER_STAGE
+#, REDUCE_PROMPT_CATEGORY
 from core.synthesis_prompts.prompt_utils import lookup_mission_by_name, format_currency_short
 import asyncio
 import numpy as np
@@ -673,6 +674,8 @@ class DimensionFlags(BaseModel):
     project_type: bool = False
     category: bool = False
     agency: bool = False
+    geography: bool = False
+    career_stage: bool = False
 
 class SummaryRequest(BaseModel):
     grant_ids: List[str]
@@ -697,9 +700,36 @@ async def summarize(
 
         t_db_start = time.perf_counter()
 
+        # identify selected filter for analysis
+        if payload.dimensions.agency: 
+            active_lens = "agency"
+        elif payload.dimensions.project_type:
+            active_lens = "project_type"
+        elif payload.dimensions.category:
+            active_lens = "category"
+        elif payload.dimensions.topic:
+            active_lens = "topic"
+        elif payload.dimensions.geography:
+            active_lens = "geography"
+        elif payload.dimensions.career_stage:
+            active_lens = "career_stage"
+        else:
+            active_lens = "none"
+        
+
         ids = [str(x) for x in payload.grant_ids if x]
 
-        active_grants = load_grant_embeddings_and_text(cur, ids)
+        active_grants = load_grant_embeddings_and_text(cur, ids, active_lens=active_lens)
+
+        if len(active_grants) > 0:
+            sample_grant = active_grants[0]
+            print("📊 [DATABASE PAYLOAD CHECK]")
+            print(f"-> Available Dictionary Keys: {list(sample_grant.keys())}")
+            print(f"-> Sample 'career_stage' value: {sample_grant.get('career_stage')}")
+            
+            # Count how many rows actually have a valid career stage string
+            valid_stages = [g.get('career_stage') for g in active_grants if g.get('career_stage') and g.get('career_stage') != 'Unclassified']
+            print(f"-> Total grants with active career classifications: {len(valid_stages)} / {len(active_grants)}")
 
         if not active_grants:
             raise HTTPException(status_code=400, detail="No grants found.") 
@@ -712,19 +742,7 @@ async def summarize(
         # calculate total budget
         total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
 
-        
-        # identify selected filter for analysis
-        if payload.dimensions.agency: 
-            active_lens = "agency"
-        elif payload.dimensions.project_type:
-            active_lens = "project_type"
-        elif payload.dimensions.category:
-            active_lens = "category"
-        elif payload.dimensions.topic:
-            active_lens = "topic"
-        else:
-            active_lens = "none"
-        
+               
 
 
         # Route to different clustering strategies based on the selected lens
@@ -775,6 +793,15 @@ async def summarize(
         elif active_lens == "topic":
             clusters = cluster_filtered_grants_for_map(active_grants)
 
+        elif active_lens == "geography":
+            for g in active_grants:
+                org_state = g.get("org_state", "Unknown State")
+                clusters.setdefault(org_state, []).append(g)
+
+        elif active_lens == "career_stage":
+            for g in active_grants:
+                stage = g.get("career_stage", "Unclassified")
+                clusters.setdefault(stage, []).append(g)
 
         t_cluster_end = time.perf_counter()
         print(f"⏱️ [LATENCY] Sorting/Clustering ({len(clusters)} buckets via '{active_lens}'): {t_cluster_end - t_cluster_start:.4f} seconds")
@@ -811,7 +838,9 @@ async def summarize(
             "agency": "Administering NIH Institute/Center Classification",
             "project_type": "NIH Grant Activity Mechanism (e.g., R01, R21, U54)",
             "category": "Downstream Grant Intent Canvas Block",
-            "topic": "Semantic Research Abstract Focus Cluster"
+            "topic": "Semantic Research Abstract Focus Cluster",
+            "geography": "Geographic Distribution by State of Awardee Institution",
+            "career_stage": "Principal Investigator Operational Longevity and Academic Vintage Cohort"
         }
         active_lens_desc = lens_descriptions.get(active_lens, "Custom Research Cohort")
 
@@ -1004,6 +1033,28 @@ async def summarize(
             final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
             t_reduce_end = time.perf_counter()
             print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+
+        elif active_lens == "geography":
+            reduce_prompt = REDUCE_PROMPT_GEOGRAPHY.format(
+                active_cat_name = category_human_name,
+                query_intersection = query_intersection,
+                total_filtered_budget = short_total_budget,
+                master_context = master_context
+            )
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+        
+        elif active_lens == "career_stage":
+            reduce_prompt = REDUCE_PROMPT_CAREER_STAGE.format(
+                active_cat_name = category_human_name,
+                query_intersection = query_intersection,
+                total_filtered_budget = short_total_budget,
+                master_context = master_context
+            )
+            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
+            t_reduce_end = time.perf_counter()
+            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
           
         elif active_lens == "topic":
 
@@ -1020,8 +1071,7 @@ async def summarize(
             t_reduce_end = time.perf_counter()
             print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
             
-        
-
+       
         t_total_end = time.perf_counter()
         print(f"🏁 [LATENCY] TOTAL PIPELINE EXECUTION LIFETIME: {t_total_end - t_start:.4f} seconds\n")
         return {"summary": final_briefing.text}
