@@ -291,6 +291,7 @@
                     font: { family: "'Inter', sans-serif", size: 35, color: '#12253d' },
                     xref: 'paper',
                 },
+                dragmode: false,
                 autosize: true,
                 hovermode: "x unified",
                 margin: { t: 120, l: 70, r: 50, b: 120 },
@@ -298,7 +299,8 @@
                     title: { text: "Year", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
                     tickfont: { size: 20, color: "#12253d", weight: 700 },
                     showgrid: false,
-                    automargin: true
+                    automargin: true,
+                    fixedrange: true
                 },
                 yaxis: {
                     title: { text: "USD ($)", font: { size: 26, color: "#12253d", weight: 700 }, standoff: 40 },
@@ -306,6 +308,7 @@
                     ticks: "",
                     automargin: true,
                     showgrid: false,
+                    fixedrange: true,
 
                     // FIXES FOR THE Y-AXIS LOOK:
                     tickprefix: "$",        // Prepends a dollar sign to numbers
@@ -683,6 +686,7 @@
                     font: { family: "'Inter', sans-serif", size: 25, color: '#12253d' },
                     xref: 'paper', x: 0, y: 1.1, pad: { b: 20 }
                 },
+                dragmode: false,
                 hovermode: 'closest',
                 hoverdistance: 5,
                 hoverlabel: {
@@ -710,13 +714,13 @@
                 xaxis: {
                     title: { text: "Total Funding (USD)", font: { size: 18, color: "#12253d", weight: 700 }, standoff: 30 },
                     tickfont: { size: 16, color: "#243b53", weight: 700 },
-                    showgrid: false, zeroline: false, ticks: "", showline: false,
+                    showgrid: false, zeroline: false, ticks: "", showline: false, fixedrange: true,
 
                     tickprefix: "$",        // Prepends a dollar sign to the axis labels
                     exponentformat: "B",    // Forces standard financial abbreviations (K, M, B) over (k, M, G)
                 },
                 yaxis: {
-                    autorange: "reversed", showgrid: false,
+                    autorange: "reversed", showgrid: false, fixedrange: true,
                     tickfont: { size: 16, family: "'Inter', sans-serif", color: "#12253d", weight: 700 },
                     ticks: "", showline: false, ticksuffix: "    "
                 }
@@ -838,7 +842,7 @@
             const outputDisplay = document.getElementById("ai-output-display");
 
             // Fallbacks to handle the results page filter structure
-            const currentCategory = activeCategory || "All Categories";
+            const currentCategory = activeCategory || null;
 
             // 1. Collect current active grant IDs from your global state tracking array
             const activeIds = allGrants.map(grant => grant.grant_id || grant.id);
@@ -847,6 +851,14 @@
                 alert("No grants found in your current filter view to summarize.");
                 return;
             }
+
+
+            // Category clustering is disabled if a category filter is active
+            const isCategoryFilterActive = !!currentCategory;
+
+            // Agency clustering is disabled if an explicit agency tracking variable is set
+            const isAgencyFilterActive = !!(currentFilters.agency || window.activeAgencyCode);
+
 
             // 2. Set an active visual Loading State
             workspace.innerHTML = `
