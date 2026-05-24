@@ -1,6 +1,6 @@
 #main.py
 
-from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi import FastAPI, Query, Request, HTTPException, APIRouter
 from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
@@ -20,8 +20,8 @@ from core.search.load_docs import load_grant_texts
 from core.cluster.agglomerative_clustering import cluster_filtered_grants_for_map
 from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
 from google import genai
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict
 from dotenv import load_dotenv
 import os
 from core.category.mapping import category_mapping, machine_human_map
@@ -34,6 +34,9 @@ import asyncio
 import numpy as np
 from collections import Counter
 from sklearn.metrics.pairwise import cosine_distances
+from core.summarize_portfolio.class_registry import AnalyticalLensStrategy, InstitutionalEquityStrategy
+
+
 
 load_dotenv()
 
@@ -664,25 +667,205 @@ def get_grant_abstract(grant_id: str):
         cur.close()
         conn.close()
 
-class FilterContext(BaseModel):
+class FilterPayload(BaseModel):
     category: Optional[str] = None
     agency: Optional[str] = None
 
-class DimensionFlags(BaseModel):
+class DimensionPayload(BaseModel):
+    # Basic Science / Default Lenses
     topic: bool = False
     project_type: bool = False
-    category: bool = False
     agency: bool = False
     geography: bool = False
     career_stage: bool = False
+    
+    # Education / Training Lenses
+    institutional_equity: bool = False
+    geographic_diversity: bool = False
+    pipeline_transition: bool = False
+    
+    # Therapeutics & Clinical Lenses
+    translational_velocity: bool = False
+    commercial_pipeline: bool = False
 
-class SummaryRequest(BaseModel):
-    grant_ids: List[str]
-    search_queries: List[str]
-    filters: FilterContext
-    dimensions: DimensionFlags  # ✨ Maps exactly to JavaScript layout
+class PortfolioBriefingRequest(BaseModel):
+    grant_ids: List[str] = Field(..., description="List of active filtered grant IDs")
+    search_queries: List[str] = Field(default_factory=list)
+    filters: FilterPayload
+    dimensions: DimensionPayload
 
 
+
+LENS_REGISTRY = {
+    "institutional_equity": InstitutionalEquityStrategy(),
+}
+
+
+@app.post("/api/summarize-portfolio")
+async def generate_portfolio_briefing(payload: PortfolioBriefingRequest):
+    category = payload.filters.category  # e.g., "education", "mechanistic", or None
+    grant_ids = payload.grant_ids
+    queries = payload.search_queries
+
+    # 1. Identify which lens dimension was flagged as True
+    # .model_dump() turns the Pydantic sub-object into a standard dict
+    dimension_dict = payload.dimensions.model_dump()
+    active_dimension = next((dim for dim, active in dimension_dict.items() if active), "topic")
+
+    strategy = LENS_REGISTRY.get(active_dimension)
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        ids = [str(x) for x in payload.grant_ids if x]
+
+        active_grants = strategy.load_grant_details(cur, ids)
+
+        if not active_grants:
+            raise HTTPException(status_code=400, detail="No grants found for the provided IDs.")
+
+        t_cluster_start = time.perf_counter()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        clusters = strategy.partition_workspace(active_grants, script_dir)
+        t_cluster_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Clustering Step: {t_cluster_end - t_cluster_start:.4f} seconds")
+
+        total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
+
+
+        query_intersection = "N/A"
+        
+        query_intersection = "N/A"
+        clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
+        if clean_queries:
+            query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
+
+        category_human_name = "N/A"
+        if payload.filters.category:
+            category_human_name = machine_human_map.get(payload.filters.category, payload.filters.category)
+
+        agency_human_name = "N/A"
+        if payload.filters.agency:
+            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                matched = df[df["funding_code"] == str(payload.filters.agency)]["agency_ic"].values
+                if len(matched) > 0:
+                    agency_human_name = matched[0]
+
+        # Build clean structural instructions for the Map LLM
+        global_filters_context = f"- Active Search Queries: {query_intersection}\n"
+        global_filters_context += f"- Active Agency Scope: {agency_human_name}\n"
+        if payload.filters.category and category_human_name in category_mapping:
+            global_filters_context += f"- Active Category Frame: {category_human_name} (Focus Area: {category_mapping[category_human_name]})\n"
+        else:
+            global_filters_context += f"- Active Category Frame: Broad/Unfiltered Dataset View\n"
+
+        # Ask the strategy what its high-level description is
+        active_lens_desc = getattr(strategy, "lens_description", "Custom Research Cohort")
+
+        # ==========================================
+        # 3. DISPATCH PARALLEL ASYNC MAP WORKERS
+        # ==========================================
+        t_map_start = time.perf_counter()
+
+        async def process_cluster_chunk(cluster_id, items):
+            t_chunk_start = time.perf_counter()
+            
+            cluster_budget = sum(float(g.get("amount") or 0) for g in items)
+            budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
+            short_cluster_budget = format_currency_short(cluster_budget)
+
+            VISIBILITY_CEILING = 75
+            context_lines = []
+
+            for g in items[:VISIBILITY_CEILING]:
+                title = g.get("title", "No Title")
+                activity_code = g.get("grant_id", "")[1:4].upper() if g.get("grant_id") and len(g.get("grant_id")) >= 4 else "Other"
+                amount = float(g.get("amount") or 0)
+                formatted_amount = format_currency_short(amount)
+                nano_summary = g.get("summary_text", "No summary available.")
+
+                context_lines.append(
+                    f"* [{activity_code} - {formatted_amount}] {title}\n"
+                    f"  Scientific Core: {nano_summary}"
+                )
+
+            cluster_context = "\n".join(context_lines)
+
+            # 🔑 DYNAMIC LAYOUT: Allow the strategy to define a custom map prompt if it wants one
+            if hasattr(strategy, "build_map_prompt"):
+                map_prompt = strategy.build_map_prompt(
+                    cluster_id=cluster_id,
+                    cluster_context=cluster_context,
+                    short_cluster_budget=short_cluster_budget,
+                    budget_share_pct=budget_share_pct,
+                    global_filters_context=global_filters_context
+                )
+            else:
+                # Fallback to your original baseline map prompt template
+                map_prompt = f"""
+                You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
+                CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
+                {global_filters_context}
+                CURRENT COHORT PERSPECTIVE:
+                - This cohort represents a discrete partition split by: {active_lens_desc}.
+                - Active Target Partition Key Name: **{cluster_id}**
+                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to {VISIBILITY_CEILING} high-density records):
+                {cluster_context}
+                CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
+                - Allocated Total Capital: ${short_cluster_budget} 
+                - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
+                Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
+                CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
+                "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
+                """
+
+            response = await client.aio.models.generate_content(
+                model="gemini-3-flash-preview", 
+                contents=map_prompt
+            )
+            
+            t_chunk_end = time.perf_counter()
+            print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
+            
+            return f"### Partition: {cluster_id}\n{response.text}"
+
+        # 4. Dispatch tasks concurrently
+        tasks = [process_cluster_chunk(cid, items) for cid, items in clusters.items()]
+        cluster_summaries = await asyncio.gather(*tasks)
+
+        t_map_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Global Map Phase Total: {t_map_end - t_map_start:.4f} seconds")
+
+        # ==========================================
+        # 4. REDUCE PHASE (FINAL BRIEFING SYNTHESIS)
+        # ==========================================
+        t_reduce_start = time.perf_counter()
+        master_context = "\n\n".join(cluster_summaries)
+        short_total_budget = format_currency_short(total_filtered_budget)
+
+        # Assemble your dictionary of parameters for the final reduce layout
+        reduce_ctx = {
+            "category_human_name": category_human_name,
+            "short_total_budget": short_total_budget,
+            "master_context": master_context
+        }
+
+        # Let the strategy render its custom target prompt template!
+        final_reduce_prompt = strategy.build_reduce_prompt(reduce_ctx)
+
+        final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = final_reduce_prompt)
+        t_reduce_end = time.perf_counter()
+        print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
+
+        return {"summary": final_briefing.text}           
+     
+    finally:
+        conn.close()
+'''
 
 @app.post("/api/summarize-portfolio")
 async def summarize(
@@ -928,7 +1111,25 @@ async def summarize(
                 budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
                 short_cluster_budget = format_currency_short(cluster_budget)
 
-                cluster_context = "\n".join([f"- Project Title: {g['title']}" for g in items[:15]])
+                VISIBILITY_CEILING = 75
+                context_lines = []
+
+                for g in items[:VISIBILITY_CEILING]:
+                    title = g.get("title", "No Title")
+                    activity_code = g.get("grant_id", "")[1:4].upper() if g.get("grant_id") and len(g.get("grant_id")) >= 4 else "Other"
+                    
+                    amount = float(g.get("amount") or 0)
+                    formatted_amount = format_currency_short(amount)
+
+                    nano_summary = g.get("summary_text", "No summary available.")
+
+                    context_lines.append(
+                        f"* [{activity_code} - {formatted_amount}] {title}\n"
+                        f"  Scientific Core: {nano_summary}"
+                    )
+
+
+                cluster_context = "\n".join(context_lines)
 
                 map_prompt = f"""
                 You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
@@ -937,7 +1138,7 @@ async def summarize(
                 CURRENT COHORT PERSPECTIVE:
                 - This cohort represents a discrete partition split by: {active_lens_desc}.
                 - Active Target Partition Key Name: **{cluster_id}**
-                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to 15):
+                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to {VISIBILITY_CEILING} high-density records):
                 {cluster_context}
                 CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
                 - Allocated Total Capital: ${short_cluster_budget} 
@@ -1123,3 +1324,12 @@ async def summarize(
      
     finally:
         conn.close()
+'''
+@ app.route("/contact_us")
+
+def contact_page(request: Request):
+
+    return templates.TemplateResponse(
+        "contact_us.html",
+        {"request": request}
+    )
