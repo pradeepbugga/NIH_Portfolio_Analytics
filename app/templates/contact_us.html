@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Contact Us</title>
+
+    <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.1">
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="portfolio-page">
+
+
+    <div class="portfolio-top-header">
+        <div class="header-content">
+
+            <div class="logo">
+                <a href="/" style="text-decoration: none; color: inherit;">The NIH Audit</a>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="note-container">
+        <label for="user-note" class="note-label">Leave us a note</label>
+
+        <form class="note-form" id="feedbackForm">
+            <textarea id="user-note" name="note" placeholder="Type your message here..." rows="4" required></textarea>
+            <button type="submit" class="note-submit-btn">Send</button>
+        </form>
+
+        <div id="successMessage" class="success-note" style="display: none;">
+            Thanks for your feedback!
+        </div>
+    </div>
+    <script>
+        document.getElementById('feedbackForm').addEventListener('submit', async function (e) {
+            e.preventDefault(); // Prevents the page from reloading
+
+            const noteText = document.getElementById('user-note').value;
+            const submitButton = this.querySelector('.note-submit-btn');
+            const successMessage = document.getElementById('successMessage');
+
+            // Softly disable button during submission
+            submitButton.disabled = true;
+            submitButton.innerText = 'Sending...';
+
+            try {
+                // REPLACE THIS URL with your actual Cloudflare Worker URL later
+                const workerUrl = 'https://patient-rain-e2a4.pradeep-bugga0.workers.dev';
+
+                const response = await fetch(workerUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note: noteText })
+                });
+
+                if (response.ok) {
+                    // Hide the form and show the success message
+                    this.style.display = 'none';
+                    successMessage.style.display = 'block';
+                } else {
+                    alert('Something went wrong. Please try again.');
+                    submitButton.disabled = false;
+                    submitButton.innerText = 'Send';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Could not connect to the server.');
+                submitButton.disabled = false;
+                submitButton.innerText = 'Send';
+            }
+        });
+    </script>
+</body>
+
+</html>
