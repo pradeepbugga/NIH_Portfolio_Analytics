@@ -8,12 +8,11 @@
 body.landing {
     margin: 0;
     height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
     font-family: system-ui, sans-serif;
     background: white;
 }
+
 
 /* Container for the logo and form */
 .center-container {
@@ -23,19 +22,20 @@ body.landing {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    width: min(90vw, 1100px);
+    width: 100%;
+    max-width: 900px;
     margin: 0 auto;
     padding:
         clamp(2rem, 5vh, 5rem) 0;
     box-sizing: border-box;
-    transform: none;
+
 }
 
 
 .logo {
     font-family: "primer", serif;
     font-size: clamp(2.8rem, 6vw, 4rem);
-    margin-bottom: clamp(2rem, 6vh, 5rem);
+    margin-bottom: 100px;
     line-height: 1.05;
 
 }
@@ -83,32 +83,34 @@ body.landing {
 
 /* --- LANDING PAGE HOVER PILLAR MATRIX --- */
 .home-cards-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    /* Split into two identical balanced columns */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+
     gap: 20px;
     /* Clean spacing between the pillars */
     width: 100%;
     max-width: 820px;
     /* Matches the exact width of your semantic search field */
-    margin: 0 auto 25px auto;
-    /* Centered and padded perfectly above the OR divider */
+    margin-top: 24px;
+    margin-bottom: 60px;
 }
 
 
 .home-card {
     display: flex;
-    flex-direction: row;
+    gap: 24px;
     align-items: stretch;
     border: 2px solid #12253d;
     text-decoration: none;
     color: #12253d;
     background: white;
     overflow: hidden;
+    flex: 0.2 1 340px;
 
-    height: 120px;
     box-sizing: border-box;
     transition: all 0.2s ease-in-out;
+    min-height: 140px;
 }
 
 .home-card:hover {
@@ -117,7 +119,8 @@ body.landing {
 
 .home-card-control {
     display: flex;
-    flex-direction: row;
+
+    flex: 0.2 1 340px;
     align-items: stretch;
     border: 2px solid #12253d;
     text-decoration: none;
@@ -125,7 +128,7 @@ body.landing {
     background: white;
     overflow: hidden;
 
-    height: 120px;
+    min-height: 140px;
     box-sizing: border-box;
     transition: all 0.2s ease-in-out;
 }
@@ -203,7 +206,7 @@ body.landing {
     font-family: 'Inter', sans-serif;
     font-size: 0.85em;
     font-weight: 400;
-    color: #12253d;
+    color: #4a5568;
     background-color: #ffffff;
     border: 1px solid #12253d;
     border-radius: 4px;
@@ -222,7 +225,141 @@ body.landing {
     background-color: #ffffff;
 }
 
+.activity-code-search-box-wrapper {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
 
+.activity-code-search-box-wrapper input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+}
+
+.activity-code-search-box-wrapper button {
+    padding: 8px 16px;
+    background-color: #12253d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.activity-code-search-box-wrapper button:hover {
+    background-color: #1e3f66;
+}
+
+
+
+
+
+/* Modal Backdrop Overlay */
+.custom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.4);
+    /* Dark translucent background */
+    backdrop-filter: blur(4px);
+    /* Modern frosted-glass effect */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    /* Keeps it layered high above everything else */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Modal Open State class toggled by JavaScript */
+.custom-modal-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Main Modal Card */
+.custom-modal-card {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: scale(0.95);
+    transition: transform 0.2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.custom-modal-overlay.is-open .custom-modal-card {
+    transform: scale(1);
+}
+
+/* Modal Internal Typography and Elements */
+.modal-header-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.modal-title-text {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #64748b;
+    line-height: 1;
+}
+
+.modal-close-btn:hover {
+    color: #ef4444;
+}
+
+.modal-body-content p {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.5;
+    margin: 0 0 20px 0;
+    word-break: break-word;
+}
+
+.modal-footer-line {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.modal-action-btn {
+    background-color: #ef4444;
+    /* Red color for warning actions */
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s ease;
+}
+
+.modal-action-btn:hover {
+    background-color: #dc2626;
+}
 
 
 
@@ -235,7 +372,6 @@ body.landing {
     align-items: center;
     justify-content: center;
     gap: 28px;
-    margin-bottom: 26px;
 }
 
 
@@ -279,12 +415,15 @@ body.landing {
 .search-form {
     display: flex;
     width: 100%;
-    max-width: 920px;
+    max-width: 824px;
+    margin-left: auto;
+    margin-right: auto;
     border: 2px solid #12253d;
     border-radius: 0px;
     overflow: hidden;
     transition: border-color 0.3s, box-shadow 0.3s;
     background: white;
+    box-sizing: border-box;
 }
 
 .search-form:focus-within {
@@ -364,6 +503,43 @@ body.landing {
     opacity: 0.7;
 }
 
+
+footer {
+
+    margin-top: 100px;
+    padding-bottom: 20px;
+    background: transparent;
+
+    text-align: center;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+}
+
+footer a {
+    color: #4a5568;
+    /* A soft slate gray/navy that matches your text theme */
+    text-decoration: none;
+    /* Removes the ugly default underline */
+    font-family: inherit;
+    /* Ensures it uses your page's clean font */
+    font-size: 0.85rem;
+    /* Keeps it small and clean like your sub-headers */
+    letter-spacing: 0.1em;
+    /* Gives it that nice, tracked-out clean look */
+    text-transform: uppercase;
+    /* Matches the "SEARCH BELOW" / "EXPLORE" style */
+    transition: color 0.2s ease, border-color 0.2s ease;
+    border-bottom: 1px solid transparent;
+    /* Prepares a clean underline effect */
+    padding-bottom: 2px;
+}
+
+footer a:hover {
+    color: #0f172a;
+    /* Darkens to match your primary dark blue blocks */
+    border-bottom: 1px solid #0f172a;
+    /* Smooth, modern underline on hover */
+}
 
 
 /* ---------------------- RESULTS PAGE STYLES ---------------------- */
@@ -1165,7 +1341,7 @@ body.landing {
    ========================================================================== */
 #grant-results-layout {
     display: grid;
-    grid-template-columns: 55% 45%;
+    grid-template-columns: 50% 50%;
     /* Left column takes 55%, right panel takes 45% */
     gap: 24px;
     /* Clean spacing gap between the columns */
@@ -1200,6 +1376,28 @@ body.landing {
     height: 100%;
     overflow-y: auto;
 }
+
+.panel-header h3 {
+    /* center all text inside the right panel header */
+    text-align: center;
+
+}
+
+.cluster-option-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.cluster-option-label.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    color: #9ca3af;
+    /* Muted gray text */
+}
+
 
 .grant-card {
     background-color: #ffffff;
@@ -1527,8 +1725,85 @@ body.landing {
 }
 
 
+/* ========================= CONTACT US PAGE STYLES ======================== */
+/* Container to center and constrain the form width */
+.note-container {
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+}
 
+/* Matches your uppercase, tracked-out subtitle styling */
+.note-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #4a5568;
+    margin-bottom: 10px;
+}
 
+.note-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Styled text box matching the search bar design language */
+.note-form textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    /* Allows users to resize vertically but not break layout horizontally */
+    box-sizing: border-box;
+}
+
+.note-form textarea:focus {
+    outline: none;
+    border-color: #0f172a;
+    /* Focus ring matches your dark primary theme */
+}
+
+/* Dark block button matching your grid item headers and search icon block */
+.note-submit-btn {
+    align-self: flex-end;
+    /* Aligns the button cleanly to the bottom right */
+    background-color: #12253d;
+    color: #ffffff;
+    border: none;
+    padding: 10px 24px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.note-submit-btn:hover {
+    background-color: #1e293b;
+    /* Slightly lighter on hover */
+}
+
+.success-note {
+    font-size: 0.95rem;
+    color: #0f172a;
+    /* Solid brand color */
+    background-color: #f1f5f9;
+    /* Soft ash gray background box */
+    padding: 16px;
+    border-radius: 4px;
+    border-left: 4px solid #12253d;
+    /* Dark left border accent */
+    text-align: left;
+    margin-top: 10px;
+    font-weight: 500;
+}
 
 
 
