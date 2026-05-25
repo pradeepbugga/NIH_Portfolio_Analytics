@@ -152,28 +152,6 @@
                 <div id="grant-results-list"></div>
             </div>
 
-            <div id="grant-results-right-panel">
-                <!-- Active Workspace Header -->
-                <div class="panel-header">
-                    <h3>AI-Powered Portfolio Insights</h3>
-                    <p>Analyze trends inside your active search parameters.</p>
-                </div>
-
-                <!-- Dynamic AI Button Container -->
-                <div id="ai-workspace-area">
-                    <div class="ai-summary-card">
-                        <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
-                        <h4>Synthesize Active View Space</h4>
-                        <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
-                        <button id="trigger-ai-briefing-btn" class="ai-action-btn">
-                            <span>✨ Build Executive Briefing</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Container where the markdown text will eventually render -->
-                <div id="ai-output-display" style="display: none;"></div>
-            </div>
 
         </div>
     </div>
@@ -354,29 +332,30 @@
             modal.id = "grant-modal";
             modal.className = "grant-modal-overlay";
 
-            // 🌟 Inject placeholder layout with an un-flickering loading state
             modal.innerHTML = `
-        <div class="grant-modal-content">
-            <span class="grant-modal-close">&times;</span>
-            <div class="grant-modal-header">
-                <h2 class="grant-detail-title">${grantTitle}</h2>
-                <div class="grant-modal-meta">
-                    <strong>Organization:</strong> ${organizationName}<br>
-                    <strong>Principal Investigator:</strong> ${principalInvestigator}<br>
-                    <strong>Funding Amount:</strong> ${funding}
+                <div class="grant-modal-content">
+                    <span class="grant-modal-close">&times;</span>
+                    <div class="grant-modal-header">
+                        <h2 class="grant-detail-title">${grantTitle}</h2>
+                        <div class="grant-modal-meta">
+                            <strong>Organization:</strong> ${organizationName}<br>
+                            <strong>Principal Investigator:</strong> ${principalInvestigator}<br>
+                            <strong>Funding Amount:</strong> ${funding}<br>
+                            <strong>Awarding Agency / IC:</strong> ${grant.agency_ic || "N/A"}<br>
+                            <strong>Activity Mechanism:</strong> ${grant.activity_code || "N/A"}
+                        </div>
+                    </div>
+                    <hr class="modal-divider">
+                    <div class="grant-detail-abstract">
+                        <h3>Abstract</h3>
+                        <div id="modal-abstract-viewport" class="abstract-loading-state">
+                            <p style="color: #6b7280; font-style: italic; display: flex; align-items: center; gap: 8px;">
+                                <span>Loading project documentation summary...</span>
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <hr class="modal-divider">
-            <div class="grant-detail-abstract">
-                <h3>Abstract</h3>
-                <div id="modal-abstract-viewport" class="abstract-loading-state">
-                    <p style="color: #6b7280; font-style: italic; display: flex; align-items: center; gap: 8px;">
-                        <span>Loading project documentation summary...</span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
+            `;
 
             document.body.appendChild(modal);
             setTimeout(() => modal.classList.add("active"), 10);
@@ -580,31 +559,26 @@
 
             if (!container) return;
 
-            // Calculate total pages dynamically (Your 'X')
+            // Calculate total pages dynamically
             const totalPages = Math.ceil(grantsList.length / itemsPerPage) || 1;
 
-            // Adjust if current page goes out of bounds due to an active filter
             if (currentPage > totalPages) {
                 currentPage = totalPages;
             }
 
-            // Update the pagination stats text interface
             if (pageInfo) {
                 pageInfo.innerText = `Page ${currentPage} of ${totalPages}`;
             }
 
-            // Handle button disabled rules exactly like portfolio.html
             if (prevBtn) prevBtn.disabled = (currentPage === 1);
             if (nextBtn) nextBtn.disabled = (currentPage === totalPages || totalPages === 0);
 
-            // Slice down the global or filtered array to match the current page window
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const paginatedGrants = grantsList.slice(startIndex, endIndex);
 
             container.innerHTML = "";
 
-            // Render the cards onto the page view area
             paginatedGrants.forEach(grant => {
                 const grantFundingAmount = grant.funding || grant.amount || 0;
                 const fundingValue = new Intl.NumberFormat('en-US', {
@@ -614,7 +588,6 @@
                     maximumFractionDigits: 1
                 }).format(grantFundingAmount);
 
-                // Stitch your backend name segments into a single readable investigator string
                 let principalInvestigator = "Unknown";
                 if (grant.pi_last_name) {
                     const first = grant.pi_first_name ? grant.pi_first_name + " " : "";
@@ -625,27 +598,48 @@
                     principalInvestigator = grant.pi || grant.PI;
                 }
 
+                const agency = grant.agency_ic || "N/A";
+                const activity = grant.activity_code || "N/A";
+                const idString = grant.grant_id || "N/A";
+
                 const card = document.createElement("div");
-                card.className = "grant-card";
+                card.className = "grant-card-row";
 
                 card.onclick = () => {
                     showGrantDetail(grant);
                 };
 
                 card.innerHTML = `
+            <div class="grant-row-identity">
                 <div class="grant-title">${grant.title || grant.project_title || "No Title Provided"}</div>
-                <div class="grant-meta-row">
-                    <div class="grant-details">
-                        <span class="grant-org">${grant.org_name || grant.organization || "Unknown Organization"}</span>
-                        <span class="grant-divider">•</span>
-                        <span class="grant-pi">PI: ${principalInvestigator}</span>
-                    </div>
-                    <div class="grant-funding">${fundingValue}</div>
+                <div class="grant-details">
+                    <span class="grant-org">${grant.org_name || grant.organization || "Unknown Organization"}</span>
+                    <span class="grant-divider">•</span>
+                    <span class="grant-pi">PI: ${principalInvestigator}</span>
                 </div>
-            `;
+                
+                <div class="grant-agency-track">
+                    <span class="grant-id-label">${idString}</span>
+                    <span class="agency-label">${agency}</span>
+                    <span class="activity-code-label">${activity}</span>
+                </div>
+
+                <div class="grant-funding-badge">${fundingValue}</div>
+            </div>
+
+            <div class="grant-row-summary">
+                <div class="summary-badge">
+                    <i data-lucide="sparkles" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i>
+                    Brief Summary
+                </div>
+                <p>${grant.summary || "No short summary generated for this grant record context."}</p>
+            </div>
+        `;
 
                 container.appendChild(card);
             });
+
+            setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 10);
         }
         // --- BAR CHART: ONTOLOGY DISTRIBUTION BREAKDOWN ---
         Plotly.newPlot("ontologyChart", [{
@@ -778,12 +772,6 @@
             allGrants = grants;
         }
 
-        resetAIWorkspace();
-        // ✨ ADD THIS LISTENER AT THE BOTTOM OF THE BOOTSTRAPPER:
-        const aiBriefingBtn = document.getElementById("trigger-ai-briefing-btn");
-        if (aiBriefingBtn) {
-            aiBriefingBtn.onclick = generatePortfolioBriefing;
-        }
 
 
         // ✨ ADD THIS FILTER FORM LISTENER TO PREVENT PAGE REFRESH:
@@ -840,209 +828,6 @@
         renderGrants(allGrants);
 
 
-        // --- PORTFOLIO INTELLIGENCE AI BRIEFING ENGINES ---
-        async function generatePortfolioBriefing() {
-            const workspace = document.getElementById("ai-workspace-area");
-            const outputDisplay = document.getElementById("ai-output-display");
-
-            // Gather active IDs from current state view context
-            const currentCategory = activeCategory || null;
-            const activeIds = allGrants.map(grant => grant.grant_id || grant.id);
-
-            if (activeIds.length === 0) {
-                alert("No grants found in your current filter view to summarize.");
-                return;
-            }
-
-            // 🌟 Capture selected layer dimension target token from active DOM tree
-            const selectedDimension = document.querySelector('input[name="cluster-dimension"]:checked')?.value || "topic";
-
-            // 🌟 Stitching Context Queries: Merge initial landing context with down-funnel search tokens
-            let combinedQueries = [];
-            if (initialQuery) {
-                combinedQueries.push(initialQuery);
-            }
-            if (currentFilters.queries && currentFilters.queries.length > 0) {
-                combinedQueries = combinedQueries.concat(currentFilters.queries);
-            }
-
-            // 1. Establish visual processing wrapper
-            workspace.innerHTML = `
-                <div class="ai-loading-state" style="text-align: center; padding: 20px;">
-                    <div class="spinner-small" style="margin: 0 auto 15px auto;"></div>
-                    <p><strong>Running HDBSCAN semantic grouping...</strong></p>
-                    <span class="loading-sub" style="font-size: 0.85em; color: #666;">Mapping clusters and executing synthesis chains...</span>
-                </div>
-            `;
-            outputDisplay.style.display = "none";
-
-            try {
-                // 2. Dispatch structured payload aligned with Pydantic contract rules
-                const response = await fetch("/api/summarize-portfolio", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        grant_ids: activeIds,
-                        search_queries: combinedQueries,
-                        filters: {
-                            category: currentCategory,
-                            agency: currentFilters.agency || window.activeAgencyCode || null
-                        },
-                        dimensions: {
-                            topic: selectedDimension === "topic",
-                            project_type: selectedDimension === "project_type",
-                            category: selectedDimension === "category",
-                            agency: selectedDimension === "agency",
-                            geography: selectedDimension === "geography",
-                            career_stage: selectedDimension === "career_stage"
-                        }
-                    })
-                });
-
-                if (!response.ok) throw new Error("Briefing generation failed.");
-                const data = await response.json();
-
-                // 3. Render clean output block configuration
-                workspace.style.display = "none";
-                outputDisplay.style.display = "block";
-                outputDisplay.innerHTML = `
-                    <button onclick="resetAIWorkspace()" class="ai-back-btn" style="margin-bottom: 15px; cursor: pointer;">← Back to Workspace</button>
-                    <div class="markdown-body" style="font-family: 'Inter', sans-serif; line-height: 1.6;">${formatMarkdown(data.summary)}</div>
-                `;
-
-            } catch (error) {
-                console.error(error);
-                workspace.innerHTML = `
-                    <div class="ai-error-state" style="text-align: center; padding: 20px;">
-                        <p>⚠️ Failed to complete AI synthesis portfolio modeling.</p>
-                        <button onclick="resetAIWorkspace()" class="ai-action-btn" style="margin-top: 10px; cursor: pointer;">Retry</button>
-                    </div>
-                `;
-            }
-        }
-
-        // Quick helper to restore workspace block structure if user wants to run it again
-        function resetAIWorkspace() {
-            const workspace = document.getElementById("ai-workspace-area");
-            const outputDisplay = document.getElementById("ai-output-display");
-
-            outputDisplay.style.display = "none";
-            workspace.style.display = "block";
-
-            // Restore multi-dimensional synthesis controls matched with portfolio layout
-            workspace.innerHTML = `
-                <div class="ai-summary-card">
-                    <div class="ai-badge">HDBSCAN ENGINE ACTIVE</div>
-                    <h4>Synthesize Active View Space</h4>
-                    <p>Analyze scientific sub-themes across your selected filtered dataset.</p>
-
-                    <div class="clustering-options-group" style="margin: 16px 0; border-top: 1px solid #e5e7eb; padding-top: 12px; text-align: left;">
-                        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; display: block; margin-bottom: 8px;">
-                            Select Synthesis Layer (Pick One)
-                        </span>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; color: #374151;">
-                            <label id="lbl-cluster-topic" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-topic" name="cluster-dimension" value="topic" checked style="accent-color: #111827;">
-                                <span>Scientific Topics</span>
-                            </label>
-                            <label id="lbl-cluster-type" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-type" name="cluster-dimension" value="project_type" style="accent-color: #111827;">
-                                <span>Activity Code</span>
-                            </label>
-                            <label id="lbl-cluster-category" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-category" name="cluster-dimension" value="category" style="accent-color: #111827;">
-                                <span>Category</span>
-                            </label>
-                            <label id="lbl-cluster-agency" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-agency" name="cluster-dimension" value="agency" style="accent-color: #111827;">
-                                <span>Agency</span>
-                            </label>
-                            <label id="lbl-cluster-geography" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-geography" name="cluster-dimension" value="geography" style="accent-color: #111827;">
-                                <span>Geography</span>
-                            </label>
-                            <label id="lbl-cluster-career-stage" class="cluster-option-label">
-                                <input type="radio" id="rad-cluster-career-stage" name="cluster-dimension" value="career_stage" style="accent-color: #111827;">
-                                <span>PI Career Stage</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <button id="trigger-ai-briefing-btn" class="ai-action-btn" style="cursor: pointer;">
-                        <span>✨ Build Executive Briefing</span>
-                    </button>
-                </div>
-            `;
-
-            // Re-bind click listener onto the newly injected button DOM element
-            document.getElementById("trigger-ai-briefing-btn").onclick = generatePortfolioBriefing;
-
-            // Evaluate operational visibility blocks right away
-            updateClusteringTogglesVisibility();
-        }
-        // Evaluates and isolates UI options that conflict with the active filter state
-        function updateClusteringTogglesVisibility() {
-            const radCategory = document.getElementById("rad-cluster-category");
-            const lblCategory = document.getElementById("lbl-cluster-category");
-
-            const radAgency = document.getElementById("rad-cluster-agency");
-            const lblAgency = document.getElementById("lbl-cluster-agency");
-
-            const radTopic = document.getElementById("rad-cluster-topic");
-
-            // --- 1. HANDLE CATEGORY CONFIGURATION ---
-            if (radCategory && lblCategory) {
-                // Check if a category is active in UI filter state OR if 'category' is in the URL path/query
-                const isCategoryPath = window.location.pathname.includes('/category/') || window.location.search.includes('category=');
-
-                if (activeCategory || isCategoryPath) {
-                    if (radCategory.checked) {
-                        radTopic.checked = true; // Fallback to safe default
-                    }
-                    radCategory.disabled = true;
-                    lblCategory.classList.add("disabled");
-                    lblCategory.style.opacity = "0.5";
-                    lblCategory.querySelector("span").innerText = "Category (Filtered)";
-                } else {
-                    radCategory.disabled = false;
-                    lblCategory.classList.remove("disabled");
-                    lblCategory.style.opacity = "1";
-                    lblCategory.querySelector("span").innerText = "Category";
-                }
-            }
-
-            // --- 2. HANDLE AGENCY CONFIGURATION ---
-            if (radAgency && lblAgency) {
-                // Directly check if the user entered via an agency profile route or query string parameter
-                const isAgencyPath = window.location.pathname.includes('/agency/') || window.location.search.includes('agency=');
-
-                if (isAgencyPath || (currentFilters && currentFilters.agency)) {
-                    if (radAgency.checked) {
-                        radTopic.checked = true; // Fallback to safe default
-                    }
-                    radAgency.disabled = true;
-                    lblAgency.classList.add("disabled");
-                    lblAgency.style.opacity = "0.5";
-                    lblAgency.querySelector("span").innerText = "Agency (Filtered)";
-                } else {
-                    radAgency.disabled = false;
-                    lblAgency.classList.remove("disabled");
-                    lblAgency.style.opacity = "1";
-                    lblAgency.querySelector("span").innerText = "Agency";
-                }
-            }
-        }
-        // 🌟 UPGRADED RESILIENT PARSER: Handles missing newlines ($ matching line ends seamlessly)
-        function formatMarkdown(text) {
-            if (!text) return "";
-            return text
-                .replace(/### (.*)(?:\n|$)/g, '<h3>$1</h3>')
-                .replace(/## (.*)(?:\n|$)/g, '<h2>$1</h2>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Adds bold support for cleaner presentation
-                .replace(/\n/g, '<br>');
-        }
     </script>
 
 
