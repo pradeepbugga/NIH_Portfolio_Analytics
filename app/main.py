@@ -98,13 +98,33 @@ def home_page(request: Request):
     else:
         print(f"❌ CRITICAL FAILURE: Could not find your file at: {csv_path}")
 
+
+    # now load activity codes
+    activity_csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "activity_codes", "2025_code_list.csv"))
+
+    if os.path.exists(activity_csv_path):
+        try:
+            df_activity = pd.read_csv(activity_csv_path)
+            valid_activity_codes = df_activity["Activity_Code"].str.upper().tolist()
+            print(f"✅ SUCCESS: Connected to activity codes dataset. Found {len(activity_codes_list)} codes.")
+        except Exception as e:
+            print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
+
+
     return templates.TemplateResponse(
         "index.html", 
         {
             "request": request, 
-            "agencies": agencies_list
+            "agencies": agencies_list,
+            "valid_activity_codes": valid_activity_codes
         }
     )
+
+VALID_ACTIVITY_CODES = None
+
+
+
+
 
 def extract_ontology_distribution(results):
 
@@ -370,6 +390,267 @@ def agency_portal(request: Request, agency_code: str):
     except Exception as e:
         print(f"❌ Error generating metric analytics layer inside agency route: {e}")
         raise HTTPException(status_code=500, detail="Internal server metric analytics error.")
+    finally:
+        conn.close()
+
+@app.get("/activity_codes", response_class=HTMLResponse)
+def activity_codes_multi_search(
+    request: Request, 
+    codes: str = Query(..., description="Comma-separated 3-character NIH Activity codes")
+):
+    t0 = time.time()
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        # 1. Parse and sanitize input (Extracts exactly what the user typed)
+        target_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
+        if not target_codes or len(target_codes) > 5:
+            raise HTTPException(status_code=400, detail="Must provide between 1 and 5 activity codes.")
+            
+        tuple_codes = tuple(target_codes)
+
+        # ====================================================================
+        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS
+        # ====================================================================
+        t_start = time.time()
+        # Strictly check against the 3-character activity code substring
+        timeline_query = """
+            SELECT fiscal_year, SUM(total_award_amount)
+            FROM ResearchGrants
+            WHERE SUBSTRING(grant_id FROM 2 FOR 3) IN %s
+            GROUP BY fiscal_year
+            ORDER BY fiscal_year ASC;
+        """
+        # Exactly 1 placeholder requires exactly 1 tuple wrapper
+        cur.execute(timeline_query, (tuple_codes,))
+        timeline_rows = cur.fetchall()
+        print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
+        
+        years = [row[0] for row in timeline_rows]
+        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
+
+        # Fetch category distribution totals strictly via substring matching
+        t_start = time.time()
+        ontology_query = """
+            SELECT               
+                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
+            FROM ResearchGrants rg
+            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            WHERE SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s;
+        """
+        # Exactly 1 placeholder here as well
+        cur.execute(ontology_query, (tuple_codes,))
+        onto_row = cur.fetchone()
+        print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
+        
+        ontology_labels = [
+            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
+            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
+        ]
+        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+        # ====================================================================
+        # 📋 STEP 2: TABLE REVIEWS (2025 Viewport Only)
+        # ====================================================================
+        t_start = time.time()
+        table_query = """
+            SELECT
+                rg.grant_id,
+                rg.project_title,
+                o.name AS organization,
+                rg.contact_pi_id,
+                rg.total_award_amount,
+                rg.agency_ic,
+                rg.fiscal_year,
+                gl.mechanistic, gl.therapeutic, gl.diagnostic, gl.research_tool,
+                gl.clinical, gl.infrastructure, gl.education, gl.obs_ep
+            FROM ResearchGrants rg
+            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            LEFT JOIN organizations o ON rg.organization_id = o.id
+            WHERE 
+                SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s
+                AND rg.fiscal_year = 2025
+            ORDER BY rg.total_award_amount DESC;
+        """
+        # Exactly 1 placeholder maps cleanly to the target tuple wrapper
+        cur.execute(table_query, (tuple_codes,))
+        rows = cur.fetchall()
+        print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
+        
+        grants = []
+        for row in rows:
+            grants.append({
+                "grant_id": row[0], "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
+                "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
+                "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
+                "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14]
+            })
+
+        cur.close()
+        conn.close()
+
+        display_title = f"Selected Activity Codes: {', '.join(target_codes)}"
+        print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
+        
+        return templates.TemplateResponse(
+            "results.html",
+            {
+                "request": request,
+                "query": display_title,
+                "years": years,
+                "funding": funding,
+                "results": grants,
+                "ontology_labels": ontology_labels,
+                "ontology_values": ontology_values
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error in activity_codes route: {e}")
+        if 'conn' in locals() and not conn.closed:
+            conn.close()
+        raise HTTPException(status_code=500, detail="Database lookup error.")
+
+@app.get("/sbir", response_class=HTMLResponse)
+def sbir_portal(request: Request):
+    t0 = time.time()
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try: 
+        # Target SBIR activity codes
+        sbir_codes = ('R41', 'R42', 'R43', 'R44')
+
+        # ====================================================================
+        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS (Database Aggregations)
+        # ====================================================================
+        t_start = time.time()
+        # Fetch historical timeline totals (1985-2026) filtering by substring of grant_id
+        timeline_query = """
+            SELECT fiscal_year, SUM(total_award_amount)
+            FROM ResearchGrants
+            WHERE SUBSTRING(grant_id FROM 2 FOR 3) IN %s
+            GROUP BY fiscal_year
+            ORDER BY fiscal_year ASC;
+        """
+        cur.execute(timeline_query, (sbir_codes,))
+        timeline_rows = cur.fetchall()
+        print(f"⏱️ DB SBIR Timeline Query took: {time.time() - t_start:.4f}s")
+        years = [row[0] for row in timeline_rows]
+        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
+
+        # Fetch macro ontology distribution totals across all history for SBIR
+        t_start = time.time()
+        ontology_query = """
+            SELECT               
+                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
+            FROM ResearchGrants rg
+            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            WHERE SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s;
+        """
+        cur.execute(ontology_query, (sbir_codes,))
+        onto_row = cur.fetchone()
+        print(f"⏱️ DB SBIR Ontology Query took: {time.time() - t_start:.4f}s")
+        ontology_labels = [
+            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
+            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
+        ]
+        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+
+        # ====================================================================
+        # 📋 STEP 2: TABLE REVIEWS (Filtered Strictly to 2025 Viewport)
+        # ====================================================================
+        t_start = time.time()
+        table_query = """
+            SELECT
+                rg.grant_id,
+                rg.project_title,
+                o.name AS organization,
+                rg.contact_pi_id,
+                rg.total_award_amount,
+                rg.agency_ic,
+                rg.fiscal_year,
+                gl.mechanistic,
+                gl.therapeutic,
+                gl.diagnostic,
+                gl.research_tool,
+                gl.clinical,
+                gl.infrastructure,
+                gl.education,
+                gl.obs_ep
+            FROM ResearchGrants rg
+            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            LEFT JOIN organizations o ON rg.organization_id = o.id
+            WHERE 
+                SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s 
+                AND rg.fiscal_year = 2025
+            ORDER BY rg.total_award_amount DESC;
+        """
+        cur.execute(table_query, (sbir_codes,))
+        rows = cur.fetchall()
+        print(f"⏱️ DB SBIR 2025 Table Query took: {time.time() - t_start:.4f}s")
+        
+        grants = []
+        for row in rows:
+            grants.append({
+                "grant_id": row[0],
+                "title": row[1],
+                "organization": row[2] if row[2] else "Unknown Institution",
+                "pi": row[3],
+                "amount": float(row[4]) if row[4] else 0.0,
+                "agency_ic": row[5],
+                "fiscal_year": int(row[6]) if row[6] else 2025,                
+                "mechanistic": row[7],
+                "therapeutic": row[8],
+                "diagnostic": row[9],
+                "research_tool": row[10],
+                "clinical": row[11],
+                "infrastructure": row[12],
+                "education": row[13],
+                "obs_ep": row[14]
+            })
+
+        cur.close()
+        conn.close()
+
+        # ====================================================================
+        # 🎨 STEP 3: RENDER RESULTS PAGE
+        # ====================================================================
+        display_title = "Small Business Innovation Research (SBIR / STTR Portfolio)"
+        print(f"🚀 TOTAL SBIR BACKEND RUNTIME: {time.time() - t0:.4f}s")
+        
+        return templates.TemplateResponse(
+            "results.html",
+            {
+                "request": request,
+                "query": display_title,
+                "years": years,
+                "funding": funding,
+                "results": grants, # Reuses the unified data table format
+                "ontology_labels": ontology_labels,
+                "ontology_values": ontology_values
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error generating metric analytics layer inside SBIR route: {e}")
+        raise HTTPException(status_code=500, detail="Internal server SBIR analytics error.")
     finally:
         conn.close()
 
