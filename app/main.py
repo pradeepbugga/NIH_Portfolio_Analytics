@@ -312,7 +312,7 @@ def agency_portal(request: Request, agency_code: str):
                 o.name AS organization,
                 rg.contact_pi_id,
                 rg.total_award_amount,
-                rg.agency_ic,
+                rg.agency_ic,                
                 rg.fiscal_year,
                 gl.mechanistic,
                 gl.therapeutic,
@@ -321,9 +321,12 @@ def agency_portal(request: Request, agency_code: str):
                 gl.clinical,
                 gl.infrastructure,
                 gl.education,
-                gl.obs_ep
+                gl.obs_ep,
+                rg.activity_code,
+                s.two_sentence_summary AS summary_text
             FROM ResearchGrants rg
             JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
             LEFT JOIN organizations o ON rg.organization_id = o.id
             WHERE 
                 rg.agency_code = %s 
@@ -350,7 +353,9 @@ def agency_portal(request: Request, agency_code: str):
                 "clinical": row[11],
                 "infrastructure": row[12],
                 "education": row[13],
-                "obs_ep": row[14]
+                "obs_ep": row[14],
+                "activity_code": row[15],
+                "summary": row[16]
             })
 
         cur.close()
@@ -418,7 +423,7 @@ def activity_codes_multi_search(
         timeline_query = """
             SELECT fiscal_year, SUM(total_award_amount)
             FROM ResearchGrants
-            WHERE SUBSTRING(grant_id FROM 2 FOR 3) IN %s
+            WHERE activity_code IN %s
             GROUP BY fiscal_year
             ORDER BY fiscal_year ASC;
         """
@@ -444,7 +449,7 @@ def activity_codes_multi_search(
                 COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
             FROM ResearchGrants rg
             INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            WHERE SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s;
+            WHERE rg.activity_code IN %s;
         """
         # Exactly 1 placeholder here as well
         cur.execute(ontology_query, (tuple_codes,))
@@ -471,12 +476,14 @@ def activity_codes_multi_search(
                 rg.agency_ic,
                 rg.fiscal_year,
                 gl.mechanistic, gl.therapeutic, gl.diagnostic, gl.research_tool,
-                gl.clinical, gl.infrastructure, gl.education, gl.obs_ep
+                gl.clinical, gl.infrastructure, gl.education, gl.obs_ep,               
+                s.two_sentence_summary AS summary_text
             FROM ResearchGrants rg
             JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
             LEFT JOIN organizations o ON rg.organization_id = o.id
             WHERE 
-                SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s
+                rg.activity_code IN %s
                 AND rg.fiscal_year = 2025
             ORDER BY rg.total_award_amount DESC;
         """
@@ -487,17 +494,20 @@ def activity_codes_multi_search(
         
         grants = []
         for row in rows:
+            grant_id = row[0]
+            activity_code = grant_id[1:4] if len(grant_id) > 4 else "N/A"
+
             grants.append({
-                "grant_id": row[0], "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
+                "grant_id": grant_id, "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
                 "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
                 "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
-                "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14]
+                "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14], "summary": row[15], "activity_code": activity_code
             })
 
         cur.close()
         conn.close()
 
-        display_title = f"Selected Activity Codes: {', '.join(target_codes)}"
+        display_title = f"Activity Codes: {', '.join(target_codes)}"
         print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
         
         return templates.TemplateResponse(
@@ -519,140 +529,6 @@ def activity_codes_multi_search(
             conn.close()
         raise HTTPException(status_code=500, detail="Database lookup error.")
 
-@app.get("/sbir", response_class=HTMLResponse)
-def sbir_portal(request: Request):
-    t0 = time.time()
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    try: 
-        # Target SBIR activity codes
-        sbir_codes = ('R41', 'R42', 'R43', 'R44')
-
-        # ====================================================================
-        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS (Database Aggregations)
-        # ====================================================================
-        t_start = time.time()
-        # Fetch historical timeline totals (1985-2026) filtering by substring of grant_id
-        timeline_query = """
-            SELECT fiscal_year, SUM(total_award_amount)
-            FROM ResearchGrants
-            WHERE SUBSTRING(grant_id FROM 2 FOR 3) IN %s
-            GROUP BY fiscal_year
-            ORDER BY fiscal_year ASC;
-        """
-        cur.execute(timeline_query, (sbir_codes,))
-        timeline_rows = cur.fetchall()
-        print(f"⏱️ DB SBIR Timeline Query took: {time.time() - t_start:.4f}s")
-        years = [row[0] for row in timeline_rows]
-        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
-
-        # Fetch macro ontology distribution totals across all history for SBIR
-        t_start = time.time()
-        ontology_query = """
-            SELECT               
-                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
-            FROM ResearchGrants rg
-            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            WHERE SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s;
-        """
-        cur.execute(ontology_query, (sbir_codes,))
-        onto_row = cur.fetchone()
-        print(f"⏱️ DB SBIR Ontology Query took: {time.time() - t_start:.4f}s")
-        ontology_labels = [
-            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
-            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
-        ]
-        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
-
-
-        # ====================================================================
-        # 📋 STEP 2: TABLE REVIEWS (Filtered Strictly to 2025 Viewport)
-        # ====================================================================
-        t_start = time.time()
-        table_query = """
-            SELECT
-                rg.grant_id,
-                rg.project_title,
-                o.name AS organization,
-                rg.contact_pi_id,
-                rg.total_award_amount,
-                rg.agency_ic,
-                rg.fiscal_year,
-                gl.mechanistic,
-                gl.therapeutic,
-                gl.diagnostic,
-                gl.research_tool,
-                gl.clinical,
-                gl.infrastructure,
-                gl.education,
-                gl.obs_ep
-            FROM ResearchGrants rg
-            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            LEFT JOIN organizations o ON rg.organization_id = o.id
-            WHERE 
-                SUBSTRING(rg.grant_id FROM 2 FOR 3) IN %s 
-                AND rg.fiscal_year = 2025
-            ORDER BY rg.total_award_amount DESC;
-        """
-        cur.execute(table_query, (sbir_codes,))
-        rows = cur.fetchall()
-        print(f"⏱️ DB SBIR 2025 Table Query took: {time.time() - t_start:.4f}s")
-        
-        grants = []
-        for row in rows:
-            grants.append({
-                "grant_id": row[0],
-                "title": row[1],
-                "organization": row[2] if row[2] else "Unknown Institution",
-                "pi": row[3],
-                "amount": float(row[4]) if row[4] else 0.0,
-                "agency_ic": row[5],
-                "fiscal_year": int(row[6]) if row[6] else 2025,                
-                "mechanistic": row[7],
-                "therapeutic": row[8],
-                "diagnostic": row[9],
-                "research_tool": row[10],
-                "clinical": row[11],
-                "infrastructure": row[12],
-                "education": row[13],
-                "obs_ep": row[14]
-            })
-
-        cur.close()
-        conn.close()
-
-        # ====================================================================
-        # 🎨 STEP 3: RENDER RESULTS PAGE
-        # ====================================================================
-        display_title = "Small Business Innovation Research (SBIR / STTR Portfolio)"
-        print(f"🚀 TOTAL SBIR BACKEND RUNTIME: {time.time() - t0:.4f}s")
-        
-        return templates.TemplateResponse(
-            "results.html",
-            {
-                "request": request,
-                "query": display_title,
-                "years": years,
-                "funding": funding,
-                "results": grants, # Reuses the unified data table format
-                "ontology_labels": ontology_labels,
-                "ontology_values": ontology_values
-            }
-        )
-        
-    except Exception as e:
-        print(f"❌ Error generating metric analytics layer inside SBIR route: {e}")
-        raise HTTPException(status_code=500, detail="Internal server SBIR analytics error.")
-    finally:
-        conn.close()
 
 @app.get("/api/portfolio/categories")
 def portfolio_categories(
@@ -753,13 +629,16 @@ def portfolio_grants(
                 rg.project_title,
                 o.name AS organization,
                 rg.contact_pi_id,
-                rg.total_award_amount
+                rg.total_award_amount,
+                rg.agency_ic,
+                rg.activity_code,
+                s.two_sentence_summary AS summary_text
 
             FROM ResearchGrants rg
 
             JOIN grant_labels gl
                 ON rg.grant_id = gl.grant_id
-
+            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
             LEFT JOIN organizations o
                 ON rg.organization_id = o.id
 
@@ -781,7 +660,10 @@ def portfolio_grants(
                 "title": row[1],
                 "organization": row[2],
                 "pi": row[3],
-                "funding": row[4]
+                "funding": row[4],
+                "agency_ic": row[5],
+                "activity_code": row[6],
+                "summary": row[7]
             })
 
         return {
@@ -948,664 +830,6 @@ def get_grant_abstract(grant_id: str):
         cur.close()
         conn.close()
 
-class FilterPayload(BaseModel):
-    category: Optional[str] = None
-    agency: Optional[str] = None
-
-class DimensionPayload(BaseModel):
-    # Basic Science / Default Lenses
-    topic: bool = False
-    project_type: bool = False
-    agency: bool = False
-    geography: bool = False
-    career_stage: bool = False
-    
-    # Education / Training Lenses
-    institutional_equity: bool = False
-    geographic_diversity: bool = False
-    pipeline_transition: bool = False
-    
-    # Therapeutics & Clinical Lenses
-    translational_velocity: bool = False
-    commercial_pipeline: bool = False
-
-class PortfolioBriefingRequest(BaseModel):
-    grant_ids: List[str] = Field(..., description="List of active filtered grant IDs")
-    search_queries: List[str] = Field(default_factory=list)
-    filters: FilterPayload
-    dimensions: DimensionPayload
-
-
-
-LENS_REGISTRY = {
-    "institutional_equity": InstitutionalEquityStrategy(),
-}
-
-
-@app.post("/api/summarize-portfolio")
-async def generate_portfolio_briefing(payload: PortfolioBriefingRequest):
-    category = payload.filters.category  # e.g., "education", "mechanistic", or None
-    grant_ids = payload.grant_ids
-    queries = payload.search_queries
-
-    # 1. Identify which lens dimension was flagged as True
-    # .model_dump() turns the Pydantic sub-object into a standard dict
-    dimension_dict = payload.dimensions.model_dump()
-    active_dimension = next((dim for dim, active in dimension_dict.items() if active), "topic")
-
-    strategy = LENS_REGISTRY.get(active_dimension)
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    try:
-        ids = [str(x) for x in payload.grant_ids if x]
-
-        active_grants = strategy.load_grant_details(cur, ids)
-
-        if not active_grants:
-            raise HTTPException(status_code=400, detail="No grants found for the provided IDs.")
-
-        t_cluster_start = time.perf_counter()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-
-        clusters = strategy.partition_workspace(active_grants, script_dir)
-        t_cluster_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Clustering Step: {t_cluster_end - t_cluster_start:.4f} seconds")
-
-        total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
-
-
-        query_intersection = "N/A"
-        
-        query_intersection = "N/A"
-        clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
-        if clean_queries:
-            query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
-
-        category_human_name = "N/A"
-        if payload.filters.category:
-            category_human_name = machine_human_map.get(payload.filters.category, payload.filters.category)
-
-        agency_human_name = "N/A"
-        if payload.filters.agency:
-            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                matched = df[df["funding_code"] == str(payload.filters.agency)]["agency_ic"].values
-                if len(matched) > 0:
-                    agency_human_name = matched[0]
-
-        # Build clean structural instructions for the Map LLM
-        global_filters_context = f"- Active Search Queries: {query_intersection}\n"
-        global_filters_context += f"- Active Agency Scope: {agency_human_name}\n"
-        if payload.filters.category and category_human_name in category_mapping:
-            global_filters_context += f"- Active Category Frame: {category_human_name} (Focus Area: {category_mapping[category_human_name]})\n"
-        else:
-            global_filters_context += f"- Active Category Frame: Broad/Unfiltered Dataset View\n"
-
-        # Ask the strategy what its high-level description is
-        active_lens_desc = getattr(strategy, "lens_description", "Custom Research Cohort")
-
-        # ==========================================
-        # 3. DISPATCH PARALLEL ASYNC MAP WORKERS
-        # ==========================================
-        t_map_start = time.perf_counter()
-
-        async def process_cluster_chunk(cluster_id, items):
-            t_chunk_start = time.perf_counter()
-            
-            cluster_budget = sum(float(g.get("amount") or 0) for g in items)
-            budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
-            short_cluster_budget = format_currency_short(cluster_budget)
-
-            VISIBILITY_CEILING = 75
-            context_lines = []
-
-            for g in items[:VISIBILITY_CEILING]:
-                title = g.get("title", "No Title")
-                activity_code = g.get("grant_id", "")[1:4].upper() if g.get("grant_id") and len(g.get("grant_id")) >= 4 else "Other"
-                amount = float(g.get("amount") or 0)
-                formatted_amount = format_currency_short(amount)
-                nano_summary = g.get("summary_text", "No summary available.")
-
-                context_lines.append(
-                    f"* [{activity_code} - {formatted_amount}] {title}\n"
-                    f"  Scientific Core: {nano_summary}"
-                )
-
-            cluster_context = "\n".join(context_lines)
-
-            # 🔑 DYNAMIC LAYOUT: Allow the strategy to define a custom map prompt if it wants one
-            if hasattr(strategy, "build_map_prompt"):
-                map_prompt = strategy.build_map_prompt(
-                    cluster_id=cluster_id,
-                    cluster_context=cluster_context,
-                    short_cluster_budget=short_cluster_budget,
-                    budget_share_pct=budget_share_pct,
-                    global_filters_context=global_filters_context
-                )
-            else:
-                # Fallback to your original baseline map prompt template
-                map_prompt = f"""
-                You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
-                CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
-                {global_filters_context}
-                CURRENT COHORT PERSPECTIVE:
-                - This cohort represents a discrete partition split by: {active_lens_desc}.
-                - Active Target Partition Key Name: **{cluster_id}**
-                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to {VISIBILITY_CEILING} high-density records):
-                {cluster_context}
-                CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
-                - Allocated Total Capital: ${short_cluster_budget} 
-                - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
-                Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
-                CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
-                "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
-                """
-
-            response = await client.aio.models.generate_content(
-                model="gemini-3-flash-preview", 
-                contents=map_prompt
-            )
-            
-            t_chunk_end = time.perf_counter()
-            print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
-            
-            return f"### Partition: {cluster_id}\n{response.text}"
-
-        # 4. Dispatch tasks concurrently
-        tasks = [process_cluster_chunk(cid, items) for cid, items in clusters.items()]
-        cluster_summaries = await asyncio.gather(*tasks)
-
-        t_map_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Global Map Phase Total: {t_map_end - t_map_start:.4f} seconds")
-
-        # ==========================================
-        # 4. REDUCE PHASE (FINAL BRIEFING SYNTHESIS)
-        # ==========================================
-        t_reduce_start = time.perf_counter()
-        master_context = "\n\n".join(cluster_summaries)
-        short_total_budget = format_currency_short(total_filtered_budget)
-
-        # Assemble your dictionary of parameters for the final reduce layout
-        reduce_ctx = {
-            "category_human_name": category_human_name,
-            "short_total_budget": short_total_budget,
-            "master_context": master_context
-        }
-
-        # Let the strategy render its custom target prompt template!
-        final_reduce_prompt = strategy.build_reduce_prompt(reduce_ctx)
-
-        final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = final_reduce_prompt)
-        t_reduce_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-
-        return {"summary": final_briefing.text}           
-     
-    finally:
-        conn.close()
-'''
-
-@app.post("/api/summarize-portfolio")
-async def summarize(
-    payload: SummaryRequest
-):
-    t_start = time.perf_counter()
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    try:
-
-        # first we will generate a list of grant_ids to summarize based on the input string of comma-separated ids from the frontend
-
-        t_db_start = time.perf_counter()
-
-        # identify selected filter for analysis
-        if payload.dimensions.agency: 
-            active_lens = "agency"
-        elif payload.dimensions.project_type:
-            active_lens = "project_type"
-        elif payload.dimensions.category:
-            active_lens = "category"
-        elif payload.dimensions.topic:
-            active_lens = "topic"
-        elif payload.dimensions.geography:
-            active_lens = "geography"
-        elif payload.dimensions.career_stage:
-            active_lens = "career_stage"
-        else:
-            active_lens = "none"
-        
-
-        ids = [str(x) for x in payload.grant_ids if x]
-
-        active_grants = load_grant_embeddings_and_text(cur, ids, active_lens=active_lens)
-
-        if len(active_grants) > 0:
-            sample_grant = active_grants[0]
-            print("📊 [DATABASE PAYLOAD CHECK]")
-            print(f"-> Available Dictionary Keys: {list(sample_grant.keys())}")
-            print(f"-> Sample 'career_stage' value: {sample_grant.get('career_stage')}")
-            
-            # Count how many rows actually have a valid career stage string
-            valid_stages = [g.get('career_stage') for g in active_grants if g.get('career_stage') and g.get('career_stage') != 'Unclassified']
-            print(f"-> Total grants with active career classifications: {len(valid_stages)} / {len(active_grants)}")
-
-        if not active_grants:
-            raise HTTPException(status_code=400, detail="No grants found.") 
-
-        t_db_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] DB Ingestion ({len(active_grants)} grants): {t_db_end - t_db_start:.4f} seconds")
-
-        t_cluster_start = time.perf_counter()
-
-        # calculate total budget
-        total_filtered_budget = sum(float(g.get("amount") or 0) for g in active_grants)
-
-               
-
-
-        # Route to different clustering strategies based on the selected lens
-        clusters: Dict[str, List[dict]] = {}
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-
-        if active_lens == "agency":
-            # Load agency lookup map ONCE outside the loops to optimize memory I/O
-            agency_lookup = {}
-            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                agency_lookup = dict(zip(df["funding_code"].astype(str), df["agency_ic"]))
-
-            for g in active_grants:
-                raw_code = g.get("agency_code")
-                key = str(raw_code or "Unknown Agency")
-                
-                # Check if it exists in your lookup map
-                if key in agency_lookup:
-                    full_name = agency_lookup[key]
-                else:
-                    full_name = f"Unmapped Agency (Code: {key})"
-                    # 🚨 LOUD LOGGING INTERVENTION: Catch the culprit!
-                    print(f"⚠️ SERVER WARNING: Found unmapped funding code '{raw_code}' for Grant ID {g.get('grant_id')} (Amount: ${g.get('amount')})")
-                
-                clusters.setdefault(full_name, []).append(g)
-        
-        elif active_lens == "project_type":
-            for g in active_grants:
-                # Fallback safely if grant_id layout changes or is missing
-                gid = g.get("grant_id", "")
-                activity_code = gid[1:4].upper() if len(gid) >= 4 else "Other"
-                clusters.setdefault(activity_code, []).append(g)
-        
-        elif active_lens == "category":
-            intent_keys = ["mechanistic", "therapeutic", "diagnostic", "clinical", "research_tool", "infrastructure", "education", "obs_ep"]
-            for g in active_grants:
-                # 1. First pass: Find all matching categories for this specific grant
-                matched_keys = []
-                for k in intent_keys:
-                    if g.get(k) == 1 or g.get(k) == "1" or g.get(k) is True:
-                        matched_keys.append(k)
-                
-                # 2. Second pass: Calculate fractional weight and distribute to clusters
-                if matched_keys:
-                    match_count = len(matched_keys)
-                    
-                    # Safely parse the original grant budget amount
-                    original_amount = float(g.get("amount") or 0)
-                    
-                    # Split the amount evenly across all matched categories
-                    fractional_amount = original_amount / match_count
-                    
-                    for k in matched_keys:
-                        human_label = machine_human_map.get(k, k.replace("_", " ").title())
-                        
-                        # Create a shallow copy of the grant dict so we don't mutate 
-                        # the shared reference for other categories or downstream loops
-                        fractional_grant = g.copy()
-                        fractional_grant["amount"] = fractional_amount
-                        
-                        clusters.setdefault(human_label, []).append(fractional_grant)
-                else:
-                    # Handle grants that carry zero intent flags
-                    clusters.setdefault("Uncategorized Intent", []).append(g)
-
-        elif active_lens == "topic":
-            clusters = cluster_filtered_grants_for_map(active_grants)
-
-        elif active_lens == "geography":
-            for g in active_grants:
-                org_state = g.get("org_state", "Unknown State")
-                clusters.setdefault(org_state, []).append(g)
-
-        elif active_lens == "career_stage":
-            for g in active_grants:
-                stage = g.get("career_stage", "Unclassified")
-                clusters.setdefault(stage, []).append(g)
-
-        t_cluster_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Sorting/Clustering ({len(clusters)} buckets via '{active_lens}'): {t_cluster_end - t_cluster_start:.4f} seconds")
-
-        # --- CONSTRUCT RESILIENT SEARCH CONTEXT ---
-
-        query_intersection = "N/A"
-        clean_queries = [q.strip() for q in payload.search_queries if q.strip()]
-        if clean_queries:
-            query_intersection = " AND ".join([f"'{q}'" for q in clean_queries])
-
-        category_human_name = "N/A"
-        if payload.filters.category:
-            category_human_name = machine_human_map.get(payload.filters.category, payload.filters.category)
-
-        agency_human_name = "N/A"
-        if payload.filters.agency:
-            csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                matched = df[df["funding_code"] == str(payload.filters.agency)]["agency_ic"].values
-                if len(matched) > 0:
-                    agency_human_name = matched[0]
-
-        # Build clean structural instructions for the Map LLM
-        global_filters_context = f"- Active Search Queries: {query_intersection}\n"
-        global_filters_context += f"- Active Agency Scope: {agency_human_name}\n"
-        if payload.filters.category and category_human_name in category_mapping:
-            global_filters_context += f"- Active Category Frame: {category_human_name} (Focus Area: {category_mapping[category_human_name]})\n"
-        else:
-            global_filters_context += f"- Active Category Frame: Broad/Unfiltered Dataset View\n"
-
-        lens_descriptions = {
-            "agency": "Administering NIH Institute/Center Classification",
-            "project_type": "NIH Grant Activity Mechanism (e.g., R01, R21, U54)",
-            "category": "Downstream Grant Intent Canvas Block",
-            "topic": "Semantic Research Abstract Focus Cluster",
-            "geography": "Geographic Distribution by State of Awardee Institution",
-            "career_stage": "Principal Investigator Operational Longevity and Academic Vintage Cohort"
-        }
-        active_lens_desc = lens_descriptions.get(active_lens, "Custom Research Cohort")
-
-        t_map_start = time.perf_counter()
-
-        # 1. Define an async worker function to handle an isolated cluster payload
-        async def process_cluster_chunk(cluster_id, items):
-            t_chunk_start = time.perf_counter()
-            
-            # ======================================================================
-            # 🚀 FOR TOPIC LENS: READ PRE-CALCULATED METRICS DIRECTLY
-            # ======================================================================
-            if active_lens == "topic":
-                # Rename 'items' to 'cluster_payload' for semantic clarity
-                cluster_payload = items 
-                
-                # Pull pre-calculated budget footprints out of the payload
-                cluster_budget = float(cluster_payload.get("total_budget", 0))
-                budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
-                short_cluster_budget = format_currency_short(cluster_budget)
-                
-                # Read the pre-built search query string to use as a grounding phrase
-                suggested_search = cluster_payload.get("generated_web_search_query", "")
-                
-                # Unpack the pre-sorted consensus core projects
-                core_projects = cluster_payload.get("consensus_core", [])
-                core_titles_str = "\n      ".join([
-                    f"* Title: {p['title']} ({p.get('mechanism', 'R01')} - ${p['amount']/1e6:.1f}M)" 
-                    for p in core_projects
-                ])
-                
-                # Unpack the pre-filtered innovation outliers
-                outliers = cluster_payload.get("high_innovation_outliers", [])
-                if outliers:
-                    outliers_str = "\n      ".join([
-                        f"* Title: {p['title']} ({p.get('mechanism', 'R21')} - ${p['amount']/1e6:.1f}M) [Distance: {p.get('distance_score', 0):.3f}]"
-                        for p in outliers
-                    ])
-                else:
-                    outliers_str = "* None identified on the semantic periphery using agile vehicles."
-                    
-                # 🏢 GOOGLE GROUNDING CHANGE: We no longer execute a manual search api here.
-                # We pass the instruction straight to the final high-capability model instead.
-
-                # Construct the final rich briefing payload for the REDUCE phase
-                chunk_payload = f"""
-                    - Mathematically Derived Topic Cluster ID: {cluster_id}
-                    - Total Aggregated Budget Footprint: ${short_cluster_budget}
-                    - Total Project Count Volume: {cluster_payload.get('project_count', 0)} grants ({budget_share_pct:.1f}% of total workspace share)
-                    - Core Consensus Projects (Cluster Center):
-                        {core_titles_str}
-                    - Structurally Protected High-Innovation Outliers (Semantic Boundary + Agile Mechanism):
-                        {outliers_str}
-                    - Suggested Grounding Search Phrase: "{suggested_search}"
-                    """
-                t_chunk_end = time.perf_counter()
-                print(f"   ↳ [SPATIAL MAP CHUNK] Resolved topic cluster '{cluster_id}': {t_chunk_end - t_chunk_start:.4f} seconds")
-                return chunk_payload
-
-            # ======================================================================
-            # 🏢 FOR ALL OTHER LENSES (AGENCY, ACTIVITY CODE): RUN ORIGINAL UNPACKING
-            # ======================================================================
-            else:
-                # 'items' is guaranteed to be a list of raw grant dicts here
-                cluster_budget = sum(float(g.get("amount") or 0) for g in items)
-                budget_share_pct = (cluster_budget / total_filtered_budget * 100) if total_filtered_budget > 0 else 0
-                short_cluster_budget = format_currency_short(cluster_budget)
-
-                VISIBILITY_CEILING = 75
-                context_lines = []
-
-                for g in items[:VISIBILITY_CEILING]:
-                    title = g.get("title", "No Title")
-                    activity_code = g.get("grant_id", "")[1:4].upper() if g.get("grant_id") and len(g.get("grant_id")) >= 4 else "Other"
-                    
-                    amount = float(g.get("amount") or 0)
-                    formatted_amount = format_currency_short(amount)
-
-                    nano_summary = g.get("summary_text", "No summary available.")
-
-                    context_lines.append(
-                        f"* [{activity_code} - {formatted_amount}] {title}\n"
-                        f"  Scientific Core: {nano_summary}"
-                    )
-
-
-                cluster_context = "\n".join(context_lines)
-
-                map_prompt = f"""
-                You are a technical program mapping assistant. Your job is to generate high-density, concise micro-summaries of specific grant buckets.
-                CONTEXTUAL FILTER BOUNDARIES FOR THIS ANALYTICAL RUN:
-                {global_filters_context}
-                CURRENT COHORT PERSPECTIVE:
-                - This cohort represents a discrete partition split by: {active_lens_desc}.
-                - Active Target Partition Key Name: **{cluster_id}**
-                - ACTIVE GRANTS LIST ASSIGNED TO THIS TARGET SECTOR (Showing up to {VISIBILITY_CEILING} high-density records):
-                {cluster_context}
-                CRITICAL FINANCIAL METRICS FOR THIS SECTOR:
-                - Allocated Total Capital: ${short_cluster_budget} 
-                - Workspace Share Density: {budget_share_pct:.1f}% of total active filtered portfolio view.
-                Provide a highly objective, technical, 2-sentence summary outlining the unified scientific objectives or operational focus of this group.
-                CRITICAL DESIGN RULE: You MUST open your response exactly matching this explicit formatting rule:
-                "Accounting for ${short_cluster_budget} ({budget_share_pct:.1f}% of the active portfolio budget), this cluster focuses on..."
-                """
-
-                response = await client.aio.models.generate_content(
-                    model="gemini-3-flash-preview", 
-                    contents=map_prompt
-                )
-                
-                t_chunk_end = time.perf_counter()
-                print(f"   ↳ [ASYNC MAP CHUNK] Resolved cluster '{cluster_id}' ({len(items)} grants): {t_chunk_end - t_chunk_start:.4f} seconds")
-                
-                return f"### Institute Partition: {cluster_id}\n{response.text}"
-
-        # 2. Build a task list of all coroutines to execute in parallel
-        tasks = [
-            process_cluster_chunk(cluster_id, items) 
-            for cluster_id, items in clusters.items()
-        ]
-
-        # 3. Dispatch all tasks simultaneously and wait for the batch to resolve
-        cluster_summaries = await asyncio.gather(*tasks)
-
-        t_map_end = time.perf_counter()
-        print(f"⏱️ [LATENCY] Global Map Phase Total (Concurrent Parallel Batch): {t_map_end - t_map_start:.4f} seconds")
-
-        # create master briefing
-        t_reduce_start = time.perf_counter()
-        master_context = "\n\n".join(cluster_summaries)
-
-        short_total_budget = format_currency_short(total_filtered_budget)
-        
-        # route to different reduce_prompts depending on selection
-        if active_lens == "agency":
-            missions_json_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "nih_missions.json"))
-                        
-            agency_missions_reference = "No official mission statements available for the active cohort."
-            
-            if os.path.exists(missions_json_path):
-                with open(missions_json_path, "r") as f:
-                    missions_db = json.load(f)
-                    
-                # Build a text block of ONLY the agencies present in the user's active results
-                reference_lines = []
-                for cluster_id in clusters.keys():
-                    matching_data = lookup_mission_by_name(cluster_id, missions_db)
-                    if matching_data:
-                        reference_lines.append(f"- **{matching_data['full_name']}**: {matching_data['mission']}")
-                
-                if reference_lines:
-                    agency_missions_reference = "\n".join(reference_lines)
-
-            
-            reduce_prompt = REDUCE_PROMPT_AGENCY.format(
-                active_cat_name = category_human_name,
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context,
-                agency_missions_reference = agency_missions_reference
-            )        
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-
-        elif active_lens == "project_type":
-            code_mapping_csv = os.path.abspath(os.path.join(script_dir, "..", "core", "synthesis_prompts", "ActivityCodes.csv"))
-            
-            project_type_reference = "No official activity code definitions available for the active cohort."
-            
-            if os.path.exists(code_mapping_csv):
-                df = pd.read_csv(code_mapping_csv)
-                
-                # 1. Build a rich lookup dictionary from the dataframe
-                # Note the corrected column name: 'Activity_Code'
-                code_lookup = {}
-                for _, row in df.iterrows():
-                    code = str(row["Activity_Code"]).strip()
-                    code_lookup[code] = {
-                        "title": row.get("Title", "Unknown Mechanism"),
-                        "description": row.get("Description", "No description provided.")
-                    }
-
-                # 2. Extract and format ONLY the activity codes present in this active run
-                reference_lines = []
-                for cluster_id in clusters.keys():
-                    # 💡 RESILIENCE TRICK: Extract the raw code prefix (e.g., turns "R01 - Research Project" into "R01")
-                    clean_code_key = str(cluster_id).split()[0].split('-')[0].strip().upper()
-                    
-                    if clean_code_key in code_lookup:
-                        meta = code_lookup[clean_code_key]
-                        reference_lines.append(f"- **{clean_code_key} ({meta['title']})**: {meta['description']}")
-                    else:
-                        # Fallback case if cluster keys are already descriptive but missing from CSV
-                        reference_lines.append(f"- **{cluster_id}**: Active project mechanism bucket.")
-
-                if reference_lines:
-                    project_type_reference = "\n".join(reference_lines)
-
-            # 3. Format the final Reduce prompt with the new reference block parameter
-            reduce_prompt = REDUCE_PROMPT_PROJECT_TYPE.format(
-                active_cat_name = category_human_name,
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context,
-                project_type_reference = project_type_reference  # Injecting the mechanism dictionary
-            )
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-
-        elif active_lens == "geography":
-            reduce_prompt = REDUCE_PROMPT_GEOGRAPHY.format(
-                active_cat_name = category_human_name,
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context
-            )
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-        
-        elif active_lens == "career_stage":
-            reduce_prompt = REDUCE_PROMPT_CAREER_STAGE.format(
-                active_cat_name = category_human_name,
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context
-            )
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt)
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-
-        elif active_lens == "category":
-            # 🚀 Cleanly stringify ONLY the definitions that are actually inside our active results
-            reference_lines = []
-            for cluster_id in clusters.keys():
-                if cluster_id in category_mapping:
-                    reference_lines.append(f"- **{cluster_id}**: {category_mapping[cluster_id]}")
-                else:
-                    reference_lines.append(f"- **{cluster_id}**: Supplementary uncategorized raw database partition.")
-            
-            category_definitions_reference = "\n".join(reference_lines)
-
-            reduce_prompt = REDUCE_PROMPT_CATEGORY.format(
-                active_cat_name = category_human_name,
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context,
-                category_definitions_reference = category_definitions_reference
-            )
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt, config={"tools": [{"google_search": {}}]})
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-
-            
-          
-        elif active_lens == "topic":
-
-            target_template = TOPIC_PROMPT_REGISTRY.get(category_human_name, DEFAULT_PROMPT_REDUCE_TOPIC)
-            
-            reduce_prompt = target_template.format(
-                active_cat_name = category_human_name,  
-                query_intersection = query_intersection,
-                total_filtered_budget = short_total_budget,
-                master_context = master_context
-            )
-            # use google grounding for topic lens, no additional reference needed
-            final_briefing = await client.aio.models.generate_content(model = "gemini-3-flash-preview", contents = reduce_prompt, config={"tools": [{"google_search": {}}]})
-            t_reduce_end = time.perf_counter()
-            print(f"⏱️ [LATENCY] Reduce Phase Total (Final synthesis): {t_reduce_end - t_reduce_start:.4f} seconds")
-            
-       
-        t_total_end = time.perf_counter()
-        print(f"🏁 [LATENCY] TOTAL PIPELINE EXECUTION LIFETIME: {t_total_end - t_start:.4f} seconds\n")
-        return {"summary": final_briefing.text}
-            
-
-     
-    finally:
-        conn.close()
-'''
 @ app.route("/contact_us")
 
 def contact_page(request: Request):
