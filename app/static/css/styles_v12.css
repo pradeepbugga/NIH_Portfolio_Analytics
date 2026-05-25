@@ -106,7 +106,7 @@ body.landing {
     color: #12253d;
     background: white;
     overflow: hidden;
-    flex: 0.2 1 340px;
+    flex: 1 340px;
 
     box-sizing: border-box;
     transition: all 0.2s ease-in-out;
@@ -943,8 +943,8 @@ footer a:hover {
     align-items: flex-end;
     gap: clamp(2rem, 5vw, 6rem);
     width: 100%;
-    padding-left: 5%;
-    padding-right: 5%;
+    padding-left: 10%;
+    padding-right: 10%;
     box-sizing: border-box;
     margin-bottom: 100px;
 }
@@ -1045,8 +1045,8 @@ footer a:hover {
 /* PORTFOLIO CHART AND CATEGORY STYLES */
 
 .portfolio-container {
-    padding-left: 5%;
-    padding-right: 5%;
+    padding-left: 10%;
+    padding-right: 10%;
 }
 
 .portfolio-split-layout {
@@ -1236,7 +1236,7 @@ footer a:hover {
 
 #filter-count,
 #filter-total-funding {
-    font-size: 2.1rem;
+    font-size: 1.9rem;
     color: white;
     line-height: 1;
     font-weight: 500;
@@ -1813,73 +1813,115 @@ footer a:hover {
 
 @media (max-width: 768px) {
 
-    /* 1. Stop centering everything vertically so it can scroll */
+    /* 1. Reset vertical layout constraints */
     body.landing {
         height: auto;
         display: block;
     }
 
     .center-container {
-        min-height: 100vh;
-        padding: 40px 15px;
+        min-height: 150vh;
+        padding: 40px 16px;
         width: 100%;
+        box-sizing: border-box;
     }
 
-    /* 2. Fix the Logo size (it's a bit small in the screenshot) */
+    /* 2. Adjust header elements */
     .logo {
-        font-size: 2.5rem;
-        margin-bottom: 40px;
+        font-size: 2.2rem;
+        margin-bottom: 32px;
     }
 
-    /* 3. Stack the Home Card (Icon on top of text) */
-    .home-card {
-        flex-direction: column;
-    }
-
-    .home-card-icon {
+    .home-options {
         width: 100%;
-        height: 50px;
-        /* Gives the icon a dedicated blue header row */
     }
 
-    .home-card-content {
-        padding: 20px 15px;
-        font-size: 0.95rem;
-        /* Slightly smaller to fit more words per line */
+    /* 3. Fix the top explorer card section */
+    .home-cards-grid {
+        display: flex;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 16px;
+        max-width: 30%;
+        margin-bottom: 16px;
+        /* Reduced to bring the third card closer */
     }
 
-    /* 4. Stack the Search Bar (Icon on top of Input) */
+    /* Target BOTH .home-card and .home-card-control from your DOM */
+    .home-card,
+    .home-card-control {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        max-width: 100% !important;
+        min-height: auto;
+        flex-direction: column;
+        /* Stacks the icon block on top of content */
+    }
+
+    /* Stacks the icon row neatly on top of each card */
+    .home-card-icon-block {
+        width: 100% !important;
+        height: 48px;
+        padding: 8px 0;
+    }
+
+    .home-card-content-block {
+        width: 100% !important;
+        padding: 16px;
+        box-sizing: border-box;
+        text-align: center;
+        /* Center-aligns the text and inputs on mobile */
+    }
+
+    .home-card-title {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    /* Fix the third card floating out of the grid context */
+    .spatial-search-card {
+        margin-top: 0;
+        margin-bottom: 24px;
+    }
+
+    /* 4. Keep the bottom Search Bar horizontal but finger-friendly */
     .search-form {
-        flex-direction: column;
-        border: 2px solid #12253d;
-    }
-
-    /* Move the button to the TOP to match the card layout style */
-    .search-button {
-        order: -1;
-        width: 100%;
-        height: 50px;
-        margin: 0;
-        border-bottom: 2px solid #12253d;
-        /* Separator line */
+        display: flex;
+        flex-direction: row;
+        /* Keep input and button side-by-side so it looks like a true search bar */
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto;
     }
 
     .search-form input {
-        width: 100%;
-        padding: 15px;
-        text-align: center;
+        padding: 16px;
         font-size: 1rem;
+    }
+
+    .search-button {
+        width: 64px;
+        height: auto;
+        align-self: stretch;
+    }
+
+    .search-button svg {
+        width: 24px;
+        height: 24px;
+        transform: scale(1);
+        /* Normalizes scale on mobile screens */
     }
 
     /* 5. Clean up the Divider */
     .search-divider {
-        max-width: 100%;
-        gap: 15px;
-        margin-top: 20px;
+        max-width: 100% !important;
+        gap: 12px;
+        margin: 24px auto;
+        justify-content: center;
     }
 
     .divider-line {
         display: none;
-        /* Hide lines on mobile to save horizontal space */
+        /* Safely hides lines to keep view simple on small viewports */
     }
 }
