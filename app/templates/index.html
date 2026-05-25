@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>The NIH Audit</title>
-    <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.1"">
+    <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.1">
     <script src=" https://unpkg.com/lucide@latest">
     </script>
 
@@ -90,94 +90,142 @@
                             style="flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none;"
                             onkeydown="if(event.key === 'Enter') executeActivityCodeSearch()" />
                         <button onclick="executeActivityCodeSearch()"
-                            style="padding: 8px 16px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 14px;">
+                            style="padding: 8px 16px; background-color: #12253d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 14px;">
                             Go
                         </button>
                     </div>
-                    <div id="activity-code-error-message"
-                        style="color: #ef4444; font-size: 12px; margin-top: 6px; display: none; font-weight: bold;">
-                    </div>
+                </div>
+            </div>
+            <div class="search-divider">
+                <div class="divider-line"></div>
+
+                <div class="divider-text">
+                    <span class="divider-or">OR</span>
+                    <span class="divider-search">SEARCH BELOW</span>
+                </div>
+
+                <div class="divider-line"></div>
+            </div>
+            {% include 'partials/search_bar.html' %}
+
+        </div>
+        <footer>
+            <a href="/contact_us">Contact Us</a>
+        </footer>
+
+
+        <div id="errorModal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 99999;"
+            onclick="if(event.target.id === 'errorModal') closeErrorModal()">
+            <div
+                style="background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);">
+                <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 18px; font-weight: 700; color: #12253d;">Search Error</div>
+                    <button onclick="closeErrorModal()"
+                        style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b;"></button>
+                </div>
+                <div style="font-size: 14px; color: #475569; line-height: 1.5; margin-bottom: 20px; word-break: break-word;"
+                    id="modal-error-text">
+                </div>
+                <div style="display: flex; justify-content: flex-end;">
+                    <button onclick="closeErrorModal()"
+                        style="background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                        Dismiss
+                    </button>
                 </div>
             </div>
         </div>
-        <div class="search-divider">
-            <div class="divider-line"></div>
 
-            <div class="divider-text">
-                <span class="divider-or">OR</span>
-                <span class="divider-search">SEARCH BELOW</span>
-            </div>
+        <script>lucide.createIcons(); </script>
+        <script src="/static/js/script.js"></script>
+        <script>
+            function routeToAgency(fundingCode) {
+                if (!fundingCode) return;
 
-            <div class="divider-line"></div>
-        </div>
-        {% include 'partials/search_bar.html' %}
-
-    </div>
-    <footer>
-        <a href="/contact_us">Contact Us</a>
-    </footer>
-
-    <script>lucide.createIcons(); </script>
-    <script src="/static/js/script.js"></script>
-    <script>
-        function routeToAgency(fundingCode) {
-            if (!fundingCode) return;
-
-            // Redirects out cleanly to your master dynamic unified workspace!
-            // Example target format: /agency/ca or /agency/ai
-            window.location.href = `/agency/${fundingCode.toLowerCase()}`;
-        }
-        function executeActivityCodeSearch() {
-            const inputElement = document.getElementById("activity-codes-input");
-            const errorElement = document.getElementById("activity-code-error-message");
-
-            // Hide previous error
-            errorElement.style.display = "none";
-            errorElement.innerText = "";
-
-            if (!inputElement) return;
-
-            // 1. Sanitize input: strip whitespace, upper-case, filter empty strings
-            const rawValue = inputElement.value;
-            const codes = rawValue.split(",")
-                .map(code => code.trim().toUpperCase())
-                .filter(code => code.length > 0);
-
-            // 2. Validate count bounds (1 to 5 codes)
-            if (codes.length === 0) {
-                errorElement.innerText = "Please enter at least one agency or activity code.";
-                errorElement.style.display = "block";
-                return;
+                // Redirects out cleanly to your master dynamic unified workspace!
+                // Example target format: /agency/ca or /agency/ai
+                window.location.href = `/agency/${fundingCode.toLowerCase()}`;
             }
 
-            if (codes.length > 5) {
-                errorElement.innerText = "You can enter a maximum of 5 codes at a time.";
-                errorElement.style.display = "block";
-                return;
-            }
+            // 1. Controller utilities to handle open/close animations
+            // Server-injected valid activity codes array from your backend route
+            const allowedActivityCodesCache = new Set(
+                JSON.parse('{{" " if not valid_activity_codes else valid_activity_codes | tojson}}')
+            );
 
-            // 3. Structural Validation (Strictly 3 alphanumeric characters, e.g., R41, CA1, DP2)
-            const nihCodeRegex = /^[A-Z0-9]{3}$/;
-            const invalidCodes = [];
-
-            for (const code of codes) {
-                if (!nihCodeRegex.test(code)) {
-                    invalidCodes.push(code);
+            function openErrorModal(message) {
+                const modal = document.getElementById("errorModal");
+                const textField = document.getElementById("modal-error-text");
+                if (modal && textField) {
+                    textField.innerText = message;
+                    modal.style.display = "flex"; // Shows the overlay
                 }
             }
 
-            if (invalidCodes.length > 0) {
-                errorElement.innerText = `Invalid code format: ${invalidCodes.join(", ")}. NIH codes must be exactly 3 characters (e.g., R43, U13).`;
-                errorElement.style.display = "block";
-                return;
+            function closeErrorModal() {
+                const modal = document.getElementById("errorModal");
+                if (modal) {
+                    modal.style.display = "none"; // Hides the overlay completely
+                }
             }
 
-            // 4. Pass downstream to unified endpoint via query parameters
-            const queryStringParam = codes.join(",");
-            window.location.href = `/activity_codes?codes=${encodeURIComponent(queryStringParam)}`;
-        }
+            function executeActivityCodeSearch() {
+                const inputElement = document.getElementById("activity-codes-input");
+                if (!inputElement) return;
 
-    </script>
+                // 1. Sanitize user inputs
+                const rawValue = inputElement.value;
+                const codes = rawValue.split(",")
+                    .map(code => code.trim().toUpperCase())
+                    .filter(code => code.length > 0);
+
+                // 2. Validate boundaries
+                if (codes.length === 0) {
+                    openErrorModal("Please enter at least one activity code.");
+                    return;
+                }
+
+                if (codes.length > 5) {
+                    openErrorModal("You can enter a maximum of 5 activity codes at a time.");
+                    return;
+                }
+
+                // 3. Structural regex evaluation
+                const nihCodeRegex = /^[A-Z0-9]{3}$/;
+                const structuralInvalidCodes = [];
+
+                for (const code of codes) {
+                    if (!nihCodeRegex.test(code)) {
+                        structuralInvalidCodes.push(code);
+                    }
+                }
+
+                if (structuralInvalidCodes.length > 0) {
+                    openErrorModal(`Invalid format detected: ${structuralInvalidCodes.join(", ")}. Activity codes must be exactly 3 alphanumeric characters (e.g., R43, DP2).`);
+                    return;
+                }
+
+                // 4. Check against your loaded CSV codes set
+                if (allowedActivityCodesCache && allowedActivityCodesCache.size > 0) {
+                    const unrecognizedCodes = [];
+                    for (const code of codes) {
+                        if (!allowedActivityCodesCache.has(code)) {
+                            unrecognizedCodes.push(code);
+                        }
+                    }
+                    if (unrecognizedCodes.length > 0) {
+                        openErrorModal(`Unrecognized Activity Code(s): ${unrecognizedCodes.join(", ")}. Please cross-reference with known NIH funding mechanisms.`);
+                        return;
+                    }
+                }
+
+                // Success! Redirect to backend query pipeline
+                const queryStringParam = codes.join(",");
+                window.location.href = `/activity_codes?codes=${encodeURIComponent(queryStringParam)}`;
+            }
+
+        </script>
+
 
 </body>
 
