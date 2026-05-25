@@ -42,6 +42,8 @@ def combine_and_sort(docs, scores):
                 "infrastructure": doc.get("infrastructure", None),
                 "education": doc.get("education", None),
                 "obs_ep": doc.get("obs_ep", None),
+                "activity_code": doc.get("activity_code", None),
+                "summary": doc.get("summary", None)
             })
         
     results.sort(key=lambda x: x["score"], reverse=True)
@@ -85,6 +87,8 @@ def combine_and_sort_semantic_filter(docs, scores):
                 "infrastructure": doc.get("infrastructure", None),
                 "education": doc.get("education", None),
                 "obs_ep": doc.get("obs_ep", None),
+                "activity_code": doc.get("activity_code", None),
+                "summary": doc.get("summary", None)
             })
         
     results.sort(key=lambda x: x["score"], reverse=True)
