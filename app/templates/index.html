@@ -37,9 +37,9 @@
                     </div>
 
                     <div class="home-card-content-block">
-                        <div class="home-card-title"> Explore Categories</div>
+                        <div class="home-card-title"> Explore<br> Entire Portfolio</div>
                         <div class="home-card-description">
-                            See breakdown of NIH funding <br>categorized by grant intent
+
                         </div>
                     </div>
 
@@ -73,6 +73,31 @@
                     </div>
 
                 </div>
+
+            </div>
+            <div class="home-card-control spatial-search-card">
+                <div class="home-card-icon-block">
+                    <i data-lucide="building-2"></i>
+                </div>
+                <div class="home-card-content-block" style="width: 100%;">
+                    <div class="home-card-title">Explore by Activity Codes</div>
+                    <div class="home-card-description" style="margin-bottom: 8px;">
+                        Enter up to 5 IC/Activity codes (comma-separated)
+                    </div>
+
+                    <div class="activity-code-search-box-wrapper" style="display: flex; gap: 8px; width: 100%;">
+                        <input type="text" id="activity-codes-input" placeholder="e.g., R01, R43"
+                            style="flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none;"
+                            onkeydown="if(event.key === 'Enter') executeActivityCodeSearch()" />
+                        <button onclick="executeActivityCodeSearch()"
+                            style="padding: 8px 16px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 14px;">
+                            Go
+                        </button>
+                    </div>
+                    <div id="activity-code-error-message"
+                        style="color: #ef4444; font-size: 12px; margin-top: 6px; display: none; font-weight: bold;">
+                    </div>
+                </div>
             </div>
         </div>
         <div class="search-divider">
@@ -88,6 +113,9 @@
         {% include 'partials/search_bar.html' %}
 
     </div>
+    <footer>
+        <a href="/contact_us">Contact Us</a>
+    </footer>
 
     <script>lucide.createIcons(); </script>
     <script src="/static/js/script.js"></script>
@@ -98,6 +126,55 @@
             // Redirects out cleanly to your master dynamic unified workspace!
             // Example target format: /agency/ca or /agency/ai
             window.location.href = `/agency/${fundingCode.toLowerCase()}`;
+        }
+        function executeActivityCodeSearch() {
+            const inputElement = document.getElementById("activity-codes-input");
+            const errorElement = document.getElementById("activity-code-error-message");
+
+            // Hide previous error
+            errorElement.style.display = "none";
+            errorElement.innerText = "";
+
+            if (!inputElement) return;
+
+            // 1. Sanitize input: strip whitespace, upper-case, filter empty strings
+            const rawValue = inputElement.value;
+            const codes = rawValue.split(",")
+                .map(code => code.trim().toUpperCase())
+                .filter(code => code.length > 0);
+
+            // 2. Validate count bounds (1 to 5 codes)
+            if (codes.length === 0) {
+                errorElement.innerText = "Please enter at least one agency or activity code.";
+                errorElement.style.display = "block";
+                return;
+            }
+
+            if (codes.length > 5) {
+                errorElement.innerText = "You can enter a maximum of 5 codes at a time.";
+                errorElement.style.display = "block";
+                return;
+            }
+
+            // 3. Structural Validation (Strictly 3 alphanumeric characters, e.g., R41, CA1, DP2)
+            const nihCodeRegex = /^[A-Z0-9]{3}$/;
+            const invalidCodes = [];
+
+            for (const code of codes) {
+                if (!nihCodeRegex.test(code)) {
+                    invalidCodes.push(code);
+                }
+            }
+
+            if (invalidCodes.length > 0) {
+                errorElement.innerText = `Invalid code format: ${invalidCodes.join(", ")}. NIH codes must be exactly 3 characters (e.g., R43, U13).`;
+                errorElement.style.display = "block";
+                return;
+            }
+
+            // 4. Pass downstream to unified endpoint via query parameters
+            const queryStringParam = codes.join(",");
+            window.location.href = `/activity_codes?codes=${encodeURIComponent(queryStringParam)}`;
         }
 
     </script>
