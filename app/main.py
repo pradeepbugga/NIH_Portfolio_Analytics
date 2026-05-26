@@ -49,11 +49,7 @@ def normalize_query(q: str) -> str:
 
 def extract_funding(results):
     
-    #debug print all fiscal years in results
-    print("Extracting funding data from fiscal years:")
-    print(set(r.get("fiscal_year") for r in results["records"] if r.get("fiscal_year")))
-
-
+ 
     yearly_totals = {}
     now = datetime.now()
     current_fy = now.year if now.month < 10 else now.year + 1
@@ -215,7 +211,6 @@ def search(request: Request,
 
         print(results["records"][0].keys())
 
-        print("Years", years)
        
         return templates.TemplateResponse(
             "results.html",
