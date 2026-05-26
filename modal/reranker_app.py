@@ -11,9 +11,7 @@ image = (
     modal.Image.debian_slim()
     .pip_install(
         "torch",
-        "sentence-transformers",
-        "transformers",
-        "numpy"
+        "vllm>=0.6.5"
     )
 )
 
@@ -31,19 +29,28 @@ class Reranker:
 
     @modal.enter()
     def load_model(self):
+        from vllm import LLM
+
+        self.engine = LLM(
+            model=self.model_path,
+            task = "score",
+            enforce_eager =False,
+            max_model_len = 1024
+        )
+
+
         self.model = CrossEncoder(self.model_path, device="cuda")
             
 
     @modal.method()
-    def rerank_batch(self, query, docs_list, batch_size=128):
+    def rerank_batch(self, query, docs_list):
        
-        inputs = [(query, doc) for doc in docs_list]    
+        # format pairs for the model
+        outputs = self.engine.score(
+            text_1 = query,
+            text_2 = docs_list,
+        )
 
-        with torch.no_grad(), torch.amp.autocast("cuda"):  
-            scores = self.model.predict(
-                inputs, 
-                batch_size = batch_size,
-                show_progress_bar = False,
-                convert_to_numpy = True)
-            
-        return scores.tolist()
+        #extract pure float similarity scores from the model output
+        scores = [out.outputs.score for out in outputs]
+        return scores
