@@ -681,7 +681,8 @@ class SearchRequest(BaseModel):
     category: Optional[str] = None
     query: str
     existing_ids: List[str] # Validated as a native array of strings
-
+    query_history_count: int = 1  # use this to track queries to then route to either semantic or hybrid search
+ 
 
 
 @app.post("/api/portfolio/grants/search")
@@ -754,6 +755,42 @@ def portfolio_grants_search(
 
             allowed_grant_ids = [row[0] for row in cur.fetchall()]
 
+        # ====================================================================
+        # 🎛️ DYNAMIC SEARCH ROUTER MATRIX
+        # ====================================================================
+        # Determine if this request qualifies for Hybrid Substring Overrides:
+        # Condition A: It's the 2nd or beyond sub-search for Options 1-3 (existing_ids present AND history > 1)
+        # Condition B: It's a sub-search refining Option 4 (Global search page sub-filtering)
+        is_nested_subsearch = payload.query_history_count > 1
+
+        if is_nested_subsearch and allowed_grant_ids:
+            print("🔍 Routing to HYBRID SEARCH (Semantic + Substring Filter)")
+            keyword_escaped = f"%{payload.query.strip()}%"
+            keyword_sql = """
+                SELECT rg.grant_id
+                FROM ResearchGrants rg
+                LEFT JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+                WHERE rg.grant_id in %s
+                AND (rg.project_title ILIKE %s OR s.two_sentence_summary ILIKE %s or rg.abstract ILIKE %s)
+            """
+            cur.execute(keyword_sql, (tuple(allowed_grant_ids), keyword_escaped, keyword_escaped, keyword_escaped))
+            keyword_matches = [row[0] for row in cur.fetchall()]
+
+        if keyword_matches:
+            docs = load_grant_texts(cur, keyword_matches)
+            for d in docs:
+                d["vector_similarity"] = 1.0
+
+            scores = rerank_fn.remote(payload.query, [d["text"] for d in docs])
+            ranked = combine_and_sort_semantic_filter(docs, scores)
+            return {
+                "query": payload.query,
+                "category": payload.category,
+                "year": payload.year,
+                "grants": format_output_grants(ranked)
+            }
+
+
         query_vec = embed_query(payload.query)
         query_vec_list = query_vec.tolist()
 
@@ -780,31 +817,28 @@ def portfolio_grants_search(
 
         ranked = combine_and_sort_semantic_filter(docs, scores)
 
-        for g in ranked:
-
-            g["organization"] = g.get("org_name")
-
-            g["funding"] = g.get("amount")
-
-            first = g.get("pi_first_name") or ""
-            middle = g.get("pi_middle_name") or ""
-            last = g.get("pi_last_name") or ""
-
-            g["pi"] = " ".join(
-                x for x in [first, middle, last] if x
-            )
 
         return {
             "query": payload.query,
             "category": payload.category,
             "year": payload.year,
-            "grants": ranked
+            "grants": format_output_grants(ranked)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search pipeline execution failed: {str(e)}")
 
     finally:
         conn.close()
+
+def format_output_grants(ranked_docs):
+    """Helper layout to normalize object fields perfectly for JavaScript render tracks"""
+    for g in ranked_docs:
+        g["organization"] = g.get("org_name")
+        g["funding"] = g.get("amount")
+        first, middle, last = g.get("pi_first_name") or "", g.get("pi_middle_name") or "", g.get("pi_last_name") or ""
+        g["pi"] = " ".join(x for x in [first, middle, last] if x)
+    return ranked_docs
+
 
 @app.get("/api/grant/{grant_id}/abstract")
 def get_grant_abstract(grant_id: str):
