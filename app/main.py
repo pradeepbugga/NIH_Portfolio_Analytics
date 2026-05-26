@@ -208,7 +208,7 @@ def search(request: Request,
 
         print(results["records"][0].keys())
 
-        print("Years": years)
+        print("Years", years)
        
         return templates.TemplateResponse(
             "results.html",
