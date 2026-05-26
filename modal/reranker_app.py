@@ -39,18 +39,25 @@ class Reranker:
         )
 
 
-        self.model = CrossEncoder(self.model_path, device="cuda")
-            
-
     @modal.method()
     def rerank_batch(self, query, docs_list):
+
+        import time
+        t_worker_entry = time.perf_counter()
+        print(f"⚡ WORKER RECEIVED PAYLOAD: {len(docs_list)} documents to rank.")
        
         # format pairs for the model
+        t_vllm_start = time.perf_counter()
         outputs = self.engine.score(
             text_1 = query,
             text_2 = docs_list,
         )
+        t_vllm_end = time.perf_counter()
 
         #extract pure float similarity scores from the model output
         scores = [out.outputs.score for out in outputs]
+
+        t_worker_exit = time.perf_counter()
+
+        print(f"✅ Reranking complete. Latencies - Total: {t_worker_exit - t_worker_entry:.4f}s, VLLM Inference: {t_vllm_end - t_vllm_start:.4f}s")
         return scores

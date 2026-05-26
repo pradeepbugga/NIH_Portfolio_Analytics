@@ -8,6 +8,7 @@ from core.search.query_embedding import warmup_query_encoder
 
 
 
+from contextlib import asynccontextmanager
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -35,6 +36,14 @@ import numpy as np
 load_dotenv()
 
 client = genai.Client()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Running global application warmups...")
+    warmup_query_encoder()
+    print("Warmups complete. Application is ready to serve requests.")
+    yield
 
 app = FastAPI(title="NIH Grant Search API")
 
@@ -164,18 +173,25 @@ def extract_ontology_distribution(results):
 def search(request: Request,
     query: str = Query(..., description="Search query string")):
 
-    
-    # warm up models to reduce initial latency
-    warmup_query_encoder()
-    
-    
+    t_start = time.perf_counter()
+
+    print("\n" + "="*50)
+    print("=== STARTING DETAILED LATENCY BENCHMARK ===")
+    print("="*50)
+   
+ 
     #normalize query before searching
     query = normalize_query(query)
+
+    t_query = time.perf_counter()
+    print(f"✅ Query normalized: '{query}' (Latency: {t_query - t_start:.4f}s)")
+
 
     conn = get_db_connection()
     cur = conn.cursor()
 
     try:
+        t_db_start = time.perf_counter()
         if cached_results := get_cached_results(cur, query):
             years, funding = extract_funding(cached_results)
             ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
@@ -198,8 +214,14 @@ def search(request: Request,
         #prepare HNSW search parameters
         cur.execute("SET hnsw.ef_search = 1000;")
      
+        t_db_mid = time.perf_counter()
+        print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
+
         #perform semantic search
         results = semantic_search_range(query, cur, rerank_fn=rerank_fn)
+
+        t_db_end = time.perf_counter()
+        print(f"✅ Semantic search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
 
         #cache results
         save_cached_results(cur, query, results)
@@ -211,7 +233,9 @@ def search(request: Request,
 
         print(results["records"][0].keys())
 
-       
+        t_end = time.perf_counter()
+        print(f"✅ Total search latency: {t_end - t_start:.4f}s")
+
         return templates.TemplateResponse(
             "results.html",
            {
