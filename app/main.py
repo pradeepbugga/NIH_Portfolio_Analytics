@@ -236,6 +236,8 @@ def search(request: Request,
         t_end = time.perf_counter()
         print(f"✅ Total search latency: {t_end - t_start:.4f}s")
 
+        print("years", years)
+
         return templates.TemplateResponse(
             "results.html",
            {
