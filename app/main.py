@@ -208,6 +208,8 @@ def search(request: Request,
 
         print(results["records"][0].keys())
 
+        print("Years": years)
+       
         return templates.TemplateResponse(
             "results.html",
            {
@@ -838,28 +840,12 @@ def portfolio_grants_search(
 
 def format_output_grants(ranked_docs):
     """Helper layout to normalize object fields perfectly for JavaScript render tracks"""
-    formatted_list = []
     for g in ranked_docs:
-        first = g.get("pi_first_name") or ""
-        middle = g.get("pi_middle_name") or ""
-        last = g.get("pi_last_name") or ""
-        pi_name = " ".join(x for x in [first, middle, last] if x).strip() or "Unknown"
-
-        formatted_list.append({
-            "grant_id": g.get("grant_id"),
-            "title": g.get("title") or "Untitled Project",
-            "subproject_id": g.get("subproject_id"),
-            "core_project_num": g.get("core_project_num"),
-            "fiscal_year": g.get("fiscal_year"),
-            "funding": float(g.get("amount") or 0),  # Guarantee float representation for JS math calculations
-            "abstract": g.get("abstract"),
-            "agency_ic": g.get("agency_ic") or "N/A",
-            "organization": g.get("org_name") or "Unknown Organization",
-            "pi": pi_name,
-            "activity_code": g.get("activity_code") or "N/A",
-            "summary": g.get("summary") or g.get("phr") or "No short summary generated for this record."
-        })
-    return formatted_list
+        g["organization"] = g.get("org_name")
+        g["funding"] = g.get("amount")
+        first, middle, last = g.get("pi_first_name") or "", g.get("pi_middle_name") or "", g.get("pi_last_name") or ""
+        g["pi"] = " ".join(x for x in [first, middle, last] if x)
+    return ranked_docs
 
 
 @app.get("/api/grant/{grant_id}/abstract")
