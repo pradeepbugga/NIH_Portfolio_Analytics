@@ -47,7 +47,7 @@ def load_grant_texts(cur, grant_ids):
             AND rgp.is_contact_pi = TRUE
         LEFT JOIN PIs p 
             ON rgp.pi_id = p.id
-        INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+        LEFT JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
         LEFT JOIN Organizations o on rg.organization_id = o.id
         LEFT JOIN grant_labels gl on rg.grant_id = gl.grant_id
         WHERE rg.grant_id = ANY(%s)
