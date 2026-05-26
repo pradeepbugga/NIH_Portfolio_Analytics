@@ -197,7 +197,7 @@ def search(request: Request,
             ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
             print(cached_results["records"][0].keys())
 
-
+            print("years", years)
             return templates.TemplateResponse(
             "results.html",
             {
