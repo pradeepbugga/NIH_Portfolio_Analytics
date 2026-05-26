@@ -48,6 +48,12 @@ def normalize_query(q: str) -> str:
 
 
 def extract_funding(results):
+    
+    #debug print all fiscal years in results
+    print("Extracting funding data from fiscal years:")
+    print(set(r.get("fiscal_year") for r in results["records"] if r.get("fiscal_year")))
+
+
     yearly_totals = {}
     now = datetime.now()
     current_fy = now.year if now.month < 10 else now.year + 1
@@ -57,6 +63,7 @@ def extract_funding(results):
     print(f"Current fiscal year: {current_fy}, months elapsed: {months_elapsed}, scaling factor: {scaling_factor}")
     for r in results["records"]:
         yr = r["fiscal_year"]
+        
         amt = r["amount"] or 0 
         yearly_totals[yr] = yearly_totals.get(yr, 0) + amt
 
