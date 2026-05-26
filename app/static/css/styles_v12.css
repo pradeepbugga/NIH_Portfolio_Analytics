@@ -885,8 +885,8 @@ footer a:hover {
 
 #query-grant-results-container {
     margin-top: 20px;
-    padding:
-        0 clamp(1.5rem, 5vw, 6rem) clamp(4rem, 8vw, 7rem) clamp(1.5rem, 5vw, 6rem);
+    padding-left: 15%;
+    padding-right: 15%;
     font-family: "Inter", sans-serif;
 
 
@@ -1164,8 +1164,8 @@ footer a:hover {
 
 #grant-results-container {
     margin-top: 20px;
-    padding:
-        0 clamp(1.5rem, 5vw, 6rem) clamp(4rem, 8vw, 7rem) clamp(1.5rem, 5vw, 6rem);
+    padding-left: 15%;
+    padding-right: 15%;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.5s ease, transform 0.5s ease;
@@ -1340,63 +1340,23 @@ footer a:hover {
    1 & 2: Grant Cards Hover & Pointer States
    ========================================================================== */
 #grant-results-layout {
-    display: grid;
-    grid-template-columns: 50% 50%;
-    /* Left column takes 55%, right panel takes 45% */
-    gap: 24px;
-    /* Clean spacing gap between the columns */
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    align-items: start;
+    gap: 16px;
+    /* Spacing between your wide rows */
+    align-items: stretch;
+    /* Forces the cards to stretch 100% flat across the screen */
     margin-top: 20px;
-    height: 80vh;
+    /* height: 80vh; <-- Removed so the list flows naturally without clipping */
 }
 
 #grant-results-left-panel {
-    display: flex;
-    flex-direction: column;
-    /* Optional: Pins list height and scrolls internally if list gets exceptionally long */
-    height: 100%;
-    overflow-y: auto;
-    padding-right: 8px;
-    /* Room for a neat scrollbar */
+    width: 100%;
+    max-width: 100%;
 
 }
 
-#grant-results-right-panel {
-    background-color: #ffffff;
-
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    border: #12253d 2px solid;
-    border-radius: 8px;
-
-    /* Sticky Positioning: Keeps the panel locked on screen while scrolling the page */
-    position: sticky;
-    top: 20px;
-    height: 100%;
-    overflow-y: auto;
-}
-
-.panel-header h3 {
-    /* center all text inside the right panel header */
-    text-align: center;
-
-}
-
-.cluster-option-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: opacity 0.2s ease, color 0.2s ease;
-}
-
-.cluster-option-label.disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    color: #9ca3af;
-    /* Muted gray text */
-}
 
 
 .grant-card {
@@ -1483,6 +1443,134 @@ footer a:hover {
     white-space: nowrap;
     /* Prevents currency symbols from splitting onto new lines */
     border: 1px solid #dbeafe;
+}
+
+
+/* The Main Row Container */
+.grant-card-row {
+    display: grid;
+    grid-template-columns: 3.5fr 6.5fr;
+    /* Splits meta tracking and summary text */
+    gap: 32px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    align-items: start;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.grant-card-row:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+    transform: translateY(-1px);
+}
+
+/* Left Metadata Column Styling */
+.grant-row-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.grant-row-identity .grant-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.grant-row-identity .grant-details {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.grant-funding-badge {
+    align-self: flex-start;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-top: 4px;
+}
+
+/* Right Summary Column Styling */
+.grant-row-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.summary-badge {
+    align-self: flex-start;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #f0fdf4;
+    color: #166534;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.grant-row-summary p {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #334155;
+    line-height: 1.6;
+    font-family: 'Inter', sans-serif;
+}
+
+
+/* Styling layout sub-row for institutional metadata tags */
+.grant-agency-track {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    align-items: center;
+    /* Forces the badge track row to stay strictly on one line */
+    flex-wrap: nowrap;
+}
+
+/* Subtle, clean code styling blocks for NIH components */
+.agency-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.activity-code-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1e40af;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.grant-id-label {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #0f172a;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: -0.02em;
+    /* Prevents the text inside the individual badge from breaking */
+    white-space: nowrap;
 }
 
 /* ==========================================================================
