@@ -431,13 +431,27 @@
             // Grab the latest sub-filter query term entered by the user
             const latestQuery = queriesArray[queriesArray.length - 1] || "";
 
-            // Lock subsequent semantic searches to your active filtered set of IDs
-            const validIds = allGrants
-                .map(g => g.grant_id || g.id)
-                .filter(id => id != null && id !== "");
+            const currentPath = window.location.pathname;
+            let computedDepth = queriesArray.length;
+
+
+            if (currentPath.includes("/search")) {
+                computedDepth = queriesArray.length + 1;
+            }
+
+
+            let validIds = [];
+            if (computedDepth > 1 && allGrants && allGrants.length > 0) {
+                validIds = allGrants
+                    .map(g => g.grant_id || g.id)
+                    .filter(id => id != null && id !== "");
+            }
 
             let url;
             let fetchOptions = { method: "GET" };
+
+
+
 
             if (latestQuery === "") {
                 // Fallback or default view state: fetch category subset natively
@@ -452,7 +466,8 @@
                         year: year,
                         category: category,
                         query: latestQuery,
-                        existing_ids: validIds
+                        existing_ids: validIds,
+                        query_history_count: computedDepth
                     })
                 };
             }
