@@ -2012,4 +2012,74 @@ footer a:hover {
         display: none;
         /* Safely hides lines to keep view simple on small viewports */
     }
+
+    /* 1. Stack the Title Layout */
+    .query-header-layout {
+        padding: 15px;
+        text-align: left;
+    }
+
+    .portfolio-title {
+        font-size: 2rem;
+        /* Scales down the gigantic text so it doesn't wrap awkwardly */
+        word-break: break-word;
+    }
+
+    /* 2. Funding Container & Layout Stacking Fixes */
+    .funding-container {
+        padding-top: 20px !important;
+        padding-bottom: 20px !important;
+    }
+
+    /* Targeted directly to make sure it snaps to a vertical stack */
+    .split-layout,
+    .portfolio-split-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+        padding: 5px;
+        min-height: auto !important;
+    }
+
+    /* 3. Re-adjust the Left (Stat) and Right (Chart) Panes to full width */
+    .left-pane,
+    .right-pane,
+    .portfolio-left-pane,
+    .portfolio-right-pane {
+        width: 100% !important;
+        flex: none !important;
+    }
+
+    /* 4. Center and optimize the large metric card */
+    #funding-stat-container,
+    #portfolio-funding-stat-container {
+        padding: 24px 15px !important;
+        min-height: auto !important;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #funding-amount,
+    #portfolio-funding-amount {
+        font-size: 3rem !important;
+        /* 2.2rem was slightly too tiny for an executive number */
+        line-height: 1.1;
+    }
+
+    .funding-caption,
+    .portfolio-funding-caption {
+        font-size: 1rem !important;
+        margin-top: 6px;
+    }
+
+    /* 5. Force the Plotly container box to enforce a stable mobile aspect ratio */
+    #chart,
+    #categoryChart {
+        width: 100% !important;
+        height: 300px !important;
+        /* 150px was squishing the Plotly canvas way too flat to read text */
+    }
 }
