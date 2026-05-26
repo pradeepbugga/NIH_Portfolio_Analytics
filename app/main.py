@@ -100,7 +100,7 @@ def home_page(request: Request):
         try:
             df_activity = pd.read_csv(activity_csv_path)
             valid_activity_codes = df_activity["Activity_Code"].str.upper().tolist()
-            print(f"✅ SUCCESS: Connected to activity codes dataset. Found {len(activity_codes_list)} codes.")
+            print(f"✅ SUCCESS: Connected to activity codes dataset. Found {len(valid_activity_codes)} valid codes.")
         except Exception as e:
             print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
 
