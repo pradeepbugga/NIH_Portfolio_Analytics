@@ -27,14 +27,8 @@ import os
 from core.category.mapping import category_mapping, machine_human_map
 import pandas as pd
 import time
-from core.synthesis_prompts.prompts import REDUCE_PROMPT_AGENCY, REDUCE_PROMPT_PROJECT_TYPE, TOPIC_PROMPT_REGISTRY, DEFAULT_PROMPT_REDUCE_TOPIC, REDUCE_PROMPT_GEOGRAPHY
-from core.synthesis_prompts.prompts import REDUCE_PROMPT_CAREER_STAGE, REDUCE_PROMPT_CATEGORY
-from core.synthesis_prompts.prompt_utils import lookup_mission_by_name, format_currency_short
 import asyncio
 import numpy as np
-from collections import Counter
-from sklearn.metrics.pairwise import cosine_distances
-from core.summarize_portfolio.class_registry import AnalyticalLensStrategy, InstitutionalEquityStrategy
 
 
 
