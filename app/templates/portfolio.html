@@ -439,7 +439,8 @@
                         year: year,
                         category: category,
                         query: latestQuery,
-                        existing_ids: validIds // Send the clean array object directly to match Pydantic List[str]
+                        existing_ids: validIds, // Send the clean array object directly to match Pydantic List[str]
+                        query_history_count: currentFilters.queries.length
                     })
                 };
             }
