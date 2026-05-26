@@ -18,7 +18,7 @@ image = (
 volume = modal.Volume.from_name("reranker-models")
 
 @app.cls(
-    gpu="A10G",
+    gpu="A100-80GB",
     image=image,
     volumes={"/model":volume},  
     timeout=300
