@@ -683,6 +683,14 @@ class SearchRequest(BaseModel):
 def portfolio_grants_search(
     payload: SearchRequest
 ):
+    print("\n" + "="*50)
+    print("=== INCOMING BACKEND SEARCH REQUEST ===")
+    print(f"Payload Year: {payload.year} (Type: {type(payload.year)})")
+    print(f"Payload Category: {payload.category}")
+    print(f"Payload Query Term: '{payload.query}'")
+    print(f"Payload Query History Count: {payload.query_history_count}")
+    print(f"Incoming existing_ids length: {len(payload.existing_ids) if payload.existing_ids else 0}")
+    print("="*50 + "\n")
 
     category_columns = {
         "mechanistic": "mechanistic",
@@ -695,56 +703,34 @@ def portfolio_grants_search(
         "obs_ep": "obs_ep"
     }
 
-    # handle category verification if it is not provided
     column = None
     if payload.category:
         if payload.category not in category_columns:
-            return {"error": "Invalid category"}
+            raise HTTPException(status_code=400, detail="Invalid category")
         column = category_columns[payload.category]
 
     conn = get_db_connection()
     cur = conn.cursor()
 
     try:
-
-        # determine pool of grants to search
-
-        # start with if frontend provides list of grants, use those
-
+        # Determine pool of grants to search
         if payload.existing_ids:
-           allowed_grant_ids = [str(x).strip() for x in payload.existing_ids if x]
-
-        # if not, filter by category but not by existing list
+            allowed_grant_ids = [str(x).strip() for x in payload.existing_ids if x]
         else: 
             if column: 
-                # year and category filter
                 sql = f"""
-
                     SELECT rg.grant_id
-
                     FROM ResearchGrants rg
-
-                    JOIN grant_labels gl
-                        ON rg.grant_id = gl.grant_id
-
-                    WHERE
-                        rg.fiscal_year = %s
-                        AND gl.{column} = 1
-
-                    """
-
+                    JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+                    WHERE rg.fiscal_year = %s AND gl.{column} = 1
+                """
                 cur.execute(sql, (int(payload.year),))
-
             else: 
-                # year filter only, no category, no existing list
                 sql = """
-
                     SELECT grant_id
                     FROM ResearchGrants
                     WHERE fiscal_year = %s
-
                 """
-
                 cur.execute(sql, (int(payload.year),))
 
             allowed_grant_ids = [row[0] for row in cur.fetchall()]
@@ -752,9 +738,6 @@ def portfolio_grants_search(
         # ====================================================================
         # 🎛️ DYNAMIC SEARCH ROUTER MATRIX
         # ====================================================================
-        # Determine if this request qualifies for Hybrid Substring Overrides:
-        # Condition A: It's the 2nd or beyond sub-search for Options 1-3 (existing_ids present AND history > 1)
-        # Condition B: It's a sub-search refining Option 4 (Global search page sub-filtering)
         is_nested_subsearch = payload.query_history_count > 1
 
         if is_nested_subsearch and allowed_grant_ids:
@@ -770,20 +753,44 @@ def portfolio_grants_search(
             cur.execute(keyword_sql, (tuple(allowed_grant_ids), keyword_escaped, keyword_escaped, keyword_escaped))
             keyword_matches = [row[0] for row in cur.fetchall()]
 
-        if keyword_matches:
-            docs = load_grant_texts(cur, keyword_matches)
-            for d in docs:
-                d["vector_similarity"] = 1.0
+            # ✅ FIX 2: If it's a sub-search, we MUST return a result from here.
+            # If keyword_matches has items, rank them. If it's empty, return an empty set immediately
+            # so we don't leak un-filtered category items into the client's strict viewport view.
+            if keyword_matches:
+                docs = load_grant_texts(cur, keyword_matches)
+                for d in docs:
+                    d["vector_similarity"] = 1.0
 
-            scores = rerank_fn.remote(payload.query, [d["text"] for d in docs])
-            ranked = combine_and_sort_semantic_filter(docs, scores)
+                scores = rerank_fn.remote(payload.query, [d["text"] for d in docs])
+                ranked = combine_and_sort_semantic_filter(docs, scores)
+                return {
+                    "query": payload.query,
+                    "category": payload.category,
+                    "year": payload.year,
+                    "grants": format_output_grants(ranked)
+                }
+            else:
+                print("ℹ️ Hybrid text search returned 0 matches within subset.")
+                return {
+                    "query": payload.query,
+                    "category": payload.category,
+                    "year": payload.year,
+                    "grants": []
+                }
+
+        # ====================================================================
+        # 🎯 FALLBACK / PRIMARY MODE: Run pure dense vector lookup (Search #1)
+        # ====================================================================
+        print("🎯 Routing to PURE SEMANTIC VECTOR SEARCH")
+        
+        # Guard against running a vector search over an completely empty ID filter block
+        if not allowed_grant_ids:
             return {
                 "query": payload.query,
                 "category": payload.category,
                 "year": payload.year,
-                "grants": format_output_grants(ranked)
+                "grants": []
             }
-
 
         query_vec = embed_query(payload.query)
         query_vec_list = query_vec.tolist()
@@ -796,21 +803,24 @@ def portfolio_grants_search(
         )
 
         vector_sim_map = {gid: sim for gid, sim in candidates}
-
         grant_ids = list(vector_sim_map.keys())
+
+        if not grant_ids:
+            return {
+                "query": payload.query,
+                "category": payload.category,
+                "year": payload.year,
+                "grants": []
+            }
 
         docs = load_grant_texts(cur, grant_ids)
 
         for d in docs:
             d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
 
-
-        # reranking
         doc_texts = [d["text"] for d in docs]
         scores = rerank_fn.remote(payload.query, doc_texts)
-
         ranked = combine_and_sort_semantic_filter(docs, scores)
-
 
         return {
             "query": payload.query,
@@ -818,7 +828,9 @@ def portfolio_grants_search(
             "year": payload.year,
             "grants": format_output_grants(ranked)
         }
+
     except Exception as e:
+        print(f"❌ CRITICAL ENDPOINT FAILURE: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search pipeline execution failed: {str(e)}")
 
     finally:
