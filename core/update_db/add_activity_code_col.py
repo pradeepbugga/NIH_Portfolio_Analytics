@@ -20,22 +20,28 @@ try:
     total_records = len(all_ids)
     print(f"Total records to update: {total_records}")
 
-    # loop through 
+    # Loop through chunks of primary keys
     for i in range(0, total_records, BATCH_SIZE):
-        batch_ids = all_ids[i:i+BATCH_SIZE]
-        print(f"Processing batch {i//BATCH_SIZE + 1} with {len(batch_ids)} records...")
-
-        update_data = [(id_val, id_val) for id_val in batch_ids]
-
-        cur.executemany("""
-        UPDATE researchgrants 
-        SET activity_code = SUBSTRING(grant_id FROM 2 FOR 3) 
-        WHERE grant_id = %s;"
-        """, 
-        update_data
+        batch_ids = all_ids[i : i + BATCH_SIZE]
+        
+        # 1. FIX: Pass a single-item tuple for each row. 
+        # (The trailing comma is mandatory to tell Python it's a tuple, not a grouping parenthesis)
+        update_data = [(id_val,) for id_val in batch_ids]
+        
+        # 2. FIX: Use standard positional function syntax substring(column, start, length)
+        # This keeps the psycopg2 string formatter completely happy.
+        cur.executemany(
+            """
+            UPDATE researchgrants 
+            SET activity_code = substring(grant_id, 2, 3) 
+            WHERE grant_id = %s;
+            """,
+            update_data
         )
+        
+        # Commit individual batch segments safely
         conn.commit()
-        print(f"Batch {i//BATCH_SIZE + 1} updated successfully.")
+        print(f"Processed and committed records {min(i + BATCH_SIZE, total_records)} / {total_records}")
 
 except Exception as e:
     conn.rollback()
