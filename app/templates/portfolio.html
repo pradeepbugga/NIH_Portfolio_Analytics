@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Explore NIH Portfolio</title>
 
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.2">
@@ -76,12 +77,15 @@
             </div>
 
             <div class="portfolio-right-pane">
+                <div class="mobile-chart-hint" style="color:rgb(133, 33, 33)"> Tap any bar to explore specific grants!
+                </div>
                 <div id="chart-skeleton"
                     style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; border-radius: 12px; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; color: #64748b;">
                     <div style="text-align: center;">
                         <div class="spinner-small" style="margin: 0 auto 12px auto;"></div>
                         <strong>Assembling Funding Analysis...</strong>
                     </div>
+
                 </div>
                 <div id="categoryChart" class="plot-container"></div>
 
@@ -229,13 +233,68 @@
 
                 document.getElementById("portfolio-funding-amount").innerText = formattedFunding;
 
+                // Calculate responsive values based on mobile viewports
+                const isMobile = window.innerWidth <= 768;
+                const dynamicLeftMargin = isMobile ? 80 : 250;
+                const dynamicFontSize = isMobile ? 9 : 16;
+                const dynamicTitleSize = isMobile ? 13 : 25;
+
+                // Define your custom pixel-perfect mobile label overrides
+                const mobileLabelCustomMap = {
+                    "Mechanistic / Basic Science": "Basic Science",
+                    "Research Infrastructure": "Infrastructure",
+                    "Clinical / Health Systems": "Clinical",
+                    "Observational Epidemiology": "Epidemiology",
+                    "Education / Training": "Training"
+                };
+                const reverseMobileLabelMap = {
+                    "Basic Science": "Mechanistic / Basic Science",
+                    "Infrastructure": "Research Infrastructure",
+                    "Clinical": "Clinical / Health Systems",
+                    "Epidemiology": "Observational Epidemiology",
+                    "Training": "Education / Training"
+                };
+                const dynamicLabels = labels.map(label => {
+                    if (isMobile && mobileLabelCustomMap[label]) {
+                        return mobileLabelCustomMap[label]; // Serves up your perfect custom line breaks
+                    }
+                    return label; // Default layout fallback (Desktop view remains un-split)
+                });
+                // Add this variable optimization before your layout object
+                const dynamicAnnotations = isMobile ? [] : [
+                    {
+                        x: 0.87,
+                        y: 0.15,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: "Click on a bar<br> to see grants!",
+                        showarrow: false,
+                        xanchor: 'right',
+                        layer: 'above',
+                        font: { size: 15, family: "'Inter', sans-serif", color: 'red' }
+                    }
+                ];
+
+                const dynamicImages = isMobile ? [] : [{
+                    source: "/static/images/curved-thin-arrow-icon.svg",
+                    xref: "paper",
+                    yref: "paper",
+                    x: 0.87,
+                    y: 0.25,
+                    sizex: 0.15,
+                    sizey: 0.15,
+                    xanchor: "right",
+                    yanchor: "bottom",
+                    layer: "above"
+                }];
+
                 /* this is the Plotly code for creating category bar chart */
                 // We use await to guarantee Plotly is fully done drawing in the DOM
                 await Plotly.newPlot(
                     "categoryChart",
                     [{
                         x: displayValues,
-                        y: labels,
+                        y: dynamicLabels,
                         type: "bar",
                         orientation: "h",
                         marker: {
@@ -257,7 +316,7 @@
                             text: 'NIH Funding Distribution by Category',
                             font: {
                                 family: "'Inter', sans-serif",
-                                size: 25,
+                                size: dynamicTitleSize,
                                 color: '#12253d'
                             },
                             xref: 'paper',
@@ -278,35 +337,8 @@
                             bordercolor: "#12253d",
                             align: "left"
                         },
-                        annotations: [
-                            {
-                                x: 0.87,
-                                y: 0.15,
-                                xref: 'paper',
-                                yref: 'paper',
-                                text: "Click on a bar<br> to see grants!",
-                                showarrow: false,
-                                xanchor: 'right',
-                                layer: 'above',
-                                font: {
-                                    size: 15,
-                                    family: "'Inter', sans-serif",
-                                    color: 'red'
-                                }
-                            }
-                        ],
-                        images: [{
-                            source: "/static/images/curved-thin-arrow-icon.svg",
-                            xref: "paper",
-                            yref: "paper",
-                            x: 0.87,
-                            y: 0.25,
-                            sizex: 0.15,
-                            sizey: 0.15,
-                            xanchor: "right",
-                            yanchor: "bottom",
-                            layer: "above"
-                        }],
+                        annotations: dynamicAnnotations,
+                        images: dynamicImages,
                         paper_bgcolor: "rgba(0,0,0,0)",
                         plot_bgcolor: "rgba(0,0,0,0)",
                         font: {
@@ -315,18 +347,20 @@
                             color: "#243b53"
                         },
                         margin: {
-                            t: 40,
-                            l: 250,
+                            t: isMobile ? 60 : 40,
+                            l: dynamicLeftMargin,
                             r: 30,
-                            b: 80
+                            b: isMobile ? 60 : 80
                         },
+                        bargap: isMobile ? 0.4 : 0.25,
+                        height: isMobile ? 360 : 500,
                         xaxis: {
                             title: {
                                 text: "Total Funding (Billions USD)",
-                                font: { size: 18, color: "#12253d", weight: 700 },
-                                standoff: 30
+                                font: { size: isMobile ? 12 : 18, color: "#12253d", weight: 700 },
+                                standoff: isMobile ? 12 : 30
                             },
-                            tickfont: { size: 16, color: "#243b53", weight: 700 },
+                            tickfont: { size: dynamicFontSize, color: "#243b53", weight: 700 },
                             showgrid: false,
                             zeroline: false,
                             ticks: "",
@@ -336,11 +370,12 @@
                         yaxis: {
                             autorange: "reversed",
                             showgrid: false,
-                            tickfont: { size: 16, color: "#12253d", weight: 700 },
+                            tickfont: { size: dynamicFontSize, color: "#12253d", weight: 700 },
                             ticks: "",
                             showline: false,
                             ticksuffix: "    ",
-                            fixedrange: true
+                            fixedrange: true,
+                            tickalign: "center"
                         }
                     },
                     {
@@ -354,7 +389,13 @@
 
                 /* this is event listener for clicks on the bars */
                 chartDiv.on("plotly_click", async function (data) {
-                    const displayCategory = data.points[0].y;
+                    let displayCategory = data.points[0].y;
+
+                    // THE FIX: If we are on mobile and using a shortened string, swap it back to the original key!
+                    if (isMobile && reverseMobileLabelMap[displayCategory]) {
+                        displayCategory = reverseMobileLabelMap[displayCategory];
+                    }
+
                     const categoryCode = categoryMap[displayCategory];
 
                     if (!categoryCode) {
@@ -602,11 +643,12 @@
 
         // --- MODAL VIEW FOR ABSTRACTS (Lazy-Loading for portfolio.html) ---
         function showGrantDetail(grant) {
-            // 1. Remove old modal instance if it exists
             const oldModal = document.getElementById("grant-modal");
             if (oldModal) oldModal.remove();
 
-            // 2. Format currency nicely
+            const isMobile = window.innerWidth <= 768;
+
+            // Format currency cleanly
             const funding = new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD',
@@ -614,47 +656,71 @@
                 maximumFractionDigits: 1
             }).format(grant.funding || 0);
 
-            // 3. Create Modal layout structure dynamically with an active loading state
             const modal = document.createElement("div");
             modal.id = "grant-modal";
             modal.className = "grant-modal-overlay";
 
-            modal.innerHTML = `
-                <div class="grant-modal-content">
-                    <span class="grant-modal-close">&times;</span>
-                    <div class="grant-modal-header">
-                        <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
-                        <div class="grant-modal-meta">
-                            <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
-                            <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
-                            <strong>Funding Amount:</strong> ${funding}<br>
-                            <strong>Awarding Agency / IC:</strong> ${grant.agency_ic || "N/A"}<br>
-                            <strong>Activity Mechanism:</strong> ${grant.activity_code || "N/A"}
-                        </div>
+            // Dynamic Blueprint Generation based on Viewport Size
+            if (isMobile) {
+                // MOBILE BLUEPRINT: Minimalist, clean tracking, local summary data focus
+                modal.innerHTML = `
+            <div class="grant-modal-content">
+                <span class="grant-modal-close">&times;</span>
+                <div class="grant-modal-header">
+                    <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
+                </div>
+                <div class="grant-detail-abstract">
+                    <div class="summary-badge">
+                        <i data-lucide="sparkles"></i> Brief Summary
                     </div>
-                    <hr class="modal-divider">
-                    <div class="grant-detail-abstract">
-                        <h3>Abstract</h3>
-                        <div id="modal-abstract-viewport" class="abstract-loading-state">
-                            <p style="color: #6b7280; font-style: italic;">Loading project documentation summary...</p>
-                        </div>
+                    <div id="modal-abstract-viewport">
+                        <p>${grant.summary || "No summary overview recorded for this entry."}</p>
                     </div>
                 </div>
-            `;
+            </div>
+        `;
+            } else {
+                // DESKTOP BLUEPRINT: Deep metadata tracking + lazy loading endpoint connection layout
+                modal.innerHTML = `
+            <div class="grant-modal-content">
+                <span class="grant-modal-close">&times;</span>
+                <div class="grant-modal-header">
+                    <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
+                    <div class="grant-modal-meta">
+                        <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
+                        <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
+                        <strong>Funding Amount:</strong> ${funding}<br>
+                        <strong>Awarding Agency / IC:</strong> ${grant.agency_ic || "N/A"}<br>
+                        <strong>Activity Mechanism:</strong> ${grant.activity_code || "N/A"}
+                    </div>
+                </div>
+                <hr class="modal-divider">
+                <div class="grant-detail-abstract">
+                    <h3>Abstract</h3>
+                    <div id="modal-abstract-viewport" class="abstract-loading-state">
+                        <p style="color: #6b7280; font-style: italic;">Loading project documentation summary...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+            }
 
-            // 4. Append to body to bypass any parent container stacking restrictions
             document.body.appendChild(modal);
 
-            // 5. Short delay to force reflow and allow CSS transition to animate smoothly
+            // Re-draw Lucide SVGs if the framework is active
+            if (window.lucide) lucide.createIcons();
+
             setTimeout(() => modal.classList.add("active"), 10);
 
-            // 6. Bind Close Events
             modal.querySelector(".grant-modal-close").onclick = closeModal;
             modal.onclick = (e) => {
-                if (e.target === modal) closeModal(); // Close if background overlay is clicked
+                if (e.target === modal) closeModal();
             };
 
-            // 🚀 7. ASYNC LAZY FETCH: Pull the abstract from the micro API endpoint on demand
+            // Short-circuit API calculations if mobile is loaded
+            if (isMobile) return;
+
+            // Desktop API connection logic remains untouched
             const targetId = grant.grant_id;
             if (targetId) {
                 fetch(`/api/grant/${targetId}/abstract`)
@@ -665,25 +731,18 @@
                     .then(data => {
                         const viewport = document.getElementById("modal-abstract-viewport");
                         if (viewport) {
-                            // Inject and process the string text typography safely
                             viewport.innerHTML = `<p>${cleanAbstract(data.abstract) || "No abstract data recorded for this entry."}</p>`;
                         }
                     })
                     .catch(err => {
-                        console.error("❌ Lazy-loading failure on portfolio view:", err);
+                        console.error("❌ Lazy-loading failure:", err);
                         const viewport = document.getElementById("modal-abstract-viewport");
                         if (viewport) {
                             viewport.innerHTML = `<p style="color: #ef4444;">Failed to load project summary documentation dynamically.</p>`;
                         }
                     });
-            } else {
-                const viewport = document.getElementById("modal-abstract-viewport");
-                if (viewport) {
-                    viewport.innerHTML = `<p style="color: #6b7280; font-style: italic;">No grant tracking token found for this row index.</p>`;
-                }
             }
         }
-
         // --- CLEAN HELPER TO GENERATE GRANT CARDS ---
         function createGrantCard(grant) {
             const funding = new Intl.NumberFormat('en-US', {
@@ -704,28 +763,23 @@
 
             card.innerHTML = `
                 <div class="grant-row-identity">
-                    <div class="grant-title">${grant.title || "Untitled Project"}</div>
+                    <h3 class="grant-title">${grant.title || "No Title Provided"}</h3>
                     <div class="grant-details">
                         <span class="grant-org">${grant.organization || "Unknown Organization"}</span>
                         <span class="grant-divider">•</span>
                         <span class="grant-pi">PI: ${grant.pi || "Unknown"}</span>
                     </div>
-                    
                     <div class="grant-agency-track">
-                        <span class="grant-id-label">${idString}</span>
-                        <span class="agency-label">${agency}</span>
-                        <span class="activity-code-label">${activity}</span>
+                        <span class="grant-id-label">${grant.grant_id || "N/A"}</span>
+                        <span class="agency-label">${grant.agency_ic || "N/A"}</span>
+                        <span class="activity-code-label">${grant.activity_code || "N/A"}</span>
                     </div>
-                    
                     <div class="grant-funding-badge">${funding}</div>
                 </div>
-
-                <div class="grant-row-summary">
-                    <div class="summary-badge">
-                        <i data-lucide="sparkles" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i>
-                        Brief Summary
-                    </div>
-                    <p>${grant.summary || "No short summary generated for this grant record context."}</p>
+                
+                <div class="grant-row-summary mobile-hide">
+                    <div class="summary-badge"><i data-lucide="sparkles"></i> Brief Summary</div>
+                    <p>${grant.summary || "No summary available."}</p>
                 </div>
             `;
 
