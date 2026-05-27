@@ -2005,6 +2005,12 @@ footer a:hover {
         box-sizing: border-box !important;
     }
 
+    .home-card-select-engine option {
+        font-size: 0.6rem !important;
+        /* Shrinks text size where supported by the browser */
+        background-color: #ffffff !important;
+    }
+
     .text-desktop {
         display: none !important;
     }
