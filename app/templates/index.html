@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The NIH Audit</title>
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.2">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -41,7 +42,7 @@
                         <div class="home-card-dropdown-wrapper">
                             <select id="landing-agency-selector" class="home-card-select-engine"
                                 onchange="routeToAgency(this.value)">
-                                <option value="" disabled selected hidden>Select an NIH Institute (IC)...</option>
+                                <option value="" disabled selected hidden>Select an IC...</option>
                                 {% if agencies %}
                                 {% for agency in agencies %}
                                 <option value="{{ agency['funding_code'] }}">
@@ -63,7 +64,8 @@
                     <div class="home-card-content-block">
                         <div class="home-card-title">Explore by Activity Codes</div>
                         <div class="home-card-description">
-                            Enter up to 5 IC/Activity codes (comma-separated)
+                            <span class="text-desktop">Enter up to 5 codes (separated by commas)</span>
+                            <span class="text-mobile">Enter up to 5 codes</span>
                         </div>
                         <div class="activity-code-search-box-wrapper">
                             <input type="text" id="activity-codes-input" placeholder="e.g., R01, R43"
