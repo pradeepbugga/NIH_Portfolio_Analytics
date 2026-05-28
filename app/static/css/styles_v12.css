@@ -2236,8 +2236,16 @@ footer a:hover {
 
         font-size: 0.7rem !important;
         border-radius: 6px !important;
-        width: 70% !important;
-        max-width: 25% !important;
+
+
+        /* ✨ THE WIDTH FIXES */
+        width: auto !important;
+        /* Allows natural content expansion */
+        min-width: 90px !important;
+        /* Ensures perfect framing for '2025' + arrow */
+        max-width: 120px !important;
+        /* Hard limits bounds safely without crushing text */
+
         height: 34px !important;
         line-height: 34px !important;
         /* Matches height to center text and native arrow */
