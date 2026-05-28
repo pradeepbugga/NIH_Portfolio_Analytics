@@ -395,7 +395,7 @@ def agency_portal(request: Request, agency_code: str):
         display_title = f"Agency Portfolio: {target_code}"
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
-            matched_rows = df[df["funding_code"] == target_code]["agency_ic"].values
+            matched_rows = df[df["funding_code"] == target_code]["abbreviation"].values
             if len(matched_rows) > 0:
                 display_title = matched_rows[0]
         print(f"⏱️ CSV Metadata Parsing took: {time.time() - t_start:.4f}s")
