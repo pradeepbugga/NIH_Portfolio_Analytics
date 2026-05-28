@@ -197,7 +197,8 @@ def search(request: Request,
             ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
             print(cached_results["records"][0].keys())
 
-            print("years", years)
+            
+            formatted_cached_records = format_output_grants(cached_results["records"])
             return templates.TemplateResponse(
             "results.html",
             {
@@ -205,7 +206,7 @@ def search(request: Request,
                 "query": query,
                 "years": years,
                 "funding": funding,
-                "results": cached_results["records"],
+                "results": formatted_cached_records,
                 "ontology_labels": ontology_labels,
                 "ontology_values": ontology_values
             }
@@ -233,6 +234,8 @@ def search(request: Request,
 
         print(results["records"][0].keys())
 
+        formatted_live_records = format_output_grants(results["records"])
+
         t_end = time.perf_counter()
         print(f"✅ Total search latency: {t_end - t_start:.4f}s")
 
@@ -245,7 +248,7 @@ def search(request: Request,
             "query": query,
             "years": years,
             "funding": funding,
-            "results": results["records"],
+            "results": formatted_live_records,
             "ontology_labels": ontology_labels,
             "ontology_values": ontology_values
             }
