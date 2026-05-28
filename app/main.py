@@ -5,7 +5,7 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder
-
+import json
 
 
 from contextlib import asynccontextmanager
@@ -199,6 +199,11 @@ def search(request: Request,
 
             
             formatted_cached_records = format_output_grants(cached_results["records"])
+
+            processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
+            with open(processed_results_path, "w") as f:
+                json.dump(formatted_cached_records, f, indent=4)
+
             return templates.TemplateResponse(
             "results.html",
             {
@@ -241,11 +246,20 @@ def search(request: Request,
 
         print("years", years)
 
+        # debug save the json output of results for local inspection
+        processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
+        with open(processed_results_path, "w") as f:
+            json.dump(formatted_live_records, f, indent=4)
+
+
         return templates.TemplateResponse(
             "results.html",
            {
             "request": request,
             "query": query,
+
+
+
             "years": years,
             "funding": funding,
             "results": formatted_live_records,
