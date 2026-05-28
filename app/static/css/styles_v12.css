@@ -2236,7 +2236,8 @@ footer a:hover {
 
         font-size: 0.7rem !important;
         border-radius: 6px !important;
-        max-width: 30% !important;
+        width: 70% !important;
+        max-width: 25% !important;
         height: 34px !important;
         line-height: 34px !important;
         /* Matches height to center text and native arrow */
