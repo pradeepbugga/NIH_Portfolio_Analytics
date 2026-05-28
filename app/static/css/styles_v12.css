@@ -930,6 +930,18 @@ footer a:hover {
     /* Keep it on one line */
 }
 
+.portfolio-header-layout {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: clamp(2rem, 5vw, 6rem);
+    width: 100%;
+    padding-left: 10%;
+    padding-right: 10%;
+    box-sizing: border-box;
+    margin-bottom: 100px;
+}
 
 .portfolio-header-left {
 
@@ -2105,6 +2117,10 @@ footer a:hover {
         font-size: 2.2rem;
     }
 
+    .results {
+        padding: 0 20px !important;
+        margin: 0px !important;
+    }
 
     .portfolio-page {
         width: 100% !important;
@@ -2136,6 +2152,24 @@ footer a:hover {
         /* Adds a clean gap between text sections and the dropdown */
         width: 100% !important;
         box-sizing: border-box !important;
+        margin-bottom: 0 !important;
+
+    }
+
+    .query-header-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        /* Centers everything horizontally */
+        text-align: left !important;
+        height: auto;
+        position: relative !important;
+        /* Centers all the inner typography text */
+        gap: 16px !important;
+        /* Adds a clean gap between text sections and the dropdown */
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin-bottom: 0 !important;
 
     }
 
@@ -2144,10 +2178,10 @@ footer a:hover {
         width: 100% !important;
         box-sizing: border-box !important;
         position: relative !important;
-        box-sizing: border-box !important;
     }
 
     .portfolio-header-left,
+    .category-subtitle-container,
     .subtitle-container {
         width: 100% !important;
         max-width: 100% !important;
@@ -2213,19 +2247,13 @@ footer a:hover {
 
 
 
-
-    /* 1. Stack the Title Layout */
-    .query-header-layout {
-        padding: 15px;
-        text-align: left;
-    }
-
-
-
-    /* 2. Funding Container & Layout Stacking Fixes */
     .funding-container {
-        padding-top: 20px !important;
-        padding-bottom: 20px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+        margin-bottom: 20px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
     /* Targeted directly to make sure it snaps to a vertical stack */
@@ -2250,13 +2278,24 @@ footer a:hover {
 
     /* 3. Re-adjust the Left (Stat) and Right (Chart) Panes to full width */
 
-    .right-pane,
+
     .portfolio-right-pane {
         width: 100% !important;
         display: block !important;
         position: relative !important;
 
     }
+
+    .right-pane {
+        align-items: center !important;
+        width: 100% !important;
+        display: block !important;
+        position: relative !important;
+        box-sizing: border-box;
+        padding: 10px;
+
+    }
+
 
     /* 4. Center and optimize the large metric card */
     #funding-stat-container,
@@ -2288,12 +2327,20 @@ footer a:hover {
     }
 
     /* 5. Force the Plotly container box to enforce a stable mobile aspect ratio */
-    #chart,
+
     #categoryChart,
     .plot-container {
         width: 100% !important;
         display: block !important;
         height: 300px !important;
+        /* 150px was squishing the Plotly canvas way too flat to read text */
+    }
+
+    #chart {
+        width: 100% !important;
+        display: block !important;
+        min-height: 5rem !important;
+        height: 15rem !important;
         /* 150px was squishing the Plotly canvas way too flat to read text */
     }
 
@@ -2333,7 +2380,126 @@ footer a:hover {
 
     .dna-divider-container {
         margin: 1.5rem auto;
+        margin-top: 24px !important;
 
+    }
+
+    .category-title {
+
+        font-size: 1.3rem;
+        margin-bottom: 0px;
+        min-height: 2rem !important;
+
+    }
+
+    .category-header-layout {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        /* Stack text and year selector vertically */
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 2. Sync the left/top text block layout */
+    .category-header-left {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        /* Center the subtitle text and link */
+        justify-content: center !important;
+        text-align: center !important;
+        /* Guarantee inline typography centers */
+        gap: 0px !important;
+    }
+
+    /* 3. Re-verify text limits match your portfolio aesthetics */
+    .category-header-left .portfolio-subtitle {
+        font-size: 0.7rem !important;
+        line-height: 1.4 !important;
+        margin-bottom: 6px !important;
+        max-width: 90% !important;
+        /* Limits row width for mobile views */
+        text-align: center !important;
+    }
+
+    .category-header-left .category-link {
+        font-size: 0.7rem !important;
+        display: inline-block !important;
+        margin-bottom: 4px !important;
+        text-align: center !important;
+    }
+
+    /* 4. Ensure the year selector is styled identically */
+    .category-year-selector-container {
+        display: flex !important;
+        flex-direction: row !important;
+        /* Label and dropdown box sit side-by-side */
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        margin-top: 8px !important;
+        width: 100% !important;
+    }
+
+    .results .portfolio-container {
+        margin-top: 0px !important;
+    }
+
+    .ontology-section {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+
+        /* 🚀 Matches your layout 1: margins are controlled cleanly, 
+           while padding is removed here because the outer .portfolio-container handles it */
+        margin: 16px 0 !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+
+    /* Force the ontology chart to use the identical height properties of plot 1 */
+    #ontologyChart,
+    .plot-container {
+        width: 100% !important;
+        display: block !important;
+        height: 300px !important;
+        /* Forces the identical height aspect ratio */
+        box-sizing: border-box !important;
+    }
+
+    .ontology-section .mobile-chart-hint {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 16px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+
+        /* ✂️ Strip standard outer borders if needed */
+        border-left: none !important;
+        border-right: none !important;
+        border-top: none !important;
+        /* Optional: hides the top border line if it conflicts */
+
+        /* 🧠 THE FIX: Round only the top corners */
+        border-top-left-radius: 8px !important;
+        /* Adjust the 8px to perfectly match your card's outer radius */
+        border-top-right-radius: 8px !important;
+        /* Adjust the 8px to perfectly match your card's outer radius */
+
+        /* Ensure bottom corners stay flat */
+        border-bottom-left-radius: 0px !important;
+        border-bottom-right-radius: 0px !important;
     }
 
     #grant-results-title {
@@ -2356,6 +2522,20 @@ footer a:hover {
         overflow-x: hidden !important;
         /* Strictly traps content inside the screen frame */
     }
+
+    #query-grant-results-container {
+        width: 100% !important;
+        max-width: 100vw !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        padding: 0 16px !important;
+        /* Establishes a hard structural side boundary */
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+        /* Strictly traps content inside the screen frame */
+    }
+
 
     /* 2. Standardize the inner header wrapper */
     #grant-results-header {
@@ -2694,4 +2874,88 @@ footer a:hover {
         font-size: 0.75rem !important;
     }
 
+    /* Matches your uppercase, tracked-out subtitle styling */
+    .note-label {
+        font-size: 0.8rem;
+    }
+
+    .note-form textarea {
+
+        font-size: 0.8rem;
+    }
+
+
+    /* Dark block button matching your grid item headers and search icon block */
+    .note-submit-btn {
+
+        font-size: 0.7rem;
+
+    }
+
+    .category-legend,
+    .category-legend * {
+        box-sizing: border-box;
+    }
+
+    .category-legend {
+        background-color: #f3f6f9;
+        padding: 20px;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .legend-title {
+        font-family: sans-serif;
+        letter-spacing: 0.05em;
+        color: #4b5563;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0 0 16px 0;
+        text-transform: uppercase;
+    }
+
+    /* 1. Remove flex properties entirely to kill the vertical expansion engine */
+    .legend-item {
+        display: block;
+        /* Forces a clean, un-stretched structural box */
+        height: auto !important;
+        /* Overrides any global grid or inherited heights */
+        min-height: 0 !important;
+        /* Prevents min-height blowouts from parent rules */
+        margin: 0 0 20px 0;
+        /* Uniform spacing between separate categories */
+        padding: 0;
+        width: 100%;
+    }
+
+    .legend-item:last-child {
+        margin-bottom: 0;
+    }
+
+    /* 2. Force block layout so description sits tightly directly below the label */
+    .legend-label {
+        display: block;
+        /* Breaks line naturally, zero floating whitespace */
+        font-family: sans-serif;
+        font-style: italic;
+        font-weight: 500;
+        color: #1e3a8a;
+        font-size: 0.9rem;
+        line-height: 1.2;
+        margin: 0 0 4px 0;
+        /* Exactly 4px of breathing room before description */
+        padding: 0;
+    }
+
+    .legend-desc {
+        display: block;
+        font-family: sans-serif;
+        color: #4b5563;
+        font-size: 0.85rem;
+        line-height: 1.35;
+        word-break: break-word;
+        margin: 0;
+        padding: 0;
+    }
 }
