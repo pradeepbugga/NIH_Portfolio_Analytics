@@ -11,7 +11,9 @@ image = (
     modal.Image.debian_slim()
     .pip_install(
         "torch",
-        "vllm>=0.6.5"
+        "sentence-transformers",
+        "transformers",
+        "numpy"
     )
 )
 
@@ -25,39 +27,23 @@ volume = modal.Volume.from_name("reranker-models")
 )
 
 class Reranker:
-    model_path: str = modal.parameter(default = "/model/v3")
+    model_path: str = modal.parameter(default = "/model/v5")
 
     @modal.enter()
     def load_model(self):
-        from vllm import LLM
-
-        self.engine = LLM(
-            model=self.model_path,
-            task = "score",
-            enforce_eager =False,
-            max_model_len = 1024
-        )
-
+        self.model = CrossEncoder(self.model_path, device="cuda")
+            
 
     @modal.method()
-    def rerank_batch(self, query, docs_list):
-
-        import time
-        t_worker_entry = time.perf_counter()
-        print(f"⚡ WORKER RECEIVED PAYLOAD: {len(docs_list)} documents to rank.")
+    def rerank_batch(self, query, docs_list, batch_size=128):
        
-        # format pairs for the model
-        t_vllm_start = time.perf_counter()
-        outputs = self.engine.score(
-            text_1 = query,
-            text_2 = docs_list,
-        )
-        t_vllm_end = time.perf_counter()
+        inputs = [(query, doc) for doc in docs_list]    
 
-        #extract pure float similarity scores from the model output
-        scores = [out.outputs.score for out in outputs]
-
-        t_worker_exit = time.perf_counter()
-
-        print(f"✅ Reranking complete. Latencies - Total: {t_worker_exit - t_worker_entry:.4f}s, VLLM Inference: {t_vllm_end - t_vllm_start:.4f}s")
-        return scores
+        with torch.no_grad(), torch.amp.autocast("cuda"):  
+            scores = self.model.predict(
+                inputs, 
+                batch_size = batch_size,
+                show_progress_bar = False,
+                convert_to_numpy = True)
+            
+        return scores.tolist()
