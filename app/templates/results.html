@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ query }}</title>
     <script src="https://cdn.plot.ly/plotly-3.5.1.min.js" charset="utf-8"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
+    <link rel="icon" type="image/x-icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%2216%22 height=%2216%22><path d=%22M12.56 14.43q0 .67-.41.67a.78.78 0 0 1-.56-.42L4.27 3.48v10.95q0 .56-.5.56t-.5-.56V3.11q0-.72.38-.72a.77.77 0 0 1 .56.42l7.26 11.23V3.11q0-.56.53-.56c.53 0 .56.24.56.56z%22 fill=%22%230f172a%22/></svg>">
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.3">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
 </head>
@@ -275,7 +277,7 @@
                     text: "Historical NIH Funding",
                     font: { family: "'Inter', sans-serif", size: dynamicTitleSize, color: '#12253d' },
                     xref: isMobile ? 'container' : 'paper',
-                    x: isMobile ? 0.5 : 0,
+                    x: isMobile ? 0.5 : 0.3,
                 },
                 dragmode: false,
                 height: isMobile ? 250 : 700,
