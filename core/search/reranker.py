@@ -5,7 +5,7 @@ import torch
 
 _model = None
 
-RERANK_MODEL_PATH = "./models/rerankers/v3"
+RERANK_MODEL_PATH = "./models/rerankers/v4"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # lazy initialization to load the model only once
