@@ -175,15 +175,49 @@
         // --- GLOBAL STATE TRACKING (Synchronized with portfolio.html) ---
         let activeYear = 2025;
         let activeCategory = null;
-        let allGrants = []; // Tracks the initial filtered subset
+
         let currentPage = 1;
         const itemsPerPage = 100;
 
-        let currentFilters = {
-            year: "2025",
-            category: "",
-            queries: []
+        // 1. Isolate your active landing subset context (e.g. your 216 matching records)
+        let initialLoad = (typeof grants !== 'undefined' && Array.isArray(grants))
+            ? grants.filter(grant => grant.year === 2025 || grant.year === "2025" || grant.fiscal_year === 2025 || grant.fiscal_year === "2025")
+            : [];
+
+        if (initialLoad.length === 0 && typeof grants !== 'undefined') {
+            initialLoad = [...grants];
+        }
+
+        // 2. ✨ THE IMMUTABLE FLOOR: Set up structural source collections
+        const baseDataset = [...initialLoad];  // The 216 records you started with
+        let activeDataset = [...initialLoad]; // The active subset tracking runtime updates
+        let allGrants = [...initialLoad];     // Sync working variable pool with base subset
+
+        // 3. ✨ THE CENTRAL FILTERS INITIALIZATION
+        // Automatically populate history with the server query if it exists
+        const currentFilters = {
+            history: []
         };
+
+        // 4. ✨ THE STACK MATRIX FIX: Wrap snapshot inside an array layer to avoid 6,102 runaway depth bounds
+        let dataHistory = [[...initialLoad]];
+
+        // 5. Fire initial layout viewport render
+        currentPage = 1;
+        updateTotals(activeDataset);
+        renderGrants(activeDataset);
+
+        // Keep networking hooks synchronized
+        applyFilters.lastFetchedQuery = initialQuery;
+
+        // --- DEVELOPMENT STATUS ANALYSIS LOGS ---
+        console.log("🚀 INITIAL LAYOUT LOAD STATE COMPLETE:");
+        console.log("--> Raw Server Injected Template 'grants' Size:", typeof grants !== 'undefined' ? grants.length : 0);
+        console.log("--> Baseline Dashboard Filter Subset (baseDataset):", baseDataset.length);
+        console.log("--> History Matrix Snapshot Allocation Depth:", dataHistory.length);
+        if (baseDataset.length > 0) {
+            console.log("--> Active Dataset Starting IDs Sample:", baseDataset.slice(0, 3).map(g => g.grant_id || g.id));
+        }
 
         const localCategoryMap = {
             "Mechanistic / Basic Science": "mechanistic",
@@ -455,76 +489,178 @@
 
         // --- RECALCULATION ENGINES ---
 
-        async function applyFilters() {
+
+        async function applyFilters(categoryLabel = "") {
+            // Extract current filters from the central history tracking array
+            const searchFilter = currentFilters.history.find(item => item.type === 'search');
+            const categoryFilter = currentFilters.history.find(item => item.type === 'category');
+
+            const activeSearchTarget = searchFilter ? searchFilter.value : "";
+            const category = categoryFilter ? categoryFilter.value : null;
+
+            // Determine if a search query was just cleared entirely
+            const wasSearchQueryRemoved = !activeSearchTarget && applyFilters.lastFetchedQuery;
+
+            // ─── 1. PURE SEARCH PILL POPPING ──────────────────────────────────
+            if (wasSearchQueryRemoved) {
+                console.log("🛑 PILL REMOVAL INTERCEPTED:");
+                console.log("--> dataHistory stack depth before pop:", dataHistory.length);
+                if (typeof dataHistory !== 'undefined' && dataHistory.length > 1) {
+                    dataHistory.pop();
+                    console.log("--> dataHistory popped. New depth:", dataHistory.length);
+                }
+
+                // Check if we have cleared out ALL custom search queries
+                const remainingSearchFilters = currentFilters.history.filter(item => item.type === 'search');
+                console.log("--> Remaining search query tokens left:", remainingSearchFilters.length);
+
+                if (remainingSearchFilters.length === 0) {
+
+                    console.log("💥 TRIGGERING HARD RESET BOOTSTRAP!");
+                    console.log("--> Absolute fall-back template 'grants' array size:", typeof grants !== 'undefined' ? grants.length : 0);
+
+
+                    // THE HARD RESET: Force the base memory pool back to your template landing state
+                    allGrants = typeof baseDataset !== 'undefined' ? [...baseDataset] : [];
+                    if (typeof dataHistory !== 'undefined') dataHistory = [[...allGrants]];
+                } else {
+                    // Roll back to the previous snapshot step safely
+                    console.log("--> Reverting to historical snapshot snapshot entry size:", targetSnapshot ? targetSnapshot.length : 0);
+                    const targetSnapshot = dataHistory[dataHistory.length - 1];
+                    allGrants = Array.isArray(targetSnapshot) ? [...targetSnapshot] : [];
+                }
+
+                console.log("--> Current evaluated 'allGrants' balance post-removal:", allGrants.length);
+
+                applyFilters.lastFetchedQuery = activeSearchTarget;
+                currentPage = 1;
+                if (typeof renderFilters === "function") renderFilters(categoryLabel);
+
+                // RE-APPLY CATEGORY MASKING ON PREVIOUS DATA STATE
+                let displayGrants = allGrants;
+                if (category) {
+                    displayGrants = allGrants.filter(grant => grant[category] === 1);
+                }
+
+                activeDataset = displayGrants; // Sync with global pagination layer
+                updateTotals(displayGrants);
+                renderGrants(displayGrants);
+                return;
+            }
+
+            // ─── 2. CATEGORY TOGGLING (LOCAL MEMORY OPERATION) ─────────────────
+            // If search target matches our last network fetch, do not hit the database—just mask locally
+            if (allGrants && allGrants.length > 0 && activeSearchTarget === applyFilters.lastFetchedQuery) {
+                currentPage = 1;
+                if (typeof renderFilters === "function") renderFilters(categoryLabel);
+
+                let displayGrants = allGrants;
+                if (category) {
+                    displayGrants = allGrants.filter(grant => grant[category] === 1);
+                }
+
+                activeDataset = displayGrants; // Sync with global pagination layer
+                updateTotals(displayGrants);
+                renderGrants(displayGrants);
+                return;
+            }
+
+            // ─── 3. FORWARD NETWORK FETCH (POST BACKEND ENGINE) ───────────────
             const loadingEl = document.getElementById("loading-message");
             if (loadingEl) loadingEl.style.display = "flex";
 
-            const category = currentFilters.category || null;
-            const queriesArray = currentFilters.queries || [];
-            const year = "2025";
-
-            // Grab the latest sub-filter query term entered by the user
-            const latestQuery = queriesArray[queriesArray.length - 1] || "";
-
+            applyFilters.lastFetchedQuery = activeSearchTarget;
             const currentPath = window.location.pathname;
-            let computedDepth = queriesArray.length;
 
+            // Compute search history depth safely
+            const searchQueriesCount = currentFilters.history.filter(item => item.type === 'search').length;
+            let computedDepth = currentPath.includes("/search") ? searchQueriesCount + 1 : searchQueriesCount;
 
-            if (currentPath.includes("/search")) {
-                computedDepth = queriesArray.length + 1;
+            // Filter down memory pool to match visible category context BEFORE payload calculation
+            let activeSubset = allGrants || [];
+            if (category) {
+                activeSubset = activeSubset.filter(grant => grant[category] === 1);
             }
 
+            // Extract accurate string IDs for backend evaluation
+            const activeIds = activeSubset.map(g => g.grant_id || g.id).filter(Boolean);
 
-            let validIds = [];
-            if (computedDepth > 1 && allGrants && allGrants.length > 0) {
-                validIds = allGrants
-                    .map(g => g.grant_id || g.id)
-                    .filter(id => id != null && id !== "");
-            }
+            console.log("==================================================");
+            console.log("🚀 SENDING TO BACKEND:");
+            console.log("Active Dataset Size (allGrants):", allGrants ? allGrants.length : 0);
+            console.log("Extracted Payload IDs Count:", activeIds.length);
+            console.log("Sample Payload IDs:", activeIds.slice(0, 5));
 
-            let url;
-            let fetchOptions = { method: "GET" };
-
-
-
-
-            if (latestQuery === "") {
-                // Fallback or default view state: fetch category subset natively
-                url = `/api/portfolio/grants?year=${year}&category=${category}`;
-            } else {
-                // Hit the server-side semantic backend routing payload
-                url = `/api/portfolio/grants/search`;
-                fetchOptions = {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        year: year,
-                        category: category,
-                        query: latestQuery,
-                        existing_ids: validIds,
-                        query_history_count: computedDepth
-                    })
-                };
-            }
+            const url = `/api/portfolio/grants/search`;
+            const fetchOptions = {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    year: "2025",
+                    category: category, // Pass dynamic category state if your backend requires it
+                    query: activeSearchTarget,
+                    existing_ids: activeIds, // Feed computed intersection vector to the endpoint
+                    query_history_count: computedDepth
+                })
+            };
 
             try {
                 const response = await fetch(url, fetchOptions);
+                if (!response.ok) throw new Error("Network routing anomaly.");
+                const data = await response.json();
 
-                if (!response.ok) {
-                    const errorBody = await response.json();
-                    console.error("Filter request error payload:", errorBody);
-                    return;
+                // Capture raw response records
+                const freshNetworkGrants = data.grants || [];
+
+                console.log("🧪 NETWORK CONTEXT INSPECTION:");
+                console.log("--> Freshly returned from server count:", freshNetworkGrants.length);
+                if (dataHistory.length > 0) {
+                    let previousSnapshot = dataHistory[dataHistory.length - 1];
+                    console.log("--> Previous historical snapshot length:", previousSnapshot ? previousSnapshot.length : 0);
                 }
 
-                const data = await response.json();
-                allGrants = data.grants || [];
-                currentPage = 1; // Reset window indices back to page one
+                // THE BULLETPROOF INTERSECTION SNAPSHOT RECOVERY
+                if (typeof dataHistory !== 'undefined' && dataHistory.length > 0) {
+                    let previousSnapshot = dataHistory[dataHistory.length - 1];
 
-                // Redraw dynamic page filters, headers, counts, and active tables
-                const humanName = Object.keys(localCategoryMap).find(key => localCategoryMap[key] === category) || category;
-                renderFilters(humanName);
-                updateTotals(allGrants);
-                renderGrants(allGrants);
+                    if (previousSnapshot && !Array.isArray(previousSnapshot) && typeof previousSnapshot === 'object') {
+                        previousSnapshot = previousSnapshot.grants || previousSnapshot.results || [];
+                    }
+
+                    if (Array.isArray(previousSnapshot)) {
+                        const previousIds = new Set(previousSnapshot.map(g => g.grant_id || g.id));
+                        // Intersect network results back into our historical constraints
+                        allGrants = freshNetworkGrants.filter(g => previousIds.has(g.grant_id || g.id));
+                    } else {
+                        // Fallback validation to avoid memory leaks
+                        allGrants = freshNetworkGrants.filter(g => {
+                            if (typeof grants !== 'undefined' && Array.isArray(grants)) {
+                                return new Set(grants.map(orig => orig.grant_id || orig.id)).has(g.grant_id || g.id);
+                            }
+                            return true;
+                        });
+                    }
+                } else {
+                    allGrants = freshNetworkGrants;
+                }
+                console.log("--> 'allGrants' count AFTER history intersection calculation:", allGrants.length);
+
+                // Commit snapshot copy to the state history array
+                if (typeof dataHistory !== 'undefined') {
+                    dataHistory.push([...allGrants]);
+                }
+
+                currentPage = 1;
+                if (typeof renderFilters === "function") renderFilters(categoryLabel);
+
+                let displayGrants = allGrants;
+                if (category) {
+                    displayGrants = allGrants.filter(grant => grant[category] === 1);
+                }
+
+                activeDataset = displayGrants; // Sync current display array state with pagination controls
+                updateTotals(displayGrants);
+                renderGrants(displayGrants);
 
             } catch (err) {
                 console.error("Filtering engine pipeline failure:", err);
@@ -532,8 +668,6 @@
                 if (loadingEl) loadingEl.style.display = "none";
             }
         }
-
-
         function updateTotals(grantsList) {
             const count = grantsList.length;
             // Evaluates both grant.funding and grant.amount fallback structures correctly
@@ -552,52 +686,60 @@
             if (countEl) countEl.innerText = `${count} Grants Found`;
             if (fundingEl) fundingEl.innerText = `Total Funding: ${formattedTotal}`;
         }
+        function removeFilterPill(indexToRemove) {
+            // Remove the specific filter from your history array by index
+            currentFilters.history.splice(indexToRemove, 1);
+
+            // Re-render the visual HTML pills container
+            renderFiltersUI();
+
+            // RUN THE PIPELINE: This recalculates the subsets completely from baseDataset
+            // cleanly dropping you back exactly to where you started.
+            applyFilters();
+        }
 
         function renderFilters(humanCategoryName) {
             const container = document.getElementById("grant-results-filters");
             if (!container) return;
 
-            container.innerHTML = ""; // Wipe container row
+            container.innerHTML = ""; // Clear out filter bar row
 
-            // 1. Initial Query Pill (Placed furthest left as a structural base filter)
+            // 1. Static Initial Search Context Boundary (un-removable base)
             if (initialQuery) {
-                addPill(container, `Query: ${initialQuery}`);
+                addPill(container, `Base Query: ${initialQuery}`, false);
             }
 
-            // 2. Year Pill
-            addPill(container, `Year: 2025`);
+            // 2. Static Year base
+            addPill(container, `Year: 2025`, false);
 
-            // 3. Category Pill (Dynamic and removable)
-            if (humanCategoryName) {
-                addPill(container, `Category: ${humanCategoryName}`, () => {
-                    currentFilters.category = "";
-                    activeCategory = null;
-                    // Reset view back to displaying full foundational 2025 dataset
-                    renderFilters("");
-                    updateTotals(allGrants);
-                    renderGrants(allGrants);
+            // 3. Render pills strictly following the order of your historical array!
+            currentFilters.history.forEach((item, index) => {
+                const isMostRecent = (index === currentFilters.history.length - 1);
+                let displayPillText = item.type === 'category' ? `Category: ${item.label}` : `Search: ${item.value}`;
+
+                addPill(container, displayPillText, isMostRecent, () => {
+                    // 1. Safely pop the filter configuration item out of state
+                    const removedItem = currentFilters.history.pop();
+
+                    // 2. ✨ Pass an explicit instruction to the engine telling it if a text search was dropped
+                    const wasSearchQueryRemoved = (removedItem.type === 'search');
+
+                    applyFilters(wasSearchQueryRemoved);
                 });
-            }
-
-            // 4. Semantic Query Pills (Dynamic and removable)
-
-            if (currentFilters.queries && currentFilters.queries.length > 0) {
-                currentFilters.queries.forEach((q, index) => {
-                    addPill(container, `Search: ${q}`, () => {
-                        // Remove the clicked pill from state and trigger backend balance reload
-                        currentFilters.queries.splice(index, 1);
-                        applyFilters();
-                    });
-                });
-            }
+            });
         }
-
-
-        function addPill(target, text, onRemove = null) {
+        function addPill(target, text, isRemovable, onRemove = null) {
             const pill = document.createElement("div");
             pill.className = "filter-pill";
-            pill.innerHTML = text + (onRemove ? ` <span class="remove-pill" style="cursor:pointer; margin-left:8px;">×</span>` : "");
-            if (onRemove) pill.onclick = onRemove;
+
+            if (isRemovable) {
+                pill.innerHTML = `${text} <span class="remove-pill" style="cursor:pointer; margin-left:8px; font-weight:bold; color:#ef4444;">×</span>`;
+                pill.onclick = onRemove;
+            } else {
+                pill.innerHTML = text;
+                pill.style.opacity = "0.75"; // Subtly distinguish un-clickable foundation metrics
+            }
+
             target.appendChild(pill);
         }
         // --- RENDER PIPELINE INTERFACE ---
@@ -839,15 +981,18 @@
                 return;
             }
 
-            currentFilters.category = key;
-            activeCategory = key;
+            const hasCategory = currentFilters.history.some(item => item.type === 'category');
+            if (hasCategory) {
+                alert("Please remove your current category filter before selecting a new one.")
+                return;
+            }
+            currentFilters.history.push({ type: 'category', value: key, label: clickedCategory });
 
-            // Target search space
-            const filtered = allGrants.filter(grant => grant[key] === 1);
+            /* debug console print currentFilters.history*/
+            console.log(currentFilters.history);
 
-            renderFilters(clickedCategory);
-            updateTotals(filtered);
-            renderGrants(filtered);
+            applyFilters();
+
 
             const grantContainer = document.getElementById('query-grant-results-container');
             if (grantContainer) {
@@ -890,7 +1035,7 @@
                 const queryValue = searchInput.value.trim();
                 if (queryValue) {
                     // Push to state and clear input box
-                    currentFilters.queries.push(queryValue);
+                    currentFilters.history.push({ type: 'search', value: queryValue });
                     searchInput.value = "";
 
                     // Trigger your recalculation pipeline
