@@ -7,6 +7,7 @@
     <title>{{ query }}</title>
     <script src="https://cdn.plot.ly/plotly-3.5.1.min.js" charset="utf-8"></script>
     <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="icon" type="image/x-icon"
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%2216%22 height=%2216%22><path d=%22M12.56 14.43q0 .67-.41.67a.78.78 0 0 1-.56-.42L4.27 3.48v10.95q0 .56-.5.56t-.5-.56V3.11q0-.72.38-.72a.77.77 0 0 1 .56.42l7.26 11.23V3.11q0-.56.53-.56c.53 0 .56.24.56.56z%22 fill=%22%230f172a%22/></svg>">
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.3">
@@ -801,6 +802,10 @@
                     showGrantDetail(grant);
                 };
 
+                const rawSummary = grant.summary || "No summary available.";
+
+                const formattedSummary = typeof marked !== "undefined" ? marked.parse(rawSummary) : rawSummary;
+
                 card.innerHTML = `
             <div class="grant-row-identity">
                 <h3 class="grant-title">${grant.title || "No Title Provided"}</h3>
@@ -819,7 +824,7 @@
             
             <div class="grant-row-summary mobile-hide">
                 <div class="summary-badge"><i data-lucide="sparkles"></i> Brief Summary</div>
-                <p>${grant.summary || "No summary available."}</p>
+                <p>${formattedSummary}</p>
             </div>
         `;
 
