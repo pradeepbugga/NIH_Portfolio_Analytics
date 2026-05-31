@@ -993,18 +993,29 @@
                 return;
             }
 
-            const hasCategory = currentFilters.history.some(item => item.type === 'category');
-            if (hasCategory) {
-                alert("Please remove your current category filter before selecting a new one.")
+            // ─── OPTIMIZED MOBILE COMPLIANCE RE-CHECK ────────────────────────
+            // Instead of a blind .some() check, see if a category filter is already active
+            const existingCategoryFilter = currentFilters.history.find(item => item.type === 'category');
+
+            if (existingCategoryFilter) {
+                // If they clicked the exact same bar twice (or mobile double-fired), exit silently
+                if (existingCategoryFilter.value === key) {
+                    console.log("🔄 Mobile double-click or matching category re-select caught. Ignoring.");
+                    return;
+                }
+
+                // If they clicked a genuinely DIFFERENT bar without removing the old pill first, block them
+                alert("Please remove your current category filter before selecting a new one.");
                 return;
             }
+
+            // Safe to push new category state
             currentFilters.history.push({ type: 'category', value: key, label: clickedCategory });
 
             /* debug console print currentFilters.history*/
             console.log(currentFilters.history);
 
             applyFilters();
-
 
             const grantContainer = document.getElementById('query-grant-results-container');
             if (grantContainer) {
@@ -1060,14 +1071,12 @@
 
         // Arrow Control Actions (Adapted to use results.html context variables)
         document.getElementById("next-btn").onclick = () => {
-            const activeDataset = activeCategory ? allGrants.filter(g => g[activeCategory] === 1) : allGrants;
-            const totalPages = Math.ceil(activeDataset.length / itemsPerPage);
+            // ✨ FIX: allGrants is always the truth source for whatever was last rendered by applyFilters!
+            const totalPages = Math.ceil(allGrants.length / itemsPerPage);
 
             if (currentPage < totalPages) {
                 currentPage++;
-                renderGrants(activeDataset);
-
-                // Uses the corrected results ID attribute string: ✨
+                renderGrants(allGrants);
                 document.getElementById("query-grant-results-container").scrollIntoView({ behavior: 'smooth' });
             }
         };
@@ -1075,14 +1084,11 @@
         document.getElementById("prev-btn").onclick = () => {
             if (currentPage > 1) {
                 currentPage--;
-                const activeDataset = activeCategory ? allGrants.filter(g => g[activeCategory] === 1) : allGrants;
-                renderGrants(activeDataset);
-
-                // Uses the corrected results ID attribute string: ✨
+                // ✨ FIX: Avoid running raw local key filters that strip semantic search returns
+                renderGrants(allGrants);
                 document.getElementById("query-grant-results-container").scrollIntoView({ behavior: 'smooth' });
             }
         };
-
         // Initialize user panels inside view tracking
         renderFilters("");
         updateTotals(allGrants);
