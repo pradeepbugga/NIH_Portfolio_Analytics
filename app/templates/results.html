@@ -806,6 +806,11 @@
 
                 let formattedSummary = rawSummary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
+                // 3. NEW: Convert markdown italics (*) to HTML italics (<em>)
+                // This captures single asterisks and wraps the text in <em> tags
+                formattedSummary = formattedSummary.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+                // 4. Convert carats followed by numbers (like ^11C) into superscripts (<sup>11</sup>C)
                 formattedSummary = formattedSummary.replace(/\^(\d+)/g, '<sup>$1</sup>');
 
                 card.innerHTML = `
