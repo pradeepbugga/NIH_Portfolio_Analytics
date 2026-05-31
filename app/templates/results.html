@@ -355,7 +355,20 @@
             }
         );
 
+        function formatSummaryText(rawText) {
+            if (!rawText) return "No summary overview recorded for this entry.";
 
+            // 1. Convert markdown bold (**text**) to HTML <strong>
+            let formatted = rawText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // 2. Convert markdown italics (*text*) to HTML <em>
+            formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            // 3. Convert carats followed by numbers (like ^11C) into superscripts (<sup>11</sup>C)
+            formatted = formatted.replace(/\^(\d+)/g, '<sup>$1</sup>');
+
+            return formatted;
+        }
         // --- MODAL VIEW FOR ABSTRACTS (Optimized for On-Demand Fetching) ---
         function showGrantDetail(grant) {
             const oldModal = document.getElementById("grant-modal");
@@ -383,6 +396,8 @@
             const organizationName = grant.org_name || grant.organization || "Unknown Organization";
             const grantTitle = grant.title || grant.project_title || "No Title Provided";
 
+            const formattedSummary = formatSummaryText(grant.summary || "No summary overview recorded for this entry.");
+
             const modal = document.createElement("div");
             modal.id = "grant-modal";
             modal.className = "grant-modal-overlay";
@@ -399,7 +414,7 @@
                                 <i data-lucide="sparkles"></i> Brief Summary
                             </div>
                             <div id="modal-abstract-viewport">
-                                <p>${grant.summary || "No summary overview recorded for this entry."}</p>
+                                <p>${formattedSummary}</p>
                             </div>
                         </div>
                     </div>
@@ -802,16 +817,7 @@
                     showGrantDetail(grant);
                 };
 
-                const rawSummary = grant.summary || "No summary available.";
-
-                let formattedSummary = rawSummary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-                // 3. NEW: Convert markdown italics (*) to HTML italics (<em>)
-                // This captures single asterisks and wraps the text in <em> tags
-                formattedSummary = formattedSummary.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-                // 4. Convert carats followed by numbers (like ^11C) into superscripts (<sup>11</sup>C)
-                formattedSummary = formattedSummary.replace(/\^(\d+)/g, '<sup>$1</sup>');
+                const formattedSummary = formatSummaryText(grant.summary || "No summary overview recorded for this entry.");
 
                 card.innerHTML = `
             <div class="grant-row-identity">
