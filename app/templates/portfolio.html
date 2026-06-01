@@ -5,7 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Explore NIH Portfolio</title>
-
+    <link rel="icon" type="image/x-icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%2216%22 height=%2216%22><path d=%22M12.56 14.43q0 .67-.41.67a.78.78 0 0 1-.56-.42L4.27 3.48v10.95q0 .56-.5.56t-.5-.56V3.11q0-.72.38-.72a.77.77 0 0 1 .56.42l7.26 11.23V3.11q0-.56.53-.56c.53 0 .56.24.56.56z%22 fill=%22%230f172a%22/></svg>">
     <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
@@ -168,6 +169,7 @@
             category: "",
             queries: []
         };
+        let dataHistory = [];
         const categoryMap = {
 
             "Mechanistic / Basic Science": "mechanistic",
@@ -404,6 +406,20 @@
                         return;
                     }
 
+                    // ─── 🛡️ CATEGORY LOCKED COMPLIANCE RE-CHECK ────────────────────────
+                    // Check if a category filter is already actively applied
+                    if (currentFilters.category) {
+                        // If they clicked the exact same bar twice, exit silently (stops mobile double-tap fires)
+                        if (currentFilters.category === categoryCode) {
+                            console.log("🔄 Matching category re-select or mobile bounce caught. Ignoring.");
+                            return;
+                        }
+
+                        // If they clicked a genuinely DIFFERENT bar without removing the old pill first, block them
+                        alert("Please remove your current category filter pill before selecting a new one.");
+                        return;
+                    }
+
                     currentFilters.category = categoryCode;
                     activeCategory = categoryCode;
 
@@ -444,6 +460,19 @@
             }
         }
         async function applyFilters() {
+            // ✨ FIX: If baseline category is cleared out completely, don't ping the network.
+            // Reset data points array and drop out silently.
+            if (!currentFilters.category) {
+                allGrants = [];
+                dataHistory = [];
+                currentPage = 1;
+                // Clean up UI metrics safely
+                const countEl = document.getElementById("filter-count");
+                const fundingEl = document.getElementById("filter-total-funding");
+                if (countEl) countEl.innerText = "0 Grants Found";
+                if (fundingEl) fundingEl.innerText = "Total Funding: $0";
+                return;
+            }
 
             const loadingEl = document.getElementById("loading-message");
             if (loadingEl) loadingEl.style.display = "flex";
@@ -501,6 +530,14 @@
                 const data = await response.json();
 
                 allGrants = data.grants || [];
+
+                if (latestQuery === "") {
+                    // First link in the chain: Seed the baseline array layer
+                    dataHistory = [[...allGrants]];
+                } else {
+                    // Sequential step: Push this search result snapshot onto the stack matrix
+                    dataHistory.push([...allGrants]);
+                }
                 currentPage = 1; // Always reset to page 1 on new filter
 
                 // Update the UI
@@ -565,32 +602,81 @@
 
 
             // Year Pill (Static)
-            addPill(container, `Year: 2025`);
+            addPill(container, `Year: 2025`, false);
 
-            // Category Pill (Removable)
+            // 2. Category Pill (Removable ONLY if no search queries exist yet)
             if (category) {
-                addPill(container, `Category: ${category}`, () => {
-                    currentFilters.category = "";
-                    applyFilters();
-                });
-            }
+                const hasActiveQueries = currentFilters.queries.length > 0;
 
-            // Query Pill (Removable)
-            if (currentFilters.queries.length > 0) {
-                currentFilters.queries.forEach((q, index) => {
-                    addPill(container, `Search: ${q}`, () => {
-                        currentFilters.queries.splice(index, 1); // Remove this query
+                if (hasActiveQueries) {
+                    // Category is locked while sub-queries exist
+                    addPill(container, `Category: ${category}`, false);
+                } else {
+                    // Category can be closed normally if it's the last remaining filter link
+                    addPill(container, `Category: ${category}`, true, () => {
+                        currentFilters.category = "";
+                        currentFilters.queries = [];
+                        if (typeof activeCategory !== 'undefined') activeCategory = "";
+
+                        const targetContainer = document.getElementById('grant-results-container');
+                        if (targetContainer) {
+                            targetContainer.classList.remove('show');
+                        }
+
+                        const chartDiv = document.getElementById("categoryChart");
+                        if (chartDiv) {
+                            chartDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+
                         applyFilters();
                     });
+                }
+            }
+
+            // 3. Query Pills (Removable ONLY for the most recent query)
+            if (currentFilters.queries.length > 0) {
+                currentFilters.queries.forEach((q, index) => {
+                    // Check if this specific pill is the absolute end of the linear stack
+                    const isLatestQuery = index === currentFilters.queries.length - 1;
+
+                    if (isLatestQuery) {
+                        // The most recent query pill gets a close button and the interactive pop animation
+                        addPill(container, `Search: ${q}`, true, () => {
+                            currentFilters.queries.splice(index, 1); // Remove from filter configuration
+
+                            // Pop the matrix layer back to reveal previous historical dataset snapshot
+                            if (dataHistory.length > 1) {
+                                dataHistory.pop();
+                                allGrants = [...dataHistory[dataHistory.length - 1]];
+                            }
+
+                            // Refresh UI components instantly using cached data matrix states
+                            currentPage = 1;
+                            renderFilters(category);
+                            updateTotals(allGrants);
+                            renderPage(1);
+                        });
+                    } else {
+                        // Older query pills are locked down and un-clickable to prevent state desync
+                        addPill(container, `Search: ${q}`, false);
+                    }
                 });
             }
 
         }
-        function addPill(target, text, onRemove = null) {
+        function addPill(target, text, isRemovable, onRemove = null) {
             const pill = document.createElement("div");
             pill.className = "filter-pill";
-            pill.innerHTML = text + (onRemove ? ` <span class="remove-pill" style="cursor:pointer; margin-left:8px;">×</span>` : "");
-            if (onRemove) pill.onclick = onRemove;
+
+            if (isRemovable && onRemove) {
+                pill.innerHTML = `${text} <span class="remove-pill" style="cursor:pointer; margin-left:8px; font-weight:bold; color:#ef4444;">×</span>`;
+                pill.onclick = onRemove;
+            } else {
+                pill.innerHTML = text;
+                pill.style.opacity = "0.75"; // Subtly distinguish un-clickable foundation metrics
+                pill.style.cursor = "default";
+            }
+
             target.appendChild(pill);
         }
 
