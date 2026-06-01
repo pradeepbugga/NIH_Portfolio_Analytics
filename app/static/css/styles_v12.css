@@ -1205,11 +1205,15 @@ footer a:hover {
 .filter-pill {
     padding: 12.5px 20px;
     border: 1px solid rgba(36, 59, 83, 0.14);
+    border-color: #12253d;
+    border-radius: 6px;
+    box-sizing: border-box;
     font-size: 1.2rem;
     letter-spacing: 0.04em;
-    color: white;
-    background: #12253d;
+    color: #12253d;
+    background: #a5b4fc;
 }
+
 
 
 #filter-stats-container {
