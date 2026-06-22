@@ -185,9 +185,6 @@
             ? grants.filter(grant => grant.year === 2025 || grant.year === "2025" || grant.fiscal_year === 2025 || grant.fiscal_year === "2025")
             : [];
 
-        if (initialLoad.length === 0 && typeof grants !== 'undefined') {
-            initialLoad = [...grants];
-        }
 
         // 2. ✨ THE IMMUTABLE FLOOR: Set up structural source collections
         const baseDataset = [...initialLoad];  // The 216 records you started with
