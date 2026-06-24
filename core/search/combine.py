@@ -1,7 +1,7 @@
 # combine.py
 # this script combines reranker scores with document metadata and returns sorted results
 
-MIN_SCORE_THRESHOLD = -2.0
+MIN_SCORE_THRESHOLD = -4.0
 
 
 def combine_and_sort(docs, scores):
