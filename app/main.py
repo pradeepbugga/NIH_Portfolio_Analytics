@@ -230,9 +230,12 @@ def search(request: Request,
         print(f"✅ Semantic search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
 
         #cache results
+        t_cache_start = time.perf_counter()
         save_cached_results(cur, query, results)
         conn.commit()
+        print(f"✅ Results cached (Latency: {time.perf_counter() - t_cache_start:.4f}s)")
         
+        t_format_start = time.perf_counter()
         years, funding = extract_funding(results)
 
         ontology_labels, ontology_values = extract_ontology_distribution(results)
@@ -240,16 +243,26 @@ def search(request: Request,
         print(results["records"][0].keys())
 
         formatted_live_records = format_output_grants(results["records"])
+        print(f"✅ Results formatted for frontend (Latency: {time.perf_counter() - t_format_start:.4f}s)")
 
-        t_end = time.perf_counter()
-        print(f"✅ Total search latency: {t_end - t_start:.4f}s")
+
+
 
         print("years", years)
 
+
+
         # debug save the json output of results for local inspection
+
+        t_disk_start = time.perf_counter()
         processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
         with open(processed_results_path, "w") as f:
             json.dump(formatted_live_records, f, indent=4)
+
+        print(f"✅ Results saved to disk for inspection (Latency: {time.perf_counter() - t_disk_start:.4f}s)")  
+
+        t_end = time.perf_counter()
+        print(f"✅ Total search latency: {t_end - t_start:.4f}s")
 
 
         return templates.TemplateResponse(

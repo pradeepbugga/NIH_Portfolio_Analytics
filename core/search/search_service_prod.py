@@ -44,13 +44,19 @@ def semantic_search_range(
         - ``records``: a list of all ranked records prior to deduplication.
     """
 
+    t0 = time.perf_counter()
    
     query_vec = embed_query(query)
     query_vec_list = query_vec.tolist()
 
+    print(f"Query embedded in {time.perf_counter() - t0:.4f}s")
+
     # 2) Retrieve candidates via pgvector
+    t1 = time.perf_counter()
     candidates = retrieve_candidates_range(cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
     
+    print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
+
     if not candidates:
         return {
             "query": query,
@@ -62,6 +68,7 @@ def semantic_search_range(
 
     print(f"Retrieved {len(candidates)} candidates.")
 
+    t2 = time.perf_counter()
     vector_sim_map = {gid: sim for gid, sim in candidates}
     grant_ids = list(vector_sim_map.keys())
 
@@ -69,14 +76,13 @@ def semantic_search_range(
 
     # 3) Load document texts + metadata
     docs = load_grant_texts(cur, grant_ids)
-    if not docs:
-        return {
-            "query": query,
-            "model_version": "v1",
-            "projects": [],
-            "records": []
-        }
     
+    print(f"Document texts loaded in {time.perf_counter() - t2:.4f}s")
+    if not docs:
+        return None
+
+
+        
     print(f"Loaded {len(docs)} documents.")
 
     for d in docs:
@@ -85,17 +91,22 @@ def semantic_search_range(
     print("Reranking candidates...")
 
     # 4) Rerank with cross-encoder
+    t3 = time.perf_counter()
     doc_texts = [d["text"] for d in docs]
     scores = rerank_fn.remote(query, doc_texts)
 
+    print(f"Candidates reranked in {time.perf_counter() - t3:.4f}s")
     print("Combining and sorting results...")
 
     # 5) Combine + sort
+    t4 = time.perf_counter()
     ranked = combine_and_sort(docs, scores)
   
     print("Deduplicating by core project...")
     # 6) Deduplicate by core project
     deduped = dedupe_by_core_project(ranked)
+
+    print(f"Results combined and deduplicated in {time.perf_counter() - t4:.4f}s")
 
     #return deduped list
     print(f"Returning {len(deduped)} results")
