@@ -48,36 +48,39 @@ class Reranker:
 
         # --- PHASE 1: TOKENIZATION (CPU Heavy String Parsing) ---
         t_tok_start = time.perf_counter()
-        features = self.model.tokenize(inputs)
+        
+        # FIX: Call the underlying Hugging Face tokenizer explicitly
+        features = self.model.tokenizer(
+            inputs,
+            padding=True,
+            truncation=True,
+            return_tensors="pt"
+        )
+        
         t_tok_end = time.perf_counter()
         print(f"⏱️ [Profiling] Tokenization: {t_tok_end - t_tok_start:.4f}s")
 
         # --- PHASE 2: H2D DEVICE TRANSFER (Moving data to GPU VRAM) ---
         t_vram_start = time.perf_counter()
         features = {k: v.to("cuda") for k, v in features.items()}
-        torch.cuda.synchronize() # Wait until data is fully resting on the VRAM tracks
+        torch.cuda.synchronize() 
         t_vram_end = time.perf_counter()
         print(f"⏱️ [Profiling] VRAM Device Transfer: {t_vram_end - t_vram_start:.4f}s")
 
         # --- PHASE 3: THE RAW GPU FORWARD PASS ---
-        # Note: We bypass model.predict() and hit the underlying neural net graph directly
-        # to avoid double-tokenization overhead.
         all_scores = []
         
         with torch.no_grad(), torch.amp.autocast("cuda"):  
             t_forward_start = time.perf_counter()
             
-            # Since features is a monolithic dict of 17,000 padded tensors, 
-            # we slice them into batches to respect your execution batch_size
             num_inputs = len(inputs)
             for i in range(0, num_inputs, batch_size):
                 # Slice the input tensors for the current batch
                 batch_features = {k: v[i:i + batch_size] for k, v in features.items()}
                 
-                # Forward pass through the actual underlying PyTorch module
+                # Forward pass through the actual underlying PyTorch model wrapper
                 outputs = self.model.model(**batch_features)
                 
-                # Pull the raw outputs out (adjusting keys depending on your model signature)
                 if hasattr(outputs, "logits"):
                     logits = outputs.logits
                 else:
@@ -85,16 +88,14 @@ class Reranker:
                     
                 all_scores.append(logits)
                 
-            # Wait for every single matrix multiplication chunk to finalize on the CUDA cores
             torch.cuda.synchronize() 
             t_forward_end = time.perf_counter()
             
         print(f"⏱️ [Profiling] Core GPU Forward Pass (Batched): {t_forward_end - t_forward_start:.4f}s")
 
-        # --- PHASE 4: RECONSTRUCTION & SERIALIZATION (GPU -> CPU -> Python List) ---
+        # --- PHASE 4: RECONSTRUCTION & SERIALIZATION ---
         t_post_start = time.perf_counter()
         
-        # Concat individual batches, move them to the CPU stack, and flatten to float values
         final_tensor = torch.cat(all_scores, dim=0).squeeze(-1)
         scores_list = final_tensor.cpu().float().numpy().tolist()
         
