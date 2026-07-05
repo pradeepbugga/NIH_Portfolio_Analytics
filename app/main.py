@@ -1,63 +1,102 @@
 #main.py
 
-from fastapi import FastAPI, Query, Request, HTTPException, APIRouter
-from core.db.connection import get_db_connection
-from core.search.search_service_prod import semantic_search_range
-from core.search.cache import get_cached_results, save_cached_results
-from core.search.query_embedding import warmup_query_encoder
-import json
-
-
+import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime
+import json
+import os
+import time
+from typing import List, Dict, Any
+
+import anyio
+from dotenv import load_dotenv
+from fastapi import FastAPI, Query, Request, HTTPException, APIRouter
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from datetime import datetime
+from pydantic import BaseModel, Field
+
+import pandas as pd
+
+from core.db.connection import get_db_connection
+from core.search.search_service_prod import semantic_search_range
+from core.search.cache import get_cached_results, save_cached_results
+from core.search.query_embedding import warmup_query_encoder, embed_query
 from core.search.modal_reranker import rerank_fn
 from core.search.combine import combine_and_sort_semantic_filter
-from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
-from core.cluster.agglomerative_clustering import cluster_filtered_grants_for_map
 from core.cluster.load_embeddings_text import load_grant_embeddings_and_text
-from google import genai
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
-from dotenv import load_dotenv
-import os
 from core.category.mapping import category_mapping, machine_human_map
-import pandas as pd
-import time
-import asyncio
-import numpy as np
-
 
 
 load_dotenv()
 
-client = genai.Client()
+# Global placeholders for static reference data (initialized once at startup)
+GLOBAL_AGENCIES_LIST = []
+GLOBAL_VALID_ACTIVITY_CODES = []
 
-
+# ================================================================
+# STARTUP LIFESPAN MANAGEMENT (runs exactly once on server boot)
+# ================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """ 
+    Handles critical initialization protocols before ports are opened to traffic.
+    This includes loading ML encoder and parsing static reference datasets for agencies and activity codes.
+    """
+    global GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES
     print("Running global application warmups...")
+
+    # 1. Warmup the local query encoder (PubmedBERT) to avoid cold-start latency on first query
     warmup_query_encoder()
+    
+    # 2. Pre-cache reference dataset csv metrics to prevent repeated disk reads on every request
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # map and load agency data
+    csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
+    if os.path.exists(csv_path):
+        try:
+            df = pd.read_csv(csv_path).fillna("")
+            GLOBAL_AGENCIES_LIST = df.sort_values(by="agency_ic").to_dict(orient="records")
+            print(f"✅ Cached {len(GLOBAL_AGENCIES_LIST)} agency mapping matrices.")
+        except Exception as e:
+            print(f"❌ ERROR reading/parsing agency CSV: {e}")
+
+    # map and load activity code data
+    activity_csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "activity_codes", "2025_code_list.csv"))
+    if os.path.exists(activity_csv_path):
+        try:
+            df_activity = pd.read_csv(activity_csv_path)
+            GLOBAL_ACTIVITY_CODES = df_activity["Activity_Code"].str.upper().tolist()
+            print(f"✅ Cached {len(GLOBAL_VALID_ACTIVITY_CODES)} valid global structural activity codes.")
+        except Exception as e:
+            print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
+    
     print("Warmups complete. Application is ready to serve requests.")
     yield
 
-app = FastAPI(title="NIH Grant Search API")
+# ===============================================================
+# FRAMEWORK INITIALIZATION AND ROUTER SETUP
+# ===============================================================
+app = FastAPI(title="NIH Grant Search API", lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
 
-
+# ===============================================================
+# UTILITY FUNCTIONS
+# ===============================================================
 
 def normalize_query(q: str) -> str:
+    """Remove extra whitespace and convert to lowercase for consistent query processing."""
     return " ".join(q.lower().split())
 
-
 def extract_funding(results):
-    
+    """
+    Extracts and scales yearly funding totals from search results, adjusting for the current fiscal year.
+    """
  
     yearly_totals = {}
     now = datetime.now()
@@ -80,59 +119,8 @@ def extract_funding(results):
 
     return years, funding
 
-@app.get("/")
-def home_page(request: Request):
-    agencies_list = []
-    
-    # 1. This points to root/app/
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # 2. Step UP out of 'app' into 'root', then down into 'core/agency' ✨
-    csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-
-    print(f"DEBUG: Actively mapping to dataset pipeline at: {csv_path}")
-
-    if os.path.exists(csv_path):
-        try:
-            df = pd.read_csv(csv_path)
-            df = df.fillna("")
-            df_sorted = df.sort_values(by="agency_ic")
-            agencies_list = df_sorted.to_dict(orient="records")
-            print(f"✅ SUCCESS: Connected path. Injecting {len(agencies_list)} rows.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing CSV layout matrix: {e}")
-    else:
-        print(f"❌ CRITICAL FAILURE: Could not find your file at: {csv_path}")
-
-
-    # now load activity codes
-    activity_csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "activity_codes", "2025_code_list.csv"))
-
-    if os.path.exists(activity_csv_path):
-        try:
-            df_activity = pd.read_csv(activity_csv_path)
-            valid_activity_codes = df_activity["Activity_Code"].str.upper().tolist()
-            print(f"✅ SUCCESS: Connected to activity codes dataset. Found {len(valid_activity_codes)} valid codes.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
-
-
-    return templates.TemplateResponse(
-        "index.html", 
-        {
-            "request": request, 
-            "agencies": agencies_list,
-            "valid_activity_codes": valid_activity_codes
-        }
-    )
-
-VALID_ACTIVITY_CODES = None
-
-
-
-
-
 def extract_ontology_distribution(results):
+    """Calculates the total funding distribution across abstract categories (generated by LLM) from search results."""
 
     labels = [
         ("Mechanistic / Basic Science", "mechanistic"),
@@ -146,63 +134,103 @@ def extract_ontology_distribution(results):
     ]
 
     totals = {}
-
     for display_name, key in labels:
-
         total = 0
-
         for r in results["records"]:
-
             if r.get(key)==1:
-
                 total += r.get("amount") or 0
-
         totals[display_name] = total
 
-    ontology_labels = list(totals.keys())
+    return list(totals.keys()), list(totals.values())
 
-    ontology_values = list(totals.values())
+# ===============================================================
+# API APPLICATION CORE ENDPOINTS
+# ===============================================================
+@app.get("/", response_class=HTMLResponse)
+def home_page(request: Request):
+    """Renders the home page with a search bar and agency/activity code filters."""
 
-    
+    return templates.TemplateResponse(
+        "index.html", 
+        {
+            "request": request, 
+            "agencies": GLOBAL_AGENCIES_LIST,
+            "valid_activity_codes": GLOBAL_VALID_ACTIVITY_CODES
+        }
+    )
 
-    return ontology_labels, ontology_values
+@ app.get("/portfolio")
+def portfolio_page(request: Request):
+    """Renders the portfolio page (global analysis of NIH grants)."""
+    return templates.TemplateResponse(
+        "portfolio.html",
+        {"request": request}
+    )
 
+@ app.get("/categories")
+def categories_page(request: Request):
+    """Renders the categories page (look-up table for category definitions)."""
+    return templates.TemplateResponse(
+        "categories.html",
+        {"request": request}
+    )
+
+
+@ app.get("/contact_us")
+def contact_page(request: Request):
+    """Renders the contact us page for user inquiries."""
+    return templates.TemplateResponse(
+        "contact_us.html",
+        {"request": request}
+
+
+
+VALID_ACTIVITY_CODES = None
 
 @app.get("/search")
-
-def search(request: Request,
+async def search(request: Request,
     query: str = Query(..., description="Search query string")):
+    """
+    Handles the semantic search endpoint, performing query embedding, candidate retrieval, reranking, and result formatting.
+    """
 
     t_start = time.perf_counter()
-
     print("\n" + "="*50)
     print("=== STARTING DETAILED LATENCY BENCHMARK ===")
     print("="*50)
    
  
-    #normalize query before searching
+    # 1.normalize query before searching
     query = normalize_query(query)
-
     t_query = time.perf_counter()
     print(f"✅ Query normalized: '{query}' (Latency: {t_query - t_start:.4f}s)")
 
-
-    conn = get_db_connection()
+    # 2. Delegate database connection to a thread-safe context to avoid blocking the event loop
+    conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
+
+    processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
+
 
     try:
         t_db_start = time.perf_counter()
-        if cached_results := get_cached_results(cur, query):
+
+        cached_results = await anyio.to_thread.run_sync(get_cached_results, cur, query)
+
+        if cached_results:
+            print(f"✅ Cache hit for query '{query}'")
             years, funding = extract_funding(cached_results)
             ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
-            print(cached_results["records"][0].keys())
-
             
-            formatted_cached_records = format_output_grants(cached_results["records"])
+            # delegate the formatting to a thread-safe context to avoid blocking the event loop
+            formatted_cached_records = await anyio.to_thread.run_sync(format_output_grants, cached_results["records"]) 
 
-            processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
-            with open(processed_results_path, "w") as f:
-                json.dump(formatted_cached_records, f, indent=4)
+            def save_debug_json():
+                with open(processed_results_path, "w") as f:
+                    json.dump(formatted_cached_records, f, indent=4)
+            await anyio.to_thread.run_sync(save_debug_json)
+
+            print(f"✅ Cached results formatted and saved to disk for inspection (Latency: {time.perf_counter() - t_db_start:.4f}s)")
 
             return templates.TemplateResponse(
             "results.html",
@@ -215,50 +243,59 @@ def search(request: Request,
                 "ontology_labels": ontology_labels,
                 "ontology_values": ontology_values
             }
-    )
-    
-        #prepare HNSW search parameters
-        cur.execute("SET hnsw.ef_search = 1000;")
+            )
+
+        # ================================================================
+        # CACHE MISS: Proceed with full semantic search pipeline
+        # ================================================================
+
+        # A. SPECULATIVE PIPELINE TRIGGER: 
+        # Ping Modal GPU to start booting GPU concurrently while Postgres runs below
+        speculative_warmup = asyncio.create_task(
+            rerank_fn.remote.aio(query="[WARM_UP_PING]", grant_ids = [])
+        )
+
+        # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
+        def execute_vector_retrieval():
+            cur.execute("SET hnsw.ef_search = 1000;")
+            return semantic_search_range(query, cur, rerank_fn=rerank_fn) 
      
         t_db_mid = time.perf_counter()
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
-        #perform semantic search
-        results = semantic_search_range(query, cur, rerank_fn=rerank_fn)
+        # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
+        results = await anyio.to_thread.run_sync(execute_vector_retrieval)
+
+        # safely await the speculative warmup to ensure the GPU is ready for reranking
+        await speculative_warmup
 
         t_db_end = time.perf_counter()
         print(f"✅ Semantic search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
 
-        #cache results
+
+        # C. WRITE BACK TO CACHE: Save the results to Postgres for future queries
         t_cache_start = time.perf_counter()
-        save_cached_results(cur, query, results)
-        conn.commit()
+        await anyio.to_thread.run_sync(save_cached_results, cur, query, results)
+        await anyio.to_thread.run_sync(conn.commit)
         print(f"✅ Results cached (Latency: {time.perf_counter() - t_cache_start:.4f}s)")
         
+        # D. POST-PROCESSING: Extract funding and ontology distributions, format results for frontend
         t_format_start = time.perf_counter()
         years, funding = extract_funding(results)
-
         ontology_labels, ontology_values = extract_ontology_distribution(results)
 
-        print(results["records"][0].keys())
-
-        formatted_live_records = format_output_grants(results["records"])
+        formatted_live_records = await anyio.to_thread.run_sync(format_output_grants, results["records"])
         print(f"✅ Results formatted for frontend (Latency: {time.perf_counter() - t_format_start:.4f}s)")
 
-
-
-
-        print("years", years)
-
-
-
-        # debug save the json output of results for local inspection
-
+        # E. LOCAL DEBUGGING: Save the formatted results to disk for inspection
         t_disk_start = time.perf_counter()
-        processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
-        with open(processed_results_path, "w") as f:
-            json.dump(formatted_live_records, f, indent=4)
 
+        def save_live_json():
+            with open(processed_results_path, "w") as f:
+                json.dump(formatted_live_records, f, indent=4)
+        await anyio.to_thread.run_sync(save_live_json)
+
+        
         print(f"✅ Results saved to disk for inspection (Latency: {time.perf_counter() - t_disk_start:.4f}s)")  
 
         t_end = time.perf_counter()
@@ -270,9 +307,6 @@ def search(request: Request,
            {
             "request": request,
             "query": query,
-
-
-
             "years": years,
             "funding": funding,
             "results": formatted_live_records,
@@ -281,25 +315,9 @@ def search(request: Request,
             }
     )
     finally:
-        conn.close()
+        await anyio.to_thread.run_sync(cur.close)
+        await anyio.to_thread.run_sync(conn.close)
 
-@ app.route("/portfolio")
-
-def portfolio_page(request: Request):
-
-    return templates.TemplateResponse(
-        "portfolio.html",
-        {"request": request}
-    )
-
-@ app.route("/categories")
-
-def categories_page(request: Request):
-
-    return templates.TemplateResponse(
-        "categories.html",
-        {"request": request}
-    )
 
 @app.get("/agency/{agency_code}", response_class=HTMLResponse)
 def agency_portal(request: Request, agency_code: str):
@@ -930,11 +948,4 @@ def get_grant_abstract(grant_id: str):
         cur.close()
         conn.close()
 
-@ app.route("/contact_us")
-
-def contact_page(request: Request):
-
-    return templates.TemplateResponse(
-        "contact_us.html",
-        {"request": request}
     )
