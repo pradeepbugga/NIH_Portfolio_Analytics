@@ -259,19 +259,15 @@ async def search(request: Request,
         # A. SPECULATIVE PIPELINE TRIGGER: 
         # Ping Modal GPU to start booting GPU concurrently while Postgres runs below
         speculative_warmup = asyncio.create_task(
-            rerank_fn.remote.aio(query="[WARM_UP_PING]", grant_ids = [])
+            rerank_fn.rerank_batch.remote.aio(query="[WARM_UP_PING]", grant_ids = [])
         )
 
         # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
-        def execute_vector_retrieval():
-            cur.execute("SET hnsw.ef_search = 1000;")
-            return semantic_search_range(query, cur, rerank_fn=rerank_fn) 
-     
         t_db_mid = time.perf_counter()
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
         # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
-        results = await anyio.to_thread.run_sync(execute_vector_retrieval)
+        results = await semantic_search_range(query, cur, rerank_fn=rerank_fn)
 
         # safely await the speculative warmup to ensure the GPU is ready for reranking
         await speculative_warmup
