@@ -5,7 +5,7 @@ from core.search.load_docs import load_grant_texts
 from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
 
-def semantic_search_range(
+async def semantic_search_range(
     query: str,
     cur,rerank_fn,
     similarity_threshold: float = 0.25
@@ -49,7 +49,7 @@ def semantic_search_range(
 
     # 2) Retrieve candidates via pgvector
     t1 = time.perf_counter()
-    candidates = retrieve_candidates_range(cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
+    candidates = await retrieve_candidates_range(cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
     
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
@@ -83,7 +83,7 @@ def semantic_search_range(
     t3 = time.perf_counter()
     
     # Pull data out of Postgres locally to render your frontend cards
-    docs = load_grant_texts(cur, grant_ids) 
+    docs = await load_grant_texts(cur, grant_ids)
     
     print(f"Document metadata loaded in {time.perf_counter() - t3:.4f}s")
     if not docs:
