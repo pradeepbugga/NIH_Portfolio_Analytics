@@ -62,9 +62,16 @@ class Reranker:
             print("No grant ids to rerank, returning empty list...")
             return []
 
-        # Print sample incoming IDs to Modal logs
-        if grant_ids:
-            print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
+        print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
+        print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
+            
+        # 🟢 ADD THIS TEMPORARY DEBUG LOOP HERE:
+        parquet_keys = list(self.text_lookup.keys())
+        print(f"💾 Total keys in memory lookup: {len(parquet_keys)}")
+        if parquet_keys:
+            # Wrapped in brackets to reveal any invisible spaces or formatting mismatches
+            print(f"💾 Sample Parquet keys in memory: {[f'[{k}]' for k in parquet_keys[:5]]}")
+            print(f"👉 Sample incoming keys formatted: {[f'[{str(gid).strip().upper()}]' for gid in grant_ids[:5]]}")
             
         # Print sample keys actually loaded in your Parquet dictionary
         existing_keys = list(self.text_lookup.keys())
@@ -89,28 +96,4 @@ class Reranker:
             
         return scores.tolist()
 
-    @modal.method()
-    def debug_inspect_keys(self, num_samples: int = 10):
-        """
-        Inspects the loaded keys in memory to check formatting and types.
-        """
-        keys = list(self.text_lookup.keys())
-        total_keys = len(keys)
-        
-        if total_keys == 0:
-            print("❌ The text_lookup dictionary is completely EMPTY.")
-            return {"total_keys": 0, "samples": []}
-            
-        import random
-        samples = random.sample(keys, min(num_samples, total_keys))
-        
-        print(f"📦 DEBUG INFO | Total Keys Loaded: {total_keys}")
-        print("👇 Sample keys loaded in memory (wrapped in brackets to expose whitespace):")
-        for k in samples:
-            print(f"   - [{k}] | Type: {type(k).__name__} | Length: {len(str(k))}")
-            
-        return {
-            "total_keys": total_keys, 
-            "samples": samples,
-            "first_few": keys[:5]
-        }
+    
