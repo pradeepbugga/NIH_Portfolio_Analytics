@@ -50,8 +50,12 @@ async def semantic_search_range(
 
     # 2) Retrieve candidates via pgvector
     t1 = time.perf_counter()
-    candidates = await anyio.to_thread.run_sync(retrieve_candidates_range, cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
-    
+    candidates = await anyio.to_thread.run_sync(
+        retrieve_candidates_range, 
+        cur, 
+        query_vec_list, 
+        similarity_threshold
+    )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
     if not candidates:
