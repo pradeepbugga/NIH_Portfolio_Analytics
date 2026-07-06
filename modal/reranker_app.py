@@ -62,6 +62,15 @@ class Reranker:
             print("No grant ids to rerank, returning empty list...")
             return []
 
+        # Print sample incoming IDs to Modal logs
+        if grant_ids:
+            print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
+            
+        # Print sample keys actually loaded in your Parquet dictionary
+        existing_keys = list(self.text_lookup.keys())
+        if existing_keys:
+            print(f"💾 Sample Parquet keys: {existing_keys[:5]}")
+
         # hydrate grant ids from the lookup dictionary locally
         docs_list = [self.text_lookup[gid] for gid in grant_ids if gid in self.text_lookup]
 
