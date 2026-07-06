@@ -1,4 +1,5 @@
 import time
+import anyio
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
@@ -49,7 +50,7 @@ async def semantic_search_range(
 
     # 2) Retrieve candidates via pgvector
     t1 = time.perf_counter()
-    candidates = await retrieve_candidates_range(cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
+    candidates = await anyio.to_thread.run_sync(retrieve_candidates_range, cur, query_vec_list=query_vec_list, similarity_threshold=similarity_threshold)
     
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
@@ -83,8 +84,8 @@ async def semantic_search_range(
     t3 = time.perf_counter()
     
     # Pull data out of Postgres locally to render your frontend cards
-    docs = await load_grant_texts(cur, grant_ids)
-    
+    docs = await anyio.to_thread.run_sync(load_grant_texts, cur, grant_ids)
+        
     print(f"Document metadata loaded in {time.perf_counter() - t3:.4f}s")
     if not docs:
         return {
