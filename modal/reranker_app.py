@@ -24,7 +24,9 @@ volume = modal.Volume.from_name("reranker-models")
 @app.cls(
     gpu="A10G",
     image=image,
-    volumes={"/model":volume},  
+    volumes={
+        "/model":volume,
+        "/search_assets": assets_volume    
     timeout=300
 )
 
@@ -36,20 +38,19 @@ class Reranker:
     @modal.enter()
     def load_resources(self):
         import polars as pl
-        import os
 
         print("Loading CrossEncoder model...")
         self.model = CrossEncoder(self.model_path, device="cuda")
             
-        print(f"Checking mount path: /search_assets")
+        print(f"Loading Parquet text warehouse from: {self.parquet_path}")
         try:
-            # 🟢 This will print EVERYTHING inside your mounted volume
-            print("📁 Items found inside /search_assets:", os.listdir("/search_assets"))
+            df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
+            self.text_lookup = dict(zip(df["grant_id"], df["text"]))
+            print(f"Loaded {len(self.text_lookup)} grant texts into memory.")
+
         except Exception as e:
-            print(f"❌ Could not read directory: {e}")
-        
-        # Keep the rest of your loading logic...
-        df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
+            print(f"Error loading Parquet file: {e}")
+            self.text_lookup = {}
 
 
     @modal.method()
