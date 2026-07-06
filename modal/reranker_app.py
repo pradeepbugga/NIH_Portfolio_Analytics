@@ -36,19 +36,26 @@ class Reranker:
     @modal.enter()
     def load_resources(self):
         import polars as pl
+        import os
 
         print("Loading CrossEncoder model...")
         self.model = CrossEncoder(self.model_path, device="cuda")
             
-        print(f"Loading Parquet text warehouse from: {self.parquet_path}")
-        try:
-            df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
-            self.text_lookup = dict(zip(df["grant_id"], df["text"]))
-            print(f"Loaded {len(self.text_lookup)} grant texts into memory.")
-
-        except Exception as e:
-            print(f"Error loading Parquet file: {e}")
-            self.text_lookup = {}
+        print(f"Checking environment path: {self.parquet_path}")
+        print(f"File exists check: {os.path.exists(self.parquet_path)}")
+        
+        # 🟢 REMOVE THE TRY/EXCEPT GRACEFUL SWALLOW. 
+        # Let it crash completely so you can see the real error trace!
+        df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
+        
+        # 🟢 Use a faster, native Polars dictionary generation pattern
+        print("Building lookups from Polars DataFrame...")
+        self.text_lookup = {
+            str(row["grant_id"]).strip().upper(): row["text"]
+            for row in df.iter_rows(named=True)
+        }
+        
+        print(f"🚀 SUCCESS: Loaded {len(self.text_lookup)} grant texts into memory."
 
 
     @modal.method()
