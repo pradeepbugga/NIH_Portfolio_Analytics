@@ -262,10 +262,6 @@ async def search(request: Request,
             rerank_fn.remote.aio(query="[WARM_UP_PING]", grant_ids = [])
         )
 
-        # debug modal
-        debug_info = await rerank_fn.debug_inspect_keys.remote.aio(num_samples=5)
-        print(f"🔍 Debug: Sample keys loaded in Modal Parquet map: {debug_info}")
-
         # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
         t_db_mid = time.perf_counter()
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
