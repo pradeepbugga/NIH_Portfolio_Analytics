@@ -13,7 +13,9 @@ image = (
         "torch",
         "sentence-transformers",
         "transformers",
-        "numpy"
+        "numpy",
+        "polars",
+        "pyarrow"
     )
 )
 
@@ -29,78 +31,51 @@ volume = modal.Volume.from_name("reranker-models")
 class Reranker:
     model_path: str = modal.parameter(default = "/model/v5")
 
+    parquet_path: str = modal.parameter(default = "/search_assets/grant_text_warehouse.parquet")
+
     @modal.enter()
-    def load_model(self):
+    def load_resources(self):
+        import polars as pl
+
+        print("Loading CrossEncoder model...")
         self.model = CrossEncoder(self.model_path, device="cuda")
             
+        print(f"Loading Parquet text warehouse from: {self.parquet_path}")
+        try:
+            df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
+            self.text_lookup = dict(zip(df["grant_id"], df["text"]))
+            print(f"Loaded {len(self.text_lookup)} grant texts into memory.")
+
+        except Exception as e:
+            print(f"Error loading Parquet file: {e}")
+            self.text_lookup = {}
+
 
     @modal.method()
-    def rerank_batch(self, query, docs_list, batch_size=128):
-        import time
-        import torch
+    def rerank_batch(self, query: str, grant_ids: list, batch_size=128):
+        # intercept speculative ping immediately 
+        if query == "[WARM_UP_PING]":
+            print("Received warm-up ping, waking up container...")
+            return []  # return an empty list for warm-up pings
+        
+        if not grant_ids:
+            print("No grant ids to rerank, returning empty list...")
+            return []
 
-        # 1. Setup raw input text pairs
+        # hydrate grant ids from the lookup dictionary locally
+        docs_list = [self.text_lookup[gid] for gid in grant_ids if gid in self.text_lookup]
+
+        if not docs_list:
+            print("⚠️ Match failure: None of the provided grant_ids exist in local Parquet map.")
+            return []
+
         inputs = [(query, doc) for doc in docs_list]    
 
-        # Force a baseline sync so earlier cluster setups don't taint numbers
-        torch.cuda.synchronize()
-        t_global_start = time.perf_counter()
-
-        # --- PHASE 1: TOKENIZATION (CPU Heavy String Parsing) ---
-        t_tok_start = time.perf_counter()
-        
-        # FIX: Call the underlying Hugging Face tokenizer explicitly
-        features = self.model.tokenizer(
-            inputs,
-            padding=True,
-            truncation=True,
-            return_tensors="pt"
-        )
-        
-        t_tok_end = time.perf_counter()
-        print(f"⏱️ [Profiling] Tokenization: {t_tok_end - t_tok_start:.4f}s")
-
-        # --- PHASE 2: H2D DEVICE TRANSFER (Moving data to GPU VRAM) ---
-        t_vram_start = time.perf_counter()
-        features = {k: v.to("cuda") for k, v in features.items()}
-        torch.cuda.synchronize() 
-        t_vram_end = time.perf_counter()
-        print(f"⏱️ [Profiling] VRAM Device Transfer: {t_vram_end - t_vram_start:.4f}s")
-
-        # --- PHASE 3: THE RAW GPU FORWARD PASS ---
-        all_scores = []
-        
         with torch.no_grad(), torch.amp.autocast("cuda"):  
-            t_forward_start = time.perf_counter()
+            scores = self.model.predict(
+                inputs, 
+                batch_size = batch_size,
+                show_progress_bar = False,
+                convert_to_numpy = True)
             
-            num_inputs = len(inputs)
-            for i in range(0, num_inputs, batch_size):
-                # Slice the input tensors for the current batch
-                batch_features = {k: v[i:i + batch_size] for k, v in features.items()}
-                
-                # Forward pass through the actual underlying PyTorch model wrapper
-                outputs = self.model.model(**batch_features)
-                
-                if hasattr(outputs, "logits"):
-                    logits = outputs.logits
-                else:
-                    logits = outputs[0] if isinstance(outputs, tuple) else outputs
-                    
-                all_scores.append(logits)
-                
-            torch.cuda.synchronize() 
-            t_forward_end = time.perf_counter()
-            
-        print(f"⏱️ [Profiling] Core GPU Forward Pass (Batched): {t_forward_end - t_forward_start:.4f}s")
-
-        # --- PHASE 4: RECONSTRUCTION & SERIALIZATION ---
-        t_post_start = time.perf_counter()
-        
-        final_tensor = torch.cat(all_scores, dim=0).squeeze(-1)
-        scores_list = final_tensor.cpu().float().numpy().tolist()
-        
-        t_post_end = time.perf_counter()
-        print(f"⏱️ [Profiling] Post-Processing / Python List Translation: {t_post_end - t_post_start:.4f}s")
-        print(f"🚀 Total container processing time: {time.perf_counter() - t_global_start:.4f}s")
-            
-        return scores_list
+        return scores.tolist()
