@@ -1,13 +1,9 @@
-# search_service_prod.py
-# this script provides a semantic search service for NIH grant documents
-# we use similarity search here for high recall
-
+import time
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
 from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
-import time
 
 def semantic_search_range(
     query: str,
@@ -65,7 +61,6 @@ def semantic_search_range(
             "records": []
         }
 
-
     print(f"Retrieved {len(candidates)} candidates.")
 
     t2 = time.perf_counter()
@@ -74,50 +69,48 @@ def semantic_search_range(
 
     print("Loading document texts...")
 
-    # 3) Load document texts + metadata
-    docs = load_grant_texts(cur, grant_ids)
+    # 3) Rerank with cross-encoder (Passing ONLY IDs over the internet!) 🚀
+    print("Sending IDs to Modal for remote Cross-Encoder scoring...")
+    t2 = time.perf_counter()
     
-    print(f"Document texts loaded in {time.perf_counter() - t2:.4f}s")
+    # Use updated async/batch setup
+    scores = await rerank_fn.rerank_batch.remote.aio(query, grant_ids)
+    
+    print(f"Candidates reranked on remote GPU in {time.perf_counter() - t2:.4f}s")
+
+    # 4) Hydrate Document Metadata locally *ONLY FOR SUCCESSFUL MATCHES*
+    print("Loading document metadata/titles for scored records...")
+    t3 = time.perf_counter()
+    
+    # Pull data out of Postgres locally to render your frontend cards
+    docs = load_grant_texts(cur, grant_ids) 
+    
+    print(f"Document metadata loaded in {time.perf_counter() - t3:.4f}s")
     if not docs:
-        return None
+        return {
+            "query": query,
+            "model_version": "v1",
+            "projects": [],
+            "records": []
+        }
 
-
-        
-    print(f"Loaded {len(docs)} documents.")
-
+    # Inject vector distance profiles into our database docs array
     for d in docs:
         d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
             
-    print("Reranking candidates...")
-
-    # 4) Rerank with cross-encoder
-    t3 = time.perf_counter()
-    doc_texts = [d["text"] for d in docs]
-    scores = rerank_fn.remote(query, doc_texts)
-
-    print(f"Candidates reranked in {time.perf_counter() - t3:.4f}s")
-    print("Combining and sorting results...")
-
-    # 5) Combine + sort
+    # 5) Combine scores + Sort + Deduplicate
     t4 = time.perf_counter()
+    print("Combining, sorting, and deduplicating final results...")
+    
     ranked = combine_and_sort(docs, scores)
-  
-    print("Deduplicating by core project...")
-    # 6) Deduplicate by core project
     deduped = dedupe_by_core_project(ranked)
 
     print(f"Results combined and deduplicated in {time.perf_counter() - t4:.4f}s")
+    print(f"Returning {len(deduped)} top matching projects.")
 
-    #return deduped list
-    print(f"Returning {len(deduped)} results")
-
-
-    #output a JSON to allow downstream processing and visualization
-    output = {
+    return {
         "query": query,
         "model_version": "v1",
         "projects": deduped,
         "records": ranked
     }
-
-    return output
