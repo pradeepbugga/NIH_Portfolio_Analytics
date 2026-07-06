@@ -6,7 +6,7 @@ from datetime import datetime
 import json
 import os
 import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import anyio
 from dotenv import load_dotenv
@@ -143,6 +143,16 @@ def extract_ontology_distribution(results):
 
     return list(totals.keys()), list(totals.values())
 
+def format_output_grants(ranked_docs):
+    """Helper layout to normalize object fields perfectly for JavaScript render tracks"""
+    for g in ranked_docs:
+        g["organization"] = g.get("org_name")
+        g["funding"] = g.get("amount")
+        first, middle, last = g.get("pi_first_name") or "", g.get("pi_middle_name") or "", g.get("pi_last_name") or ""
+        g["pi"] = " ".join(x for x in [first, middle, last] if x)
+    return ranked_docs
+
+
 # ===============================================================
 # API APPLICATION CORE ENDPOINTS
 # ===============================================================
@@ -159,7 +169,7 @@ def home_page(request: Request):
         }
     )
 
-@ app.get("/portfolio")
+@app.get("/portfolio")
 def portfolio_page(request: Request):
     """Renders the portfolio page (global analysis of NIH grants)."""
     return templates.TemplateResponse(
@@ -167,7 +177,7 @@ def portfolio_page(request: Request):
         {"request": request}
     )
 
-@ app.get("/categories")
+@app.get("/categories")
 def categories_page(request: Request):
     """Renders the categories page (look-up table for category definitions)."""
     return templates.TemplateResponse(
@@ -176,16 +186,13 @@ def categories_page(request: Request):
     )
 
 
-@ app.get("/contact_us")
+@app.get("/contact_us")
 def contact_page(request: Request):
     """Renders the contact us page for user inquiries."""
     return templates.TemplateResponse(
         "contact_us.html",
         {"request": request}
-
-
-
-VALID_ACTIVITY_CODES = None
+    )
 
 @app.get("/search")
 async def search(request: Request,
@@ -318,362 +325,381 @@ async def search(request: Request,
         await anyio.to_thread.run_sync(cur.close)
         await anyio.to_thread.run_sync(conn.close)
 
-
-@app.get("/agency/{agency_code}", response_class=HTMLResponse)
-def agency_portal(request: Request, agency_code: str):
-    t0 = time.time()
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    try: 
-       
-        target_code = agency_code.upper()
-
-        # ====================================================================
-        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS (Blazing Fast DB Aggregations)
-        # ====================================================================
-        t_start = time.time()
-        # A. Fetch historical timeline totals (1985-2026)
-        timeline_query = """
-            SELECT fiscal_year, SUM(total_award_amount)
-            FROM ResearchGrants
-            WHERE agency_code = %s
-            GROUP BY fiscal_year
-            ORDER BY fiscal_year ASC;
-        """
-        cur.execute(timeline_query, (target_code,))
-        timeline_rows = cur.fetchall()
-        print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
-        years = [row[0] for row in timeline_rows]
-        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
-
-        # B. Fetch macro ontology distribution totals across all history
-        t_start = time.time()
-        ontology_query = """
-            SELECT               
-                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
-            FROM ResearchGrants rg
-            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            WHERE rg.agency_code = %s;
-        """
-        cur.execute(ontology_query, (target_code,))
-        onto_row = cur.fetchone()
-        print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
-        ontology_labels = [
-            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
-            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
-        ]
-        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
-
-
-        # ====================================================================
-        # 📋 STEP 2: TABLE REVIEWS (Filtered Strictly to 2025 Viewport)
-        # ====================================================================
-        t_start = time.time()
-        table_query = """
-            SELECT
-                rg.grant_id,
-                rg.project_title,
-                o.name AS organization,
-                rg.contact_pi_id,
-                rg.total_award_amount,
-                rg.agency_ic,                
-                rg.fiscal_year,
-                gl.mechanistic,
-                gl.therapeutic,
-                gl.diagnostic,
-                gl.research_tool,
-                gl.clinical,
-                gl.infrastructure,
-                gl.education,
-                gl.obs_ep,
-                rg.activity_code,
-                s.two_sentence_summary AS summary_text
-            FROM ResearchGrants rg
-            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-            LEFT JOIN organizations o ON rg.organization_id = o.id
-            WHERE 
-                rg.agency_code = %s 
-                AND rg.fiscal_year = 2025 -- ✨ Keep memory completely flat
-            ORDER BY rg.total_award_amount DESC;
-        """
-        cur.execute(table_query, (target_code,))
-        rows = cur.fetchall()
-        print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
-        grants = []
-        for row in rows:
-            grants.append({
-                "grant_id": row[0],
-                "title": row[1],
-                "organization": row[2] if row[2] else "Unknown Institution",
-                "pi": row[3],
-                "amount": float(row[4]) if row[4] else 0.0,
-                "agency_ic": row[5],
-                "fiscal_year": int(row[6]) if row[6] else 2025,                
-                "mechanistic": row[7],
-                "therapeutic": row[8],
-                "diagnostic": row[9],
-                "research_tool": row[10],
-                "clinical": row[11],
-                "infrastructure": row[12],
-                "education": row[13],
-                "obs_ep": row[14],
-                "activity_code": row[15],
-                "summary": row[16]
-            })
-
-        cur.close()
-        conn.close()
-
-        # ====================================================================
-        # 🏢 STEP 3: RESOLVE CSV METADATA DISPLAY NAME
-        # ====================================================================
-        t_start = time.time()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-        
-        display_title = f"Agency Portfolio: {target_code}"
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            matched_rows = df[df["funding_code"] == target_code]["abbreviation"].values
-            if len(matched_rows) > 0:
-                display_title = matched_rows[0]
-        print(f"⏱️ CSV Metadata Parsing took: {time.time() - t_start:.4f}s")
-        # ====================================================================
-        # 🎨 STEP 4: RENDER RESULTS PAGE INSTANTLY
-        # ====================================================================
-        print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
-        return templates.TemplateResponse(
-            "results.html",
-            {
-                "request": request,
-                "query": display_title,
-                "years": years,
-                "funding": funding,
-                "results": grants, # Populates the 2025 UI data table view flawlessly
-                "ontology_labels": ontology_labels,
-                "ontology_values": ontology_values
-            }
-        )
-        
-    except Exception as e:
-        print(f"❌ Error generating metric analytics layer inside agency route: {e}")
-        raise HTTPException(status_code=500, detail="Internal server metric analytics error.")
-    finally:
-        conn.close()
-
 @app.get("/activity_codes", response_class=HTMLResponse)
-def activity_codes_multi_search(
+async def activity_codes_multi_search(
     request: Request, 
     codes: str = Query(..., description="Comma-separated 3-character NIH Activity codes")
 ):
+    """
+    Handles the activity code search endpoint, retrieving and aggregating grants based on entered NIH activity codes.
+    """
+
     t0 = time.time()
-    conn = get_db_connection()
-    cur = conn.cursor()
+    # 1. Parse and sanitize input (Extracts exactly what the user typed)
+    target_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
+    if not target_codes or len(target_codes) > 5:
+        raise HTTPException(status_code=400, detail="Must provide between 1 and 5 activity codes.")
+        
+    tuple_codes = tuple(target_codes)
+
+    # 2. Define core blocking work to offload to a thread-safe context to avoid blocking the event loop
+
+    def run_database_operations():
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            
+            # STEP 1: HISTORICAL DATA FOR CHARTS
+            t_start = time.time()
+
+            # Strictly check against the 3-character activity code substring
+            timeline_query = """
+                SELECT fiscal_year, SUM(total_award_amount)
+                FROM ResearchGrants
+                WHERE activity_code IN %s
+                GROUP BY fiscal_year
+                ORDER BY fiscal_year ASC;
+            """
+            cur.execute(timeline_query, (tuple_codes,))
+            timeline_rows = cur.fetchall()
+            print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
+            
+            years = [row[0] for row in timeline_rows]
+            funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
+
+            # STEP 2: CATEGORY DISTRIBUTION AGGREGATION
+            t_start = time.time()
+            ontology_query = """
+                SELECT               
+                    COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
+                FROM ResearchGrants rg
+                INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+                WHERE rg.activity_code IN %s;
+            """
+            cur.execute(ontology_query, (tuple_codes,))
+            onto_row = cur.fetchone()
+            print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
+            
+            ontology_labels = [
+                "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
+                "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
+            ]
+            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+            # STEP 3: TABLE REVIEWS (2025 Viewport Only)
+            t_start = time.time()
+            table_query = """
+                SELECT
+                    rg.grant_id,
+                    rg.project_title,
+                    o.name AS organization,
+                    rg.contact_pi_id,
+                    rg.total_award_amount,
+                    rg.agency_ic,
+                    rg.fiscal_year,
+                    gl.mechanistic, gl.therapeutic, gl.diagnostic, gl.research_tool,
+                    gl.clinical, gl.infrastructure, gl.education, gl.obs_ep,               
+                    s.two_sentence_summary AS summary_text
+                FROM ResearchGrants rg
+                JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+                INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+                LEFT JOIN organizations o ON rg.organization_id = o.id
+                WHERE 
+                    rg.activity_code IN %s
+                    AND rg.fiscal_year = 2025
+                ORDER BY rg.total_award_amount DESC;
+            """
+            cur.execute(table_query, (tuple_codes,))
+            rows = cur.fetchall()
+            print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
+            
+            grants = []
+            for row in rows:
+                grant_id = row[0]
+                activity_code = grant_id[1:4] if len(grant_id) > 4 else "N/A"
+
+                grants.append({
+                    "grant_id": grant_id, "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
+                    "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
+                    "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
+                    "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14], "summary": row[15], "activity_code": activity_code
+                })
+
+            return years, funding, ontology_labels, ontology_values, grants
+
+        finally:
+            cur.close()
+            conn.close()
 
     try:
-        # 1. Parse and sanitize input (Extracts exactly what the user typed)
-        target_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
-        if not target_codes or len(target_codes) > 5:
-            raise HTTPException(status_code=400, detail="Must provide between 1 and 5 activity codes.")
-            
-        tuple_codes = tuple(target_codes)
+        years, funding, ontology_labels, ontology_values, grants = await anyio.to_thread.run(run_database_operations)
 
-        # ====================================================================
-        # 📈 STEP 1: HISTORICAL DATA FOR CHARTS
-        # ====================================================================
-        t_start = time.time()
-        # Strictly check against the 3-character activity code substring
-        timeline_query = """
-            SELECT fiscal_year, SUM(total_award_amount)
-            FROM ResearchGrants
-            WHERE activity_code IN %s
-            GROUP BY fiscal_year
-            ORDER BY fiscal_year ASC;
-        """
-        # Exactly 1 placeholder requires exactly 1 tuple wrapper
-        cur.execute(timeline_query, (tuple_codes,))
-        timeline_rows = cur.fetchall()
-        print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
-        
-        years = [row[0] for row in timeline_rows]
-        funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
-
-        # Fetch category distribution totals strictly via substring matching
-        t_start = time.time()
-        ontology_query = """
-            SELECT               
-                COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
-            FROM ResearchGrants rg
-            INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            WHERE rg.activity_code IN %s;
-        """
-        # Exactly 1 placeholder here as well
-        cur.execute(ontology_query, (tuple_codes,))
-        onto_row = cur.fetchone()
-        print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
-        
-        ontology_labels = [
-            "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
-            "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
-        ]
-        ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
-
-        # ====================================================================
-        # 📋 STEP 2: TABLE REVIEWS (2025 Viewport Only)
-        # ====================================================================
-        t_start = time.time()
-        table_query = """
-            SELECT
-                rg.grant_id,
-                rg.project_title,
-                o.name AS organization,
-                rg.contact_pi_id,
-                rg.total_award_amount,
-                rg.agency_ic,
-                rg.fiscal_year,
-                gl.mechanistic, gl.therapeutic, gl.diagnostic, gl.research_tool,
-                gl.clinical, gl.infrastructure, gl.education, gl.obs_ep,               
-                s.two_sentence_summary AS summary_text
-            FROM ResearchGrants rg
-            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-            LEFT JOIN organizations o ON rg.organization_id = o.id
-            WHERE 
-                rg.activity_code IN %s
-                AND rg.fiscal_year = 2025
-            ORDER BY rg.total_award_amount DESC;
-        """
-        # Exactly 1 placeholder maps cleanly to the target tuple wrapper
-        cur.execute(table_query, (tuple_codes,))
-        rows = cur.fetchall()
-        print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
-        
-        grants = []
-        for row in rows:
-            grant_id = row[0]
-            activity_code = grant_id[1:4] if len(grant_id) > 4 else "N/A"
-
-            grants.append({
-                "grant_id": grant_id, "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
-                "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
-                "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
-                "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14], "summary": row[15], "activity_code": activity_code
-            })
-
-        cur.close()
-        conn.close()
-
-        display_title = f"Activity Codes: {', '.join(target_codes)}"
-        print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
-        
-        return templates.TemplateResponse(
-            "results.html",
-            {
-                "request": request,
-                "query": display_title,
-                "years": years,
-                "funding": funding,
-                "results": grants,
-                "ontology_labels": ontology_labels,
-                "ontology_values": ontology_values
-            }
-        )
-        
     except Exception as e:
         print(f"❌ Error in activity_codes route: {e}")
-        if 'conn' in locals() and not conn.closed:
-            conn.close()
         raise HTTPException(status_code=500, detail="Database lookup error.")
+
+    display_title = f"Activity Codes: {', '.join(target_codes)}"
+    print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
+            
+    return templates.TemplateResponse(
+        "results.html",
+        {
+            "request": request,
+            "query": display_title,
+            "years": years,
+            "funding": funding,
+            "results": grants,
+            "ontology_labels": ontology_labels,
+            "ontology_values": ontology_values
+        }
+    )
+
+@app.get("/agency/{agency_code}", response_class=HTMLResponse)
+async def agency_portal(request: Request, agency_code: str):
+    """
+    Handles the agency portal endpoint, retrieving and aggregating grants based on a specific NIH agency code
+    """
+    t0 = time.time()
+    target_code = agency_code.upper()
+
+    # 1. Delegate database operations to a thread-safe context to avoid blocking the event loop
+    def run_agency_filtering():
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try: 
+            # STEP 1: HISTORICAL DATA FOR CHARTS 
+            t_start = time.time()
+            timeline_query = """
+                SELECT fiscal_year, SUM(total_award_amount)
+                FROM ResearchGrants
+                WHERE agency_code = %s
+                GROUP BY fiscal_year
+                ORDER BY fiscal_year ASC;
+            """
+            cur.execute(timeline_query, (target_code,))
+            timeline_rows = cur.fetchall()
+            print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
+
+            years = [row[0] for row in timeline_rows]
+            funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
+
+            # STEP 2: CATEGORY DISTRIBUTION AGGREGATION (Ontology Labels)
+            t_start = time.time()
+            ontology_query = """
+                SELECT               
+                    COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
+                FROM ResearchGrants rg
+                INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+                WHERE rg.agency_code = %s;
+            """
+            cur.execute(ontology_query, (target_code,))
+            onto_row = cur.fetchone()
+            print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
+
+            ontology_labels = [
+                "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
+                "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
+            ]
+            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+            # STEP 3: TABLE REVIEWS (2025 Viewport Only) - Fetch all grants for the agency in 2025
+            t_start = time.time()
+            table_query = """
+                SELECT
+                    rg.grant_id,
+                    rg.project_title,
+                    o.name AS organization,
+                    rg.contact_pi_id,
+                    rg.total_award_amount,
+                    rg.agency_ic,                
+                    rg.fiscal_year,
+                    gl.mechanistic,
+                    gl.therapeutic,
+                    gl.diagnostic,
+                    gl.research_tool,
+                    gl.clinical,
+                    gl.infrastructure,
+                    gl.education,
+                    gl.obs_ep,
+                    rg.activity_code,
+                    s.two_sentence_summary AS summary_text
+                FROM ResearchGrants rg
+                JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+                INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+                LEFT JOIN organizations o ON rg.organization_id = o.id
+                WHERE 
+                    rg.agency_code = %s 
+                    AND rg.fiscal_year = 2025 -- ✨ Keep memory completely flat
+                ORDER BY rg.total_award_amount DESC;
+            """
+            cur.execute(table_query, (target_code,))
+            rows = cur.fetchall()
+            print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
+
+            grants = []
+            for row in rows:
+                grants.append({
+                    "grant_id": row[0],
+                    "title": row[1],
+                    "organization": row[2] if row[2] else "Unknown Institution",
+                    "pi": row[3],
+                    "amount": float(row[4]) if row[4] else 0.0,
+                    "agency_ic": row[5],
+                    "fiscal_year": int(row[6]) if row[6] else 2025,                
+                    "mechanistic": row[7],
+                    "therapeutic": row[8],
+                    "diagnostic": row[9],
+                    "research_tool": row[10],
+                    "clinical": row[11],
+                    "infrastructure": row[12],
+                    "education": row[13],
+                    "obs_ep": row[14],
+                    "activity_code": row[15],
+                    "summary": row[16]
+                })
+
+            return years, funding, ontology_labels, ontology_values, grants
+
+        finally:
+            cur.close()
+            conn.close()
+
+    # 2. Execute the database operations in a thread-safe context to avoid blocking the event loop
+    try:
+        years, funding, ontology_labels, ontology_values, grants = await anyio.to_thread.run(run_agency_filtering)
+    except Exception as e:
+        print(f"❌ Error in agency_portal route: {e}")
+        raise HTTPException(status_code=500, detail="Database lookup error.")
+
+    # STEP 3: RESOLVE CSV METADATA DISPLAY NAME
+    t_start = time.time()
+    display_title = f"Agency Portfolio: {target_code}"
+    
+    # Map target code against the agencies_updated.csv to find the human-readable abbreviation
+    for agency in GLOBAL_AGENCIES_LIST:
+        if agency.get("funding_code") == target_code:
+            display_title = agency.get("abbreviation", display_title)
+            break
+
+    print(f"⏱️ CSV Metadata Parsing took: {time.time() - t_start:.4f}s")
+    print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
+
+    # STEP 4: RENDER RESULTS PAGE 
+
+    return templates.TemplateResponse(
+        "results.html",
+        {
+            "request": request,
+            "query": display_title,
+            "years": years,
+            "funding": funding,
+            "results": grants, # Populates the 2025 UI data table view flawlessly
+            "ontology_labels": ontology_labels,
+            "ontology_values": ontology_values
+        }
+    )
+    
 
 
 @app.get("/api/portfolio/categories")
-def portfolio_categories(
-    year: int,
-    request: Request
-):
+async def portfolio_categories(year: int = Query(..., description="Target fiscal year for categorization analysis")):
+    """
+    API endpoint to retrieve the total funding distribution across abstract categories for a given fiscal year.
+    """
+   
+    def fetch_category_distribution():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try: 
+            cur.execute("""
+                SELECT
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+                    SUM(CASE WHEN gl.mechanistic = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-    try:
+                    SUM(CASE WHEN gl.therapeutic = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-        cur.execute("""
-            SELECT
+                    SUM(CASE WHEN gl.diagnostic = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-                SUM(CASE WHEN gl.mechanistic = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                    SUM(CASE WHEN gl.research_tool = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-                SUM(CASE WHEN gl.therapeutic = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                    SUM(CASE WHEN gl.clinical = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-                SUM(CASE WHEN gl.diagnostic = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                    SUM(CASE WHEN gl.infrastructure = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-                SUM(CASE WHEN gl.research_tool = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                    SUM(CASE WHEN gl.education = 1
+                        THEN rg.total_award_amount ELSE 0 END),
 
-                SUM(CASE WHEN gl.clinical = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                    SUM(CASE WHEN gl.obs_ep = 1
+                        THEN rg.total_award_amount ELSE 0 END)
 
-                SUM(CASE WHEN gl.infrastructure = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                FROM grant_labels gl
 
-                SUM(CASE WHEN gl.education = 1
-                    THEN rg.total_award_amount ELSE 0 END),
+                JOIN ResearchGrants rg
+                    ON gl.grant_id = rg.grant_id
 
-                SUM(CASE WHEN gl.obs_ep = 1
-                    THEN rg.total_award_amount ELSE 0 END)
+                WHERE rg.fiscal_year = %s
+            """, (year,))
 
-            FROM grant_labels gl
+            row = cur.fetchone()
+            if not row:
+                return [0]*8
+            return [val or 0 for val in row]
+        finally:
+            cur.close()
+            conn.close()
+    
+    try: 
+        data_matrix = await anyio.to_thread.run(fetch_category_distribution)
+    except Exception as e:
+        print(f"❌ Error fetching category distribution: {e}")
+        raise HTTPException(status_code=500, detail="Database lookup error.")
 
-            JOIN ResearchGrants rg
-                ON gl.grant_id = rg.grant_id
+    # format into key-value pairs for frontend consumption
+    return  {
+                "Mechanistic / Basic Science": row[0] or 0,
+                "Therapeutic": row[1] or 0,
+                "Diagnostic": row[2] or 0,
+                "Research Tool": row[3] or 0,
+                "Clinical / Health Systems": row[4] or 0,
+                "Research Infrastructure": row[5] or 0,
+                "Education / Training": row[6] or 0,
+                "Observational Epidemiology": row[7] or 0
+            }
 
-            WHERE rg.fiscal_year = %s
-
-        """, (year,))
-
-        row = cur.fetchone()
-
-        output = {
-            "Mechanistic / Basic Science": row[0] or 0,
-            "Therapeutic": row[1] or 0,
-            "Diagnostic": row[2] or 0,
-            "Research Tool": row[3] or 0,
-            "Clinical / Health Systems": row[4] or 0,
-            "Research Infrastructure": row[5] or 0,
-            "Education / Training": row[6] or 0,
-            "Observational Epidemiology": row[7] or 0
-        }
-
-        return output
-
-    finally:
-        conn.close()
 
 @app.get("/api/portfolio/grants")
-def portfolio_grants(
-    year: int,
-    category: str,
-    request: Request
+async def portfolio_grants(
+    year: int = Query(..., description="Target fiscal year for grant retrieval"),
+    category: str = Query(..., description="Target abstract category for grant retrieval")
 ):
+    """
+    API endpoint to retrieve a list of grants for a given fiscal year and abstract category.
+    """
 
+    # 1. Strict validation dictionary map for dynamic SQL column selection based on category
     category_columns = {
         "mechanistic": "mechanistic",
         "therapeutic": "therapeutic",
@@ -683,69 +709,73 @@ def portfolio_grants(
         "infrastructure": "infrastructure",
         "education": "education",
         "obs_ep": "obs_ep"
-    }
+    }   
 
     if category not in category_columns:
-        return {"error": "Invalid category"}
+        raise HTTPException(status_code=400, detail="Invalid category specified.")
 
     column = category_columns[category]
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    # 2. Database connection and query execution
+    def fetch_grants_by_category():
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
 
+        try:
+            query = f"""
+                SELECT
+                    rg.grant_id,
+                    rg.project_title,
+                    o.name AS organization,
+                    rg.contact_pi_id,
+                    rg.total_award_amount,
+                    rg.agency_ic,
+                    rg.activity_code,
+                    s.two_sentence_summary AS summary_text
+                FROM ResearchGrants rg
+                JOIN grant_labels gl
+                    ON rg.grant_id = gl.grant_id
+                INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+                LEFT JOIN organizations o
+                    ON rg.organization_id = o.id
+                WHERE
+                    rg.fiscal_year = %s
+                    AND gl.{column} = 1
+                ORDER BY rg.total_award_amount DESC
+            """
+            cur.execute(query, (year,))
+            rows = cur.fetchall()
+
+            grants = []
+            for row in rows:
+                grants.append({
+                    "grant_id": row[0],
+                    "title": row[1],
+                    "organization": row[2],
+                    "pi": row[3],
+                    "funding": row[4],
+                    "agency_ic": row[5],
+                    "activity_code": row[6],
+                    "summary": row[7]
+                })
+            return grants
+        finally:
+            cur.close()
+            conn.close()
+    
+    # 3. Offload the database operation to a thread-safe context to avoid blocking the event loop
     try:
+        grant_results = await anyio.to_thread.run(fetch_grants_by_category)
+    except Exception as e:
+        print(f"❌ Error fetching grants by category: {e}")
+        raise HTTPException(status_code=500, detail="Database lookup error.")
 
-        query = f"""
-            SELECT
-                rg.grant_id,
-                rg.project_title,
-                o.name AS organization,
-                rg.contact_pi_id,
-                rg.total_award_amount,
-                rg.agency_ic,
-                rg.activity_code,
-                s.two_sentence_summary AS summary_text
-
-            FROM ResearchGrants rg
-
-            JOIN grant_labels gl
-                ON rg.grant_id = gl.grant_id
-            INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-            LEFT JOIN organizations o
-                ON rg.organization_id = o.id
-
-            WHERE
-                rg.fiscal_year = %s
-                AND gl.{column} = 1
-
-            ORDER BY rg.total_award_amount DESC
-
-        """
-        cur.execute(query, (year,))
-        rows = cur.fetchall()
-        grants = []
-
-        for row in rows:
-
-            grants.append({
-                "grant_id": row[0],
-                "title": row[1],
-                "organization": row[2],
-                "pi": row[3],
-                "funding": row[4],
-                "agency_ic": row[5],
-                "activity_code": row[6],
-                "summary": row[7]
-            })
-
-        return {
-            "category": category,
-            "year": year,
-            "grants": grants
-        }
-
-    finally:
-        conn.close()
+    return {
+        "category": category,
+        "year": year,
+        "grants": grants
+    }
 
 
 class SearchRequest(BaseModel):
@@ -756,11 +786,11 @@ class SearchRequest(BaseModel):
     query_history_count: int = 1  # use this to track queries to then route to either semantic or hybrid search
  
 
-
 @app.post("/api/portfolio/grants/search")
-def portfolio_grants_search(
-    payload: SearchRequest
-):
+async def portfolio_grants_search(payload: SearchRequest):
+    """
+    API endpoint to perform a semantic search filter over a predefined set of grants
+    """
     print("\n" + "="*50)
     print("=== INCOMING BACKEND SEARCH REQUEST ===")
     print(f"Payload Year: {payload.year} (Type: {type(payload.year)})")
@@ -787,14 +817,17 @@ def portfolio_grants_search(
             raise HTTPException(status_code=400, detail="Invalid category")
         column = category_columns[payload.category]
 
-    conn = get_db_connection()
-    cur = conn.cursor()
 
-    try:
-        # Determine pool of grants to search
-        if payload.existing_ids:
-            allowed_grant_ids = [str(x).strip() for x in payload.existing_ids if x]
-        else: 
+    # dynamic search routing to look up initial candidate IDs
+    def determine_allowed_grants():
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            # Determine pool of grants to search
+            if payload.existing_ids:
+                return [str(x).strip() for x in payload.existing_ids if x], cur, conn
             if column: 
                 sql = f"""
                     SELECT rg.grant_id
@@ -810,42 +843,63 @@ def portfolio_grants_search(
                     WHERE fiscal_year = %s
                 """
                 cur.execute(sql, (int(payload.year),))
+            
+            return [row[0] for row in cur.fetchall()], cur, conn
+        except Exception:
+            cur.close()
+            conn.close()
+            raise
 
-            allowed_grant_ids = [row[0] for row in cur.fetchall()]
+    try:
+        allowed_grant_ids, cur, conn = await anyio.to_thread.run(determine_allowed_grants)
+    except Exception as e:
+        print(f"❌ Error determining allowed grants: {e}")
+        raise HTTPException(status_code=500, detail="Database lookup error.")
 
-        # ====================================================================
-        # 🎛️ DYNAMIC SEARCH ROUTER MATRIX
-        # ====================================================================
+    try:
         is_nested_subsearch = payload.query_history_count > 1
 
+        # ROUTE 1: HYBRID SEARCH (Semantic + Substring Filter) for nested sub-searches
         if is_nested_subsearch and allowed_grant_ids:
             print("🔍 Routing to HYBRID SEARCH (Semantic + Substring Filter)")
-            keyword_escaped = f"%{payload.query.strip()}%"
-            keyword_sql = """
-                SELECT rg.grant_id
-                FROM ResearchGrants rg
-                LEFT JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-                WHERE rg.grant_id in %s
-                AND (rg.project_title ILIKE %s OR s.two_sentence_summary ILIKE %s or rg.abstract ILIKE %s)
-            """
-            cur.execute(keyword_sql, (tuple(allowed_grant_ids), keyword_escaped, keyword_escaped, keyword_escaped))
-            keyword_matches = [row[0] for row in cur.fetchall()]
 
-            # ✅ FIX 2: If it's a sub-search, we MUST return a result from here.
-            # If keyword_matches has items, rank them. If it's empty, return an empty set immediately
-            # so we don't leak un-filtered category items into the client's strict viewport view.
-            if keyword_matches:
-                docs = load_grant_texts(cur, keyword_matches)
-                for d in docs:
-                    d["vector_similarity"] = 1.0
+            def run_hybrid_search():
 
-                scores = rerank_fn.remote(payload.query, [d["text"] for d in docs])
-                ranked = combine_and_sort_semantic_filter(docs, scores)
+                keyword_escaped = f"%{payload.query.strip()}%"
+                keyword_sql = """
+                    SELECT rg.grant_id
+                    FROM ResearchGrants rg
+                    LEFT JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
+                    WHERE rg.grant_id in %s
+                    AND (rg.project_title ILIKE %s OR s.two_sentence_summary ILIKE %s or rg.abstract ILIKE %s)
+                """
+                cur.execute(keyword_sql, (tuple(allowed_grant_ids), keyword_escaped, keyword_escaped, keyword_escaped))
+                keyword_matches = [row[0] for row in cur.fetchall()]
+
+                if keyword_matches:
+                    docs = load_grant_texts(cur, keyword_matches)
+                    for d in docs:
+                        d["vector_similarity"] = 1.0
+                    return docs
+                return []
+
+            docs = await anyio.to_thread.run(run_hybrid_search)
+
+            if docs:
+                docs_text = [d["text"] for d in docs]
+                # async remote call to the rerank function for scoring
+                scores = await rerank_fn.remote.aio(payload.query, docs_text)
+
+                def process_hybrid_ranking():
+                    ranked = combine_and_sort_semantic_filter(docs, scores)
+                    return format_output_grants(ranked)
+
+                formatted_grants = await anyio.to_thread.run(process_hybrid_ranking)
                 return {
                     "query": payload.query,
                     "category": payload.category,
                     "year": payload.year,
-                    "grants": format_output_grants(ranked)
+                    "grants": formatted_grants
                 }
             else:
                 print("ℹ️ Hybrid text search returned 0 matches within subset.")
@@ -856,9 +910,7 @@ def portfolio_grants_search(
                     "grants": []
                 }
 
-        # ====================================================================
-        # 🎯 FALLBACK / PRIMARY MODE: Run pure dense vector lookup (Search #1)
-        # ====================================================================
+        # ROUTE 2: FALLBACK / PURE SEMANTIC SEARCH for first-level queries or when no existing_ids are provided
         print("🎯 Routing to PURE SEMANTIC VECTOR SEARCH")
         
         # Guard against running a vector search over an completely empty ID filter block
@@ -870,20 +922,32 @@ def portfolio_grants_search(
                 "grants": []
             }
 
-        query_vec = embed_query(payload.query)
+        # Offload the vector embedding and retrieval to a thread-safe context to avoid blocking the event loop
+        query_vec = await anyio.to_thread.run_sync(embed_query, payload.query)
         query_vec_list = query_vec.tolist()
 
-        candidates = retrieve_candidates_range_portfolio(
-            cur,
-            query_vec_list = query_vec_list,
-            similarity_threshold = 0.25,
-            allowed_grant_ids = allowed_grant_ids,
-        )
+        def run_vector_pipeline():
+            candidates = retrieve_candidates_range_portfolio(
+                cur,
+                query_vec_list = query_vec_list,
+                similarity_threshold = 0.25,
+                allowed_grant_ids = allowed_grant_ids,
+            )
 
-        vector_sim_map = {gid: sim for gid, sim in candidates}
-        grant_ids = list(vector_sim_map.keys())
+            vector_sim_map = {gid: sim for gid, sim in candidates}
+            grant_ids = list(vector_sim_map.keys())
 
-        if not grant_ids:
+            if not grant_ids:
+                return [], {}
+            
+            docs = load_grant_texts(cur, grant_ids)
+            for d in docs:
+                d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
+            return docs, vector_sim_map
+
+        docs, vector_sim_map = await anyio.to_thread.run(run_vector_pipeline)
+
+        if not docs:
             return {
                 "query": payload.query,
                 "category": payload.category,
@@ -891,20 +955,21 @@ def portfolio_grants_search(
                 "grants": []
             }
 
-        docs = load_grant_texts(cur, grant_ids)
-
-        for d in docs:
-            d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
-
         doc_texts = [d["text"] for d in docs]
-        scores = rerank_fn.remote(payload.query, doc_texts)
-        ranked = combine_and_sort_semantic_filter(docs, scores)
+        # Async remote call to the rerank function for scoring
+        scores = await rerank_fn.remote.aio(payload.query, doc_texts)
+
+        def finalize_ranking():
+            ranked = combine_and_sort_semantic_filter(docs, scores)
+            return format_output_grants(ranked) 
+
+        formatted_grants = await anyio.to_thread.run(finalize_ranking)
 
         return {
             "query": payload.query,
             "category": payload.category,
             "year": payload.year,
-            "grants": format_output_grants(ranked)
+            "grants": formatted_grants
         }
 
     except Exception as e:
@@ -912,40 +977,40 @@ def portfolio_grants_search(
         raise HTTPException(status_code=500, detail=f"Search pipeline execution failed: {str(e)}")
 
     finally:
-        conn.close()
-
-def format_output_grants(ranked_docs):
-    """Helper layout to normalize object fields perfectly for JavaScript render tracks"""
-    for g in ranked_docs:
-        g["organization"] = g.get("org_name")
-        g["funding"] = g.get("amount")
-        first, middle, last = g.get("pi_first_name") or "", g.get("pi_middle_name") or "", g.get("pi_last_name") or ""
-        g["pi"] = " ".join(x for x in [first, middle, last] if x)
-    return ranked_docs
+        await anyio.to_thread.run(cur.close)
+        await anyio.to_thread.run(conn.close)
 
 
 @app.get("/api/grant/{grant_id}/abstract")
-def get_grant_abstract(grant_id: str):
+async def get_grant_abstract(grant_id: str):
+    """
+    API endpoint to retrieve the abstract for a specific grant by its ID.
+    """
+
+    def fetch_abstract:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute("""
+                SELECT abstract
+                FROM ResearchGrants
+                WHERE grant_id = %s
+            """, (grant_id,))
+
+            return cur.fetchone()
+        finally:
+            cur.close()
+            conn.close()
     
-    conn = get_db_connection()
-    cur = conn.cursor()
+    try: 
+        row = await anyio.to_thread.run(fetch_abstract)
+    except Exception as e:
+        print(f"❌ Error fetching abstract for grant {grant_id}: {e}")
+        raise HTTPException(status_code=500, detail="Database lookup error.")
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Grant not found.")
 
-    try:
-        cur.execute("""
-            SELECT abstract
-            FROM ResearchGrants
-            WHERE grant_id = %s
-        """, (grant_id,))
-
-        row = cur.fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Grant not found.")
-            
-        return {"abstract": row[0] if row[0] else "No abstract available for this record."}
-
-    finally:
-        cur.close()
-        conn.close()
-
-    )
+    return {"abstract": row[0] if row[0] else "No abstract available for this record."}
+    
