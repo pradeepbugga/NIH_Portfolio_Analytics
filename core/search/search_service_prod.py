@@ -83,6 +83,16 @@ async def semantic_search_range(
     
     print(f"Candidates reranked on remote GPU in {time.perf_counter() - t2:.4f}s")
 
+    # ⚠️ SAFETY ALIGNMENT: Match grant_ids exactly to what Modal actually scored
+    if len(grant_ids) != len(scores):
+        print(f"⚠️ Mismatch: {len(grant_ids)} grant_ids sent, but {len(scores)} scores returned")
+        return {
+            "query": query,
+            "model_version": "v1",
+            "projects": [],
+            "records": []
+        }
+
     # 4) Hydrate Document Metadata locally *ONLY FOR SUCCESSFUL MATCHES*
     print("Loading document metadata/titles for scored records...")
     t3 = time.perf_counter()
