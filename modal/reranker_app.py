@@ -25,8 +25,7 @@ volume = modal.Volume.from_name("reranker-models")
     gpu="A10G",
     image=image,
     volumes={
-        "/model":volume,
-        "/search_assets": assets_volume
+        "/model":volume
     },    
     timeout=300
 )
@@ -34,7 +33,7 @@ volume = modal.Volume.from_name("reranker-models")
 class Reranker:
     model_path: str = modal.parameter(default = "/model/v5")
 
-    parquet_path: str = modal.parameter(default = "/search_assets/grant_text_warehouse.parquet")
+    parquet_path: str = modal.parameter(default = "/model/search_assets/grant_text_warehouse.parquet")
 
     @modal.enter()
     def load_resources(self):
