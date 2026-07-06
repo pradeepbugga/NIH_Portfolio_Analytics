@@ -79,7 +79,7 @@ async def semantic_search_range(
     t2 = time.perf_counter()
     
     # Use updated async/batch setup
-    scores = await rerank_fn.rerank_batch.remote.aio(query, grant_ids)
+    scores = await rerank_fn.remote.aio(query, grant_ids)
     
     print(f"Candidates reranked on remote GPU in {time.perf_counter() - t2:.4f}s")
 
