@@ -88,3 +88,29 @@ class Reranker:
                 convert_to_numpy = True)
             
         return scores.tolist()
+
+    @modal.method()
+    def debug_inspect_keys(self, num_samples: int = 10):
+        """
+        Inspects the loaded keys in memory to check formatting and types.
+        """
+        keys = list(self.text_lookup.keys())
+        total_keys = len(keys)
+        
+        if total_keys == 0:
+            print("❌ The text_lookup dictionary is completely EMPTY.")
+            return {"total_keys": 0, "samples": []}
+            
+        import random
+        samples = random.sample(keys, min(num_samples, total_keys))
+        
+        print(f"📦 DEBUG INFO | Total Keys Loaded: {total_keys}")
+        print("👇 Sample keys loaded in memory (wrapped in brackets to expose whitespace):")
+        for k in samples:
+            print(f"   - [{k}] | Type: {type(k).__name__} | Length: {len(str(k))}")
+            
+        return {
+            "total_keys": total_keys, 
+            "samples": samples,
+            "first_few": keys[:5]
+        }
