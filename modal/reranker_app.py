@@ -41,21 +41,15 @@ class Reranker:
         print("Loading CrossEncoder model...")
         self.model = CrossEncoder(self.model_path, device="cuda")
             
-        print(f"Checking environment path: {self.parquet_path}")
-        print(f"File exists check: {os.path.exists(self.parquet_path)}")
+        print(f"Checking mount path: /search_assets")
+        try:
+            # 🟢 This will print EVERYTHING inside your mounted volume
+            print("📁 Items found inside /search_assets:", os.listdir("/search_assets"))
+        except Exception as e:
+            print(f"❌ Could not read directory: {e}")
         
-        # 🟢 REMOVE THE TRY/EXCEPT GRACEFUL SWALLOW. 
-        # Let it crash completely so you can see the real error trace!
+        # Keep the rest of your loading logic...
         df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
-        
-        # 🟢 Use a faster, native Polars dictionary generation pattern
-        print("Building lookups from Polars DataFrame...")
-        self.text_lookup = {
-            str(row["grant_id"]).strip().upper(): row["text"]
-            for row in df.iter_rows(named=True)
-        }
-        
-        print(f"🚀 SUCCESS: Loaded {len(self.text_lookup)} grant texts into memory.")
 
 
     @modal.method()
