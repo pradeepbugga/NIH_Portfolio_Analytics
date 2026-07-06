@@ -26,7 +26,8 @@ volume = modal.Volume.from_name("reranker-models")
     image=image,
     volumes={
         "/model":volume,
-        "/search_assets": assets_volume    
+        "/search_assets": assets_volume
+    },    
     timeout=300
 )
 
