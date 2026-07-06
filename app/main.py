@@ -987,7 +987,7 @@ async def get_grant_abstract(grant_id: str):
     API endpoint to retrieve the abstract for a specific grant by its ID.
     """
 
-    def fetch_abstract:
+    def fetch_abstract():
         conn = get_db_connection()
         cur = conn.cursor()
 
