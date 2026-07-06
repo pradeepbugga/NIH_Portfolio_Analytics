@@ -55,7 +55,7 @@ class Reranker:
             for row in df.iter_rows(named=True)
         }
         
-        print(f"🚀 SUCCESS: Loaded {len(self.text_lookup)} grant texts into memory."
+        print(f"🚀 SUCCESS: Loaded {len(self.text_lookup)} grant texts into memory.")
 
 
     @modal.method()
