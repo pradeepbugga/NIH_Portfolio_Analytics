@@ -132,44 +132,32 @@ class Reranker:
         return list(scores)
 
 @app.function()
-def distributed_rerank(query: str, all_grant_ids: list, chunk_size: int = 5000) -> list:
-    """
-    Orchestrator function: Splits IDs and scatters chunks across GPU workers.
-    """
+def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
-    if not all_grant_ids:
-        return []
+    print("🔥 ENTERED DISTRIBUTED RERANK")
+    print(len(all_grant_ids))
 
     chunks = [
-        all_grant_ids[i:i + chunk_size]
+        all_grant_ids[i:i+chunk_size]
         for i in range(0, len(all_grant_ids), chunk_size)
     ]
 
-    print(
-        f"📡 Horizontal Scaling: Scattering {len(chunks)} chunks across GPU workers..."
-    )
+    print(f"Launching {len(chunks)} workers")
 
-    reranker = Reranker()
-
-    jobs = []
-
-    for chunk in chunks:
-        job = reranker.rerank_batch.spawn(
+    jobs = [
+        Reranker().rerank_batch.spawn(
             query,
             chunk,
             512
         )
-        jobs.append(job)
+        for chunk in chunks
+    ]
 
-    all_scores = []
+    scores = []
 
-    for job in jobs:
-        chunk_scores = job.get()
-        all_scores.extend(chunk_scores)
+    for i, job in enumerate(jobs):
+        print(f"Waiting on worker {i}")
+        scores.extend(job.get())
+        print(f"Worker {i} finished")
 
-    print(
-        f"🤲 Gathered all scores. Total count: {len(all_scores)}"
-    )
-
-    return all_scores
-    
+    return scores    
