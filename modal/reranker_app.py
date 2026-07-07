@@ -31,7 +31,8 @@ volume = modal.Volume.from_name("reranker-models")
         "/model":volume
     },    
     timeout=300,
-    max_containers=10
+    max_containers=10,
+    buffer_containers=6
 )
 
 class Reranker:
@@ -73,26 +74,30 @@ class Reranker:
         except Exception as e:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
+        
+        # Start your GPU monitor thread
+        threading.Thread(
+            target=self._monitor_gpu,
+            daemon=True
+        ).start()
 
     @modal.method()
+    
     def warmup(self):
-        print("🔥 Running GPU warmup")
-
         dummy_text = next(iter(self.text_lookup.values()))
+
+        inputs = [
+            ("warmup query", dummy_text)
+            for _ in range(512)
+        ]
 
         with torch.no_grad(), torch.amp.autocast("cuda"):
             self.model.predict(
-                [
-                    (
-                        "warmup query",
-                        dummy_text
-                    )
-                ],
-                batch_size=1,
-                show_progress_bar=False
+                inputs,
+                batch_size=512,
+                max_length=256,
+                show_progress_bar=False,
             )
-
-        print("✅ GPU warmup complete")
 
         return True
 
@@ -121,11 +126,7 @@ class Reranker:
         if missing_count > 0:
             print(f"⚠️ Warning: {missing_count} / {len(grant_ids)} IDs were missing from the Parquet map and given fallbacks.")
 
-        # Start your GPU monitor thread
-        threading.Thread(
-            target=self._monitor_gpu,
-            daemon=True
-        ).start()
+       
 
         t0 = time.perf_counter()
 
@@ -181,23 +182,3 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
     return scores    
 
-@app.function(
-    image=image,
-    gpu="A10G",
-    timeout=300,
-)
-def distributed_warmup(num_workers=6):
-
-    print(f"🔥 Starting warmup for {num_workers} GPU workers")
-
-    jobs = []
-
-    for _ in range(num_workers):
-        job = Reranker().warmup.spawn()
-        jobs.append(job)
-
-    for i, job in enumerate(jobs):
-        job.get()
-        print(f"✅ Warm worker {i} ready")
-
-    return True
