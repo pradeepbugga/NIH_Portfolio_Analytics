@@ -22,7 +22,7 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
-from core.search.modal_reranker import distributed_rerank_fn, distributed_warmup_fn
+from core.search.modal_reranker import distributed_rerank_fn
 from core.search.combine import combine_and_sort_semantic_filter
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
@@ -256,33 +256,25 @@ async def search(request: Request,
         # CACHE MISS: Proceed with full semantic search pipeline
         # ================================================================
 
-        # A. SPECULATIVE PIPELINE TRIGGER: 
-        # Ping Modal GPU to start booting GPU concurrently while Postgres runs below
-        speculative_warmup = asyncio.create_task(
-            distributed_warmup_fn.remote.aio(num_workers=6)
-        )
 
-        # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
+        # A. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
         t_db_mid = time.perf_counter()
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
         # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
         results = await semantic_search_range(query, cur, rerank_fn=distributed_rerank_fn)
 
-        # safely await the speculative warmup to ensure the GPU is ready for reranking
-        await speculative_warmup
-
         t_db_end = time.perf_counter()
         print(f"✅ Semantic search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
 
 
-        # C. WRITE BACK TO CACHE: Save the results to Postgres for future queries
+        # B. WRITE BACK TO CACHE: Save the results to Postgres for future queries
         t_cache_start = time.perf_counter()
         await anyio.to_thread.run_sync(save_cached_results, cur, query, results)
         await anyio.to_thread.run_sync(conn.commit)
         print(f"✅ Results cached (Latency: {time.perf_counter() - t_cache_start:.4f}s)")
         
-        # D. POST-PROCESSING: Extract funding and ontology distributions, format results for frontend
+        # C. POST-PROCESSING: Extract funding and ontology distributions, format results for frontend
         t_format_start = time.perf_counter()
         years, funding = extract_funding(results)
         ontology_labels, ontology_values = extract_ontology_distribution(results)
@@ -290,7 +282,7 @@ async def search(request: Request,
         formatted_live_records = await anyio.to_thread.run_sync(format_output_grants, results["records"])
         print(f"✅ Results formatted for frontend (Latency: {time.perf_counter() - t_format_start:.4f}s)")
 
-        # E. LOCAL DEBUGGING: Save the formatted results to disk for inspection
+        # D. LOCAL DEBUGGING: Save the formatted results to disk for inspection
         t_disk_start = time.perf_counter()
 
         def save_live_json():
