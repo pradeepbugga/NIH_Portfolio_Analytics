@@ -22,7 +22,7 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
-from core.search.modal_reranker import rerank_fn
+from core.search.modal_reranker import distributed_rerank_fn, rerank_fn
 from core.search.combine import combine_and_sort_semantic_filter
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
@@ -267,7 +267,7 @@ async def search(request: Request,
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
         # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
-        results = await semantic_search_range(query, cur, rerank_fn=rerank_fn)
+        results = await semantic_search_range(query, cur, rerank_fn=distributed_rerank_fn)
 
         # safely await the speculative warmup to ensure the GPU is ready for reranking
         await speculative_warmup
