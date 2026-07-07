@@ -101,52 +101,76 @@ class Reranker:
         return True
 
     @modal.method()
-    def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
-        
-        if not grant_ids:
-            print("No grant ids to rerank, returning empty list...")
-            return []
+ def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
 
-        print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
+    t_total = time.perf_counter()
 
-        print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
-        print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
-          
-        # We keep this as a list to cleanly log missing counts and pass to the generator
-        docs = [
-            self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.") 
-            for gid in grant_ids
-        ]
+    if not grant_ids:
+        print("No grant ids to rerank, returning empty list...")
+        return []
 
-        # Quick diagnostic logging for missing files
-        missing_count = sum(1 for doc in docs if doc == "Missing abstract text data.")
-        if missing_count > 0:
-            print(f"⚠️ Warning: {missing_count} / {len(grant_ids)} IDs were missing from the Parquet map and given fallbacks.")
+    print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
 
-     
-        inputs = [(query, doc) for doc in docs]
+    #
+    # Stage 1: Lookup docs
+    #
+    t = time.perf_counter()
 
-        t0 = time.perf_counter()
+    docs = [
+        self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.")
+        for gid in grant_ids
+    ]
 
-        # Execute mixed-precision batch inference
-        with torch.no_grad(), torch.amp.autocast("cuda"):  
-            scores = self.model.predict(
-                inputs, 
-                batch_size=batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-                max_length=256  # 🟢 Limit token length to boost parallel chunk throughput
-            )
+    print(f"Lookup docs: {time.perf_counter() - t:.3f}s")
 
-        elapsed = time.perf_counter() - t0
+    missing_count = sum(doc == "Missing abstract text data." for doc in docs)
 
-        print(f"Elapsed: {elapsed:.2f} sec")
-        print(f"Pairs/sec: {len(inputs)/elapsed:.1f}")
-            
-        # 🟢 Safely handle converting output to a plain list
-        if hasattr(scores, "tolist"):
-            return scores.tolist()
-        return list(scores)
+    if missing_count:
+        print(f"⚠️ Missing: {missing_count}")
+
+    #
+    # Stage 2: Build input tuples
+    #
+    t = time.perf_counter()
+
+    inputs = [(query, doc) for doc in docs]
+
+    print(f"Build inputs: {time.perf_counter() - t:.3f}s")
+
+    #
+    # Stage 3: CrossEncoder inference
+    #
+    t = time.perf_counter()
+
+    with torch.no_grad(), torch.amp.autocast("cuda"):
+        scores = self.model.predict(
+            inputs,
+            batch_size=batch_size,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            max_length=256,
+        )
+
+    predict_time = time.perf_counter() - t
+
+    print(f"Predict: {predict_time:.3f}s")
+    print(f"Pairs/sec: {len(inputs)/predict_time:.1f}")
+
+    #
+    # Stage 4: Convert output
+    #
+    t = time.perf_counter()
+
+    if hasattr(scores, "tolist"):
+        scores = scores.tolist()
+    else:
+        scores = list(scores)
+
+    print(f"Convert output: {time.perf_counter() - t:.3f}s")
+
+    print(f"Total rerank_batch(): {time.perf_counter() - t_total:.3f}s")
+
+    return scores
 
 @app.function(
     image=image
@@ -156,6 +180,7 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
     print("🔥 ENTERED DISTRIBUTED RERANK")
     print(len(all_grant_ids))
 
+    t0 = time.perf_counter()
     chunks = [
         all_grant_ids[i:i+chunk_size]
         for i in range(0, len(all_grant_ids), chunk_size)
@@ -163,9 +188,13 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
     print(f"Launching {len(chunks)} workers")
 
+    t1 = time.perf_counter()
+    print(f"Chunking time: {t1 - t0:.2f} sec")
+
     reranker = Reranker()
 
     queries = [query] * len(chunks)
+
 
     results = reranker.rerank_batch.map(
         queries,
@@ -173,10 +202,17 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
         [512] * len(chunks)
     )
 
+    t2 = time.perf_counter()
+    print(f"Reranking time: {t2 - t1:.2f} sec")
+
     scores = []
 
     for chunk_scores in results:
         scores.extend(chunk_scores)
+
+    t3 = time.perf_counter()
+    print(f"Total time: {t3 - t0:.2f} sec")
+    
 
     return scores    
 
