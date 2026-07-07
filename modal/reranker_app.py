@@ -80,8 +80,7 @@ class Reranker:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
 
-    @modal.method()
-    
+    @modal.method()    
     def warmup(self):
         dummy_text = next(iter(self.text_lookup.values()))
 
@@ -103,72 +102,136 @@ class Reranker:
     @modal.method()
     def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
 
-        t_total = time.perf_counter()
+        request_start = time.perf_counter()
 
         if not grant_ids:
             print("No grant ids to rerank, returning empty list...")
             return []
 
-        print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
+        print(f"\n📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
+        print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
 
-        #
-        # Stage 1: Lookup docs
-        #
-        t = time.perf_counter()
+        received_time = time.perf_counter()
+        print(
+            f"⏱️ Receive/logging time: "
+            f"{received_time - request_start:.4f}s"
+        )
+
+
+        # -----------------------------
+        # Text lookup
+        # -----------------------------
+        lookup_start = time.perf_counter()
 
         docs = [
-            self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.")
+            self.text_lookup.get(
+                str(gid).strip().upper(),
+                "Missing abstract text data."
+            )
             for gid in grant_ids
         ]
 
-        print(f"Lookup docs: {time.perf_counter() - t:.3f}s")
+        missing_count = sum(
+            1 for doc in docs
+            if doc == "Missing abstract text data."
+        )
 
-        missing_count = sum(doc == "Missing abstract text data." for doc in docs)
+        lookup_end = time.perf_counter()
 
-        if missing_count:
-            print(f"⚠️ Missing: {missing_count}")
+        print(
+            f"📚 Text lookup time: "
+            f"{lookup_end - lookup_start:.4f}s"
+        )
 
-        #
-        # Stage 2: Build input tuples
-        #
-        t = time.perf_counter()
+        if missing_count > 0:
+            print(
+                f"⚠️ Missing {missing_count}/{len(grant_ids)} IDs"
+            )
 
-        inputs = [(query, doc) for doc in docs]
 
-        print(f"Build inputs: {time.perf_counter() - t:.3f}s")
+        # -----------------------------
+        # Input construction
+        # -----------------------------
+        input_start = time.perf_counter()
 
-        #
-        # Stage 3: CrossEncoder inference
-        #
-        t = time.perf_counter()
+        inputs = [
+            (query, doc)
+            for doc in docs
+        ]
+
+        input_end = time.perf_counter()
+
+        print(
+            f"🔨 Input construction time: "
+            f"{input_end - input_start:.4f}s"
+        )
+
+
+        # -----------------------------
+        # GPU inference
+        # -----------------------------
+        inference_start = time.perf_counter()
 
         with torch.no_grad(), torch.amp.autocast("cuda"):
+
             scores = self.model.predict(
                 inputs,
                 batch_size=batch_size,
                 show_progress_bar=False,
                 convert_to_numpy=True,
-                max_length=256,
+                max_length=256
             )
 
-        predict_time = time.perf_counter() - t
+        inference_end = time.perf_counter()
 
-        print(f"Predict: {predict_time:.3f}s")
-        print(f"Pairs/sec: {len(inputs)/predict_time:.1f}")
+        inference_time = inference_end - inference_start
 
-        #
-        # Stage 4: Convert output
-        #
-        t = time.perf_counter()
+        print(
+            f"🚀 Model inference time: "
+            f"{inference_time:.4f}s"
+        )
+
+        print(
+            f"⚡ Throughput: "
+            f"{len(inputs)/inference_time:.1f} pairs/sec"
+        )
+
+
+        # -----------------------------
+        # Output conversion
+        # -----------------------------
+        convert_start = time.perf_counter()
 
         if hasattr(scores, "tolist"):
             scores = scores.tolist()
         else:
             scores = list(scores)
 
-        print(f"Convert output: {time.perf_counter() - t:.3f}s")
+        convert_end = time.perf_counter()
 
-        print(f"Total rerank_batch(): {time.perf_counter() - t_total:.3f}s")
+        print(
+            f"📤 Score conversion time: "
+            f"{convert_end - convert_start:.4f}s"
+        )
+
+
+        # -----------------------------
+        # Total
+        # -----------------------------
+        total_time = time.perf_counter() - request_start
+
+        print(
+            f"🏁 TOTAL rerank_batch time: "
+            f"{total_time:.4f}s"
+        )
+
+        print(
+            f"📊 Breakdown: "
+            f"lookup={lookup_end-lookup_start:.3f}s | "
+            f"build={input_end-input_start:.3f}s | "
+            f"inference={inference_time:.3f}s | "
+            f"convert={convert_end-convert_start:.3f}s"
+        )
 
         return scores
 
@@ -180,21 +243,33 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
     print("🔥 ENTERED DISTRIBUTED RERANK")
     print(len(all_grant_ids))
 
+    total_start = time.perf_counter()
+
+    # ------------------------
+    # Chunking
+    # ------------------------
     t0 = time.perf_counter()
+
     chunks = [
         all_grant_ids[i:i+chunk_size]
         for i in range(0, len(all_grant_ids), chunk_size)
     ]
 
-    print(f"Launching {len(chunks)} workers")
+    chunk_time = time.perf_counter() - t0
 
-    t1 = time.perf_counter()
-    print(f"Chunking time: {t1 - t0:.2f} sec")
+    print(f"Launching {len(chunks)} workers")
+    print(f"Chunking time: {chunk_time:.3f} sec")
+
 
     reranker = Reranker()
 
     queries = [query] * len(chunks)
 
+
+    # ------------------------
+    # GPU execution
+    # ------------------------
+    rerank_start = time.perf_counter()
 
     results = reranker.rerank_batch.map(
         queries,
@@ -202,17 +277,33 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
         [512] * len(chunks)
     )
 
-    t2 = time.perf_counter()
-    print(f"Reranking time: {t2 - t1:.2f} sec")
 
     scores = []
 
+    first_result_time = None
+
     for chunk_scores in results:
+
+        if first_result_time is None:
+            first_result_time = time.perf_counter()
+            print(
+                f"First worker completed after "
+                f"{first_result_time-rerank_start:.3f} sec"
+            )
+
         scores.extend(chunk_scores)
 
-    t3 = time.perf_counter()
-    print(f"Total time: {t3 - t0:.2f} sec")
-    
 
-    return scores    
+    rerank_time = time.perf_counter() - rerank_start
 
+    print(f"Reranking time: {rerank_time:.3f} sec")
+
+
+    # ------------------------
+    # Total
+    # ------------------------
+    total_time = time.perf_counter() - total_start
+
+    print(f"Total distributed_rerank time: {total_time:.3f} sec")
+
+    return scores
