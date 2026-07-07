@@ -4,6 +4,9 @@
 from sentence_transformers import CrossEncoder
 import torch 
 import modal
+import threading
+import subprocess
+import time
 
 app = modal.App("nih-reranker")
 
@@ -35,12 +38,30 @@ class Reranker:
 
     parquet_path: str = modal.parameter(default = "/model/search_assets/grant_text_warehouse.parquet")
 
+    def _monitor_gpu(self):
+        while True:
+            try:
+                out = subprocess.check_output(
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=utilization.gpu,memory.used,memory.total",
+                        "--format=csv,noheader"
+                    ],
+                    text=True,
+                )
+                print(f"GPU: {out.strip()}")
+            except Exception:
+                break
+
+            time.sleep(1)
+
+
     @modal.enter()
     def load_resources(self):
         import polars as pl
 
         print("Loading CrossEncoder model...")
-        self.model = CrossEncoder(self.model_path, device="cuda")
+        self.model = CrossEncoder(self.model_path, device="cuda", model_kwargs={"torch_dtype": torch.float16})
             
         print(f"Loading Parquet text warehouse from: {self.parquet_path}")
         try:
@@ -51,6 +72,8 @@ class Reranker:
         except Exception as e:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
+
+
 
 
     @modal.method()
@@ -89,12 +112,24 @@ class Reranker:
 
         inputs = [(query, doc) for doc in docs_list]    
 
+        threading.Thread(
+            target=self._monitor_gpu,
+            daemon=True
+        ).start()
+
+        t0 = time.perf_counter()
+
         with torch.no_grad(), torch.amp.autocast("cuda"):  
             scores = self.model.predict(
                 inputs, 
                 batch_size = batch_size,
                 show_progress_bar = False,
                 convert_to_numpy = True)
+
+        elapsed = time.perf_counter() - t0
+
+        print(f"Elapsed: {elapsed:.2f} sec")
+        print(f"Pairs/sec: {len(inputs)/elapsed:.1f}")
             
         return scores.tolist()
 
