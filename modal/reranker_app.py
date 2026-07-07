@@ -152,7 +152,7 @@ def distributed_rerank(query: str, all_grant_ids: list, chunk_size: int = 1000) 
     # syntax: function.map(arg1_list, arg2_list) loops through them in parallel pairs
     queries = [query] * len(chunks)
     
-    results_generator = reranker.score_chunk.map(queries, chunks)
+    results_generator = reranker.rerank_batch.map(queries, chunks)
     
     # 4. Gather and flatten the resulting list of lists back into a single flat array of scores
     all_scores = []
