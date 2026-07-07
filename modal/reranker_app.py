@@ -132,34 +132,44 @@ class Reranker:
         return list(scores)
 
 @app.function()
-def distributed_rerank(query: str, all_grant_ids: list, chunk_size: int = 1000) -> list:
+def distributed_rerank(query: str, all_grant_ids: list, chunk_size: int = 5000) -> list:
     """
-    Orchestrator function: Splits the payload and scatters it across parallel workers.
+    Orchestrator function: Splits IDs and scatters chunks across GPU workers.
     """
+
     if not all_grant_ids:
         return []
 
-    # 1. Chunk the massive list of IDs (e.g., 30,000 IDs -> thirty lists of 1,000)
-    chunks = [all_grant_ids[i:i + chunk_size] for i in range(0, len(all_grant_ids), chunk_size)]
-    
-    print(f"📡 Horizontal Scaling: Scattering {len(chunks)} chunks across parallel GPU workers...")
-    
-    # 2. Initialize our Class interface
-    reranker = Reranker()
-    
-    # 3. Use .map() to feed chunks into different containers concurrently.
-    # We use a list comprehension or generator to pass the arguments.
-    # syntax: function.map(arg1_list, arg2_list) loops through them in parallel pairs
-    queries = [query] * len(chunks)
-    
-    results_generator = reranker.rerank_batch.map(queries, chunks)
-    
-    # 4. Gather and flatten the resulting list of lists back into a single flat array of scores
-    all_scores = []
-    for chunk_scores in results_generator:
-        all_scores.extend(chunk_scores)
-        
-    print(f"🤲 Gathered all scores. Total count: {len(all_scores)}")
-    return all_scores
+    chunks = [
+        all_grant_ids[i:i + chunk_size]
+        for i in range(0, len(all_grant_ids), chunk_size)
+    ]
 
+    print(
+        f"📡 Horizontal Scaling: Scattering {len(chunks)} chunks across GPU workers..."
+    )
+
+    reranker = Reranker()
+
+    jobs = []
+
+    for chunk in chunks:
+        job = reranker.rerank_batch.spawn(
+            query,
+            chunk,
+            512
+        )
+        jobs.append(job)
+
+    all_scores = []
+
+    for job in jobs:
+        chunk_scores = job.get()
+        all_scores.extend(chunk_scores)
+
+    print(
+        f"🤲 Gathered all scores. Total count: {len(all_scores)}"
+    )
+
+    return all_scores
     
