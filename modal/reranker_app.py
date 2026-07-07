@@ -77,7 +77,7 @@ class Reranker:
 
 
     @modal.method()
-    def rerank_batch(self, query: str, grant_ids: list, batch_size=128):
+    def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
         # intercept speculative ping immediately 
         if query == "[WARM_UP_PING]":
             print("Received warm-up ping, waking up container...")
