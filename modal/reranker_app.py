@@ -31,8 +31,7 @@ volume = modal.Volume.from_name("reranker-models")
         "/model":volume
     },    
     timeout=300,
-    max_containers=10,
-    min_containers=6
+    max_containers=10
 )
 
 class Reranker:
