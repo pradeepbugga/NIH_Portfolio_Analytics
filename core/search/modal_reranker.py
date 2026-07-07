@@ -6,10 +6,6 @@ rerank_fn = modal.Function.from_name(
     "Reranker.rerank_batch"
 )
 
-distributed_warmup_fn = modal.Function.from_name(
-    "nih-reranker",
-    "distributed_warmup"
-)
 
 distributed_rerank_fn = modal.Function.from_name(
     "nih-reranker",
