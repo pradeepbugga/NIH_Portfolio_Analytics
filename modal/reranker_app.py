@@ -31,7 +31,8 @@ volume = modal.Volume.from_name("reranker-models")
         "/model":volume
     },    
     timeout=300,
-    max_containers=10
+    max_containers=10,
+    min_containers=6
 )
 
 class Reranker:
@@ -164,21 +165,20 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
     print(f"Launching {len(chunks)} workers")
 
-    jobs = [
-        Reranker().rerank_batch.spawn(
-            query,
-            chunk,
-            512
-        )
-        for chunk in chunks
-    ]
+    reranker = Reranker()
+
+    queries = [query] * len(chunks)
+
+    results = reranker.rerank_batch.map(
+        queries,
+        chunks,
+        [512] * len(chunks)
+    )
 
     scores = []
 
-    for i, job in enumerate(jobs):
-        print(f"Waiting on worker {i}")
-        scores.extend(job.get())
-        print(f"Worker {i} finished")
+    for chunk_scores in results:
+        scores.extend(chunk_scores)
 
     return scores    
 
