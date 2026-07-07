@@ -101,76 +101,76 @@ class Reranker:
         return True
 
     @modal.method()
- def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
+    def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
 
-    t_total = time.perf_counter()
+        t_total = time.perf_counter()
 
-    if not grant_ids:
-        print("No grant ids to rerank, returning empty list...")
-        return []
+        if not grant_ids:
+            print("No grant ids to rerank, returning empty list...")
+            return []
 
-    print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
+        print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
 
-    #
-    # Stage 1: Lookup docs
-    #
-    t = time.perf_counter()
+        #
+        # Stage 1: Lookup docs
+        #
+        t = time.perf_counter()
 
-    docs = [
-        self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.")
-        for gid in grant_ids
-    ]
+        docs = [
+            self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.")
+            for gid in grant_ids
+        ]
 
-    print(f"Lookup docs: {time.perf_counter() - t:.3f}s")
+        print(f"Lookup docs: {time.perf_counter() - t:.3f}s")
 
-    missing_count = sum(doc == "Missing abstract text data." for doc in docs)
+        missing_count = sum(doc == "Missing abstract text data." for doc in docs)
 
-    if missing_count:
-        print(f"⚠️ Missing: {missing_count}")
+        if missing_count:
+            print(f"⚠️ Missing: {missing_count}")
 
-    #
-    # Stage 2: Build input tuples
-    #
-    t = time.perf_counter()
+        #
+        # Stage 2: Build input tuples
+        #
+        t = time.perf_counter()
 
-    inputs = [(query, doc) for doc in docs]
+        inputs = [(query, doc) for doc in docs]
 
-    print(f"Build inputs: {time.perf_counter() - t:.3f}s")
+        print(f"Build inputs: {time.perf_counter() - t:.3f}s")
 
-    #
-    # Stage 3: CrossEncoder inference
-    #
-    t = time.perf_counter()
+        #
+        # Stage 3: CrossEncoder inference
+        #
+        t = time.perf_counter()
 
-    with torch.no_grad(), torch.amp.autocast("cuda"):
-        scores = self.model.predict(
-            inputs,
-            batch_size=batch_size,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            max_length=256,
-        )
+        with torch.no_grad(), torch.amp.autocast("cuda"):
+            scores = self.model.predict(
+                inputs,
+                batch_size=batch_size,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                max_length=256,
+            )
 
-    predict_time = time.perf_counter() - t
+        predict_time = time.perf_counter() - t
 
-    print(f"Predict: {predict_time:.3f}s")
-    print(f"Pairs/sec: {len(inputs)/predict_time:.1f}")
+        print(f"Predict: {predict_time:.3f}s")
+        print(f"Pairs/sec: {len(inputs)/predict_time:.1f}")
 
-    #
-    # Stage 4: Convert output
-    #
-    t = time.perf_counter()
+        #
+        # Stage 4: Convert output
+        #
+        t = time.perf_counter()
 
-    if hasattr(scores, "tolist"):
-        scores = scores.tolist()
-    else:
-        scores = list(scores)
+        if hasattr(scores, "tolist"):
+            scores = scores.tolist()
+        else:
+            scores = list(scores)
 
-    print(f"Convert output: {time.perf_counter() - t:.3f}s")
+        print(f"Convert output: {time.perf_counter() - t:.3f}s")
 
-    print(f"Total rerank_batch(): {time.perf_counter() - t_total:.3f}s")
+        print(f"Total rerank_batch(): {time.perf_counter() - t_total:.3f}s")
 
-    return scores
+        return scores
 
 @app.function(
     image=image
