@@ -60,21 +60,25 @@ class Reranker:
 
     @modal.enter()
     def load_resources(self):
+        import os
         import polars as pl
-
-        print("Loading CrossEncoder model...")
-        self.model = CrossEncoder(self.model_path, device="cuda", model_kwargs={"torch_dtype": torch.float16})
+        
+        # 🟢 Track container identity
+        self.container_id = os.environ.get("MODAL_TASK_ID", "local")
+        print(f"🔥 CLOUD CONTAINER INITIALIZING: {self.container_id}")
+        
+        print("Loading CrossEncoder model directly into warm VRAM...")
+        self.model = CrossEncoder(self.model_path, device="cuda")
+        self.model.model.half()
             
-        print(f"Loading Parquet text warehouse from: {self.parquet_path}")
+        print(f"[{self.container_id}] Pre-loading text warehouse...")
         try:
             df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
             self.text_lookup = dict(zip(df["grant_id"], df["text"]))
-            print(f"Loaded {len(self.text_lookup)} grant texts into memory.")
-
+            print(f"[{self.container_id}] Container ready. Loaded {len(self.text_lookup)} keys.")
         except Exception as e:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
-        
 
     @modal.method()
     
@@ -102,6 +106,8 @@ class Reranker:
         if not grant_ids:
             print("No grant ids to rerank, returning empty list...")
             return []
+
+        print(f"📦 [{self.container_id}] RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
 
         print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
         print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
