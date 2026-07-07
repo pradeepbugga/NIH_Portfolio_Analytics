@@ -32,13 +32,13 @@ volume = modal.Volume.from_name("reranker-models")
     },    
     timeout=300,
     max_containers=10,
-    buffer_containers=6
+    min_containers=6
 )
 
 class Reranker:
-    model_path: str = modal.parameter(default = "/model/v5")
+    model_path = "/model/v5"
 
-    parquet_path: str = modal.parameter(default = "/model/search_assets/grant_text_warehouse.parquet")
+    parquet_path = "/model/search_assets/grant_text_warehouse.parquet"
 
     def _monitor_gpu(self):
         while True:
@@ -75,11 +75,6 @@ class Reranker:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
         
-        # Start your GPU monitor thread
-        threading.Thread(
-            target=self._monitor_gpu,
-            daemon=True
-        ).start()
 
     @modal.method()
     
@@ -110,26 +105,23 @@ class Reranker:
 
         print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
         print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
-            
-       # 🟢 Construct pairs while enforcing absolute alignment with the input order
-        inputs = []
-        missing_count = 0
-        
-        for gid in grant_ids:
-            clean_id = str(gid).strip().upper()
-            if clean_id in self.text_lookup:
-                inputs.append((query, self.text_lookup[clean_id]))
-            else:
-                inputs.append((query, "Missing abstract text data."))  # Fallback keeps array indices aligned
-                missing_count += 1
+          # 1. Map IDs to strings quickly using a comprehension list
+        # We keep this as a list to cleanly log missing counts and pass to the generator
+        docs = [
+            self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.") 
+            for gid in grant_ids
+        ]
 
+        # Quick diagnostic logging for missing files
+        missing_count = sum(1 for doc in docs if doc == "Missing abstract text data.")
         if missing_count > 0:
             print(f"⚠️ Warning: {missing_count} / {len(grant_ids)} IDs were missing from the Parquet map and given fallbacks.")
 
-       
+        # 2. 🟢 STREAM DATA VIA GENERATOR: Prevents heavy list-of-tuple memory allocations
+        inputs = ((query, doc) for doc in docs)
 
         t0 = time.perf_counter()
-
+        
         # Execute mixed-precision batch inference
         with torch.no_grad(), torch.amp.autocast("cuda"):  
             scores = self.model.predict(
