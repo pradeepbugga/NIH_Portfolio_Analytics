@@ -22,7 +22,7 @@ from core.db.connection import get_db_connection
 from core.search.search_service_prod import semantic_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
-from core.search.modal_reranker import distributed_rerank_fn, rerank_fn
+from core.search.modal_reranker import distributed_rerank_fn, distributed_warmup_fn
 from core.search.combine import combine_and_sort_semantic_filter
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
@@ -259,7 +259,7 @@ async def search(request: Request,
         # A. SPECULATIVE PIPELINE TRIGGER: 
         # Ping Modal GPU to start booting GPU concurrently while Postgres runs below
         speculative_warmup = asyncio.create_task(
-            distributed_rerank_fn.remote.aio(query="[WARM_UP_PING]", all_grant_ids=[], chunk_size=1)
+            distributed_warmup_fn.remote.aio(num_workers=6)
         )
 
         # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL

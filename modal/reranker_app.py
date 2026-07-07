@@ -75,11 +75,29 @@ class Reranker:
             self.text_lookup = {}
 
     @modal.method()
+    def warmup(self):
+        print("🔥 Running GPU warmup")
+
+        dummy_text = next(iter(self.text_lookup.values()))
+
+        with torch.no_grad(), torch.amp.autocast("cuda"):
+            self.model.predict(
+                [
+                    (
+                        "warmup query",
+                        dummy_text
+                    )
+                ],
+                batch_size=1,
+                show_progress_bar=False
+            )
+
+        print("✅ GPU warmup complete")
+
+        return True
+
+    @modal.method()
     def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
-        # intercept speculative ping immediately 
-        if query == "[WARM_UP_PING]":
-            print("Received warm-up ping, waking up container...")
-            return []  # return an empty list for warm-up pings
         
         if not grant_ids:
             print("No grant ids to rerank, returning empty list...")
@@ -163,3 +181,24 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
         print(f"Worker {i} finished")
 
     return scores    
+
+@app.function(
+    image=image,
+    gpu="A10G",
+    timeout=300,
+)
+def distributed_warmup(num_workers=6):
+
+    print(f"🔥 Starting warmup for {num_workers} GPU workers")
+
+    jobs = []
+
+    for _ in range(num_workers):
+        job = Reranker().warmup.spawn()
+        jobs.append(job)
+
+    for i, job in enumerate(jobs):
+        job.get()
+        print(f"✅ Warm worker {i} ready")
+
+    return True
