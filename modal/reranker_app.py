@@ -131,7 +131,9 @@ class Reranker:
             return scores.tolist()
         return list(scores)
 
-@app.function()
+@app.function(
+    image=image
+)
 def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
     print("🔥 ENTERED DISTRIBUTED RERANK")
