@@ -30,7 +30,8 @@ volume = modal.Volume.from_name("reranker-models")
     volumes={
         "/model":volume
     },    
-    timeout=300
+    timeout=300,
+    concurrency_limit=10
 )
 
 class Reranker:
@@ -73,9 +74,6 @@ class Reranker:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
 
-
-
-
     @modal.method()
     def rerank_batch(self, query: str, grant_ids: list, batch_size=512):
         # intercept speculative ping immediately 
@@ -90,28 +88,22 @@ class Reranker:
         print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
         print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
             
-        # 🟢 ADD THIS TEMPORARY DEBUG LOOP HERE:
-        parquet_keys = list(self.text_lookup.keys())
-        print(f"💾 Total keys in memory lookup: {len(parquet_keys)}")
-        if parquet_keys:
-            # Wrapped in brackets to reveal any invisible spaces or formatting mismatches
-            print(f"💾 Sample Parquet keys in memory: {[f'[{k}]' for k in parquet_keys[:5]]}")
-            print(f"👉 Sample incoming keys formatted: {[f'[{str(gid).strip().upper()}]' for gid in grant_ids[:5]]}")
-            
-        # Print sample keys actually loaded in your Parquet dictionary
-        existing_keys = list(self.text_lookup.keys())
-        if existing_keys:
-            print(f"💾 Sample Parquet keys: {existing_keys[:5]}")
+       # 🟢 Construct pairs while enforcing absolute alignment with the input order
+        inputs = []
+        missing_count = 0
+        
+        for gid in grant_ids:
+            clean_id = str(gid).strip().upper()
+            if clean_id in self.text_lookup:
+                inputs.append((query, self.text_lookup[clean_id]))
+            else:
+                inputs.append((query, "Missing abstract text data."))  # Fallback keeps array indices aligned
+                missing_count += 1
 
-        # hydrate grant ids from the lookup dictionary locally
-        docs_list = [self.text_lookup[gid] for gid in grant_ids if gid in self.text_lookup]
+        if missing_count > 0:
+            print(f"⚠️ Warning: {missing_count} / {len(grant_ids)} IDs were missing from the Parquet map and given fallbacks.")
 
-        if not docs_list:
-            print("⚠️ Match failure: None of the provided grant_ids exist in local Parquet map.")
-            return []
-
-        inputs = [(query, doc) for doc in docs_list]    
-
+        # Start your GPU monitor thread
         threading.Thread(
             target=self._monitor_gpu,
             daemon=True
@@ -119,18 +111,55 @@ class Reranker:
 
         t0 = time.perf_counter()
 
+        # Execute mixed-precision batch inference
         with torch.no_grad(), torch.amp.autocast("cuda"):  
             scores = self.model.predict(
                 inputs, 
-                batch_size = batch_size,
-                show_progress_bar = False,
-                convert_to_numpy = True)
+                batch_size=batch_size,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                max_length=256  # 🟢 Limit token length to boost parallel chunk throughput
+            )
 
         elapsed = time.perf_counter() - t0
 
         print(f"Elapsed: {elapsed:.2f} sec")
         print(f"Pairs/sec: {len(inputs)/elapsed:.1f}")
             
-        return scores.tolist()
+        # 🟢 Safely handle converting output to a plain list
+        if hasattr(scores, "tolist"):
+            return scores.tolist()
+        return list(scores)
+
+@app.function()
+def distributed_rerank(query: str, all_grant_ids: list, chunk_size: int = 1000) -> list:
+    """
+    Orchestrator function: Splits the payload and scatters it across parallel workers.
+    """
+    if not all_grant_ids:
+        return []
+
+    # 1. Chunk the massive list of IDs (e.g., 30,000 IDs -> thirty lists of 1,000)
+    chunks = [all_grant_ids[i:i + chunk_size] for i in range(0, len(all_grant_ids), chunk_size)]
+    
+    print(f"📡 Horizontal Scaling: Scattering {len(chunks)} chunks across parallel GPU workers...")
+    
+    # 2. Initialize our Class interface
+    reranker = Reranker()
+    
+    # 3. Use .map() to feed chunks into different containers concurrently.
+    # We use a list comprehension or generator to pass the arguments.
+    # syntax: function.map(arg1_list, arg2_list) loops through them in parallel pairs
+    queries = [query] * len(chunks)
+    
+    results_generator = reranker.score_chunk.map(queries, chunks)
+    
+    # 4. Gather and flatten the resulting list of lists back into a single flat array of scores
+    all_scores = []
+    for chunk_scores in results_generator:
+        all_scores.extend(chunk_scores)
+        
+    print(f"🤲 Gathered all scores. Total count: {len(all_scores)}")
+    return all_scores
 
     
