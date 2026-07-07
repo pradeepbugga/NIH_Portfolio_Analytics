@@ -259,7 +259,7 @@ async def search(request: Request,
         # A. SPECULATIVE PIPELINE TRIGGER: 
         # Ping Modal GPU to start booting GPU concurrently while Postgres runs below
         speculative_warmup = asyncio.create_task(
-            rerank_fn.remote.aio(query="[WARM_UP_PING]", grant_ids = [])
+            distributed_rerank_fn.remote.aio(query="[WARM_UP_PING]", all_grant_ids=[], chunk_size=1)
         )
 
         # B. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
