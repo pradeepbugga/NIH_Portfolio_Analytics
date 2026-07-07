@@ -105,7 +105,7 @@ class Reranker:
 
         print(f"📦 RECEIVED {len(grant_ids)} IDs FROM FASTAPI")
         print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
-          # 1. Map IDs to strings quickly using a comprehension list
+          
         # We keep this as a list to cleanly log missing counts and pass to the generator
         docs = [
             self.text_lookup.get(str(gid).strip().upper(), "Missing abstract text data.") 
@@ -117,11 +117,11 @@ class Reranker:
         if missing_count > 0:
             print(f"⚠️ Warning: {missing_count} / {len(grant_ids)} IDs were missing from the Parquet map and given fallbacks.")
 
-        # 2. 🟢 STREAM DATA VIA GENERATOR: Prevents heavy list-of-tuple memory allocations
-        inputs = ((query, doc) for doc in docs)
+     
+        inputs = [(query, doc) for doc in docs]
 
         t0 = time.perf_counter()
-        
+
         # Execute mixed-precision batch inference
         with torch.no_grad(), torch.amp.autocast("cuda"):  
             scores = self.model.predict(
