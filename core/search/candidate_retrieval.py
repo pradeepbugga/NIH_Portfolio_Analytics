@@ -56,7 +56,7 @@ def retrieve_candidates_range(
         return semantic_results
 
     # --- 2. KEYWORD TRACK (HYBRID ONLY) ---
-    synonyms = synonyms or []
+    synonym_list = synonyms or []
 
     cur.execute(
         """
