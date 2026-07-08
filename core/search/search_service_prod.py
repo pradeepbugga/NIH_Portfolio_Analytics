@@ -6,7 +6,7 @@ from core.search.load_docs import load_grant_texts
 from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
 
-async def semantic_search_range(
+async def hybrid_search_range(
     query: str,
     cur,rerank_fn,
     similarity_threshold: float = 0.25,

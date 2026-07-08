@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 from core.db.connection import get_db_connection
-from core.search.search_service_prod import semantic_search_range
+from core.search.search_service_prod import hybrid_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
 from core.search.modal_reranker import distributed_rerank_fn
@@ -253,7 +253,7 @@ async def search(request: Request,
             )
 
         # ================================================================
-        # CACHE MISS: Proceed with full semantic search pipeline
+        # CACHE MISS: Proceed with full hybrid search pipeline
         # ================================================================
 
 
@@ -262,10 +262,10 @@ async def search(request: Request,
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
         # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
-        results = await semantic_search_range(query, cur, rerank_fn=distributed_rerank_fn)
+        results = await hybrid_search_range(query, cur, rerank_fn=distributed_rerank_fn)
 
         t_db_end = time.perf_counter()
-        print(f"✅ Semantic search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
+        print(f"✅ Hybrid search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
 
 
         # B. WRITE BACK TO CACHE: Save the results to Postgres for future queries
