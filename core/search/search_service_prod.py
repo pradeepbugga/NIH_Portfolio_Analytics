@@ -59,8 +59,8 @@ async def hybrid_search_range(
         cur, 
         query_vec_list, 
         similarity_threshold,
-        query_text=query,
-        search_mode=search_mode
+        query,
+        search_mode
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
