@@ -6,6 +6,7 @@ from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
 from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
+from core.utils.query_expansion import expand_query_for_fts
 
 async def hybrid_search_range(
     query: str,
