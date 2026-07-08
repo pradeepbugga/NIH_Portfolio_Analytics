@@ -10,7 +10,7 @@ from core.search.postprocess import dedupe_by_core_project
 async def hybrid_search_range(
     query: str,
     cur,rerank_fn,
-    similarity_threshold: float = 0.25,
+    similarity_threshold: float = 0.20,
     search_mode: str = "hybrid",
     synonym_registry: dict = None
     
