@@ -9,7 +9,8 @@ from core.search.postprocess import dedupe_by_core_project
 async def semantic_search_range(
     query: str,
     cur,rerank_fn,
-    similarity_threshold: float = 0.25
+    similarity_threshold: float = 0.25,
+    search_mode: str = "hybrid"
     
     ):
     """
@@ -29,6 +30,9 @@ async def semantic_search_range(
     similarity_threshold : float
         Minimum vector similarity score required for a grant to be considered as
         a candidate during retrieval. Defaults to 0.25.
+    search_mode : str
+        The search mode to use for candidate retrieval. Can be either "semantic" for purely semantic search or 
+        "hybrid" for a combination of semantic and keyword search. Defaults to "hybrid".
 
     Returns
     -------
@@ -54,7 +58,9 @@ async def semantic_search_range(
         retrieve_candidates_range, 
         cur, 
         query_vec_list, 
-        similarity_threshold
+        similarity_threshold,
+        query_text=query,
+        search_mode=search_mode
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
