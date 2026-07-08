@@ -1,5 +1,6 @@
 import time
 import anyio
+import pandas as pd
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
@@ -73,6 +74,11 @@ async def hybrid_search_range(
         }
 
     print(f"Retrieved {len(candidates)} candidates.")
+
+    # save the candidates to a csv file for debugging
+    
+    df_candidates = pd.DataFrame(candidates, columns=["grant_id", "vector_similarity"])
+    df_candidates.to_csv("./app/candidates_debug.csv", index=False)
 
     t2 = time.perf_counter()
     vector_sim_map = {gid: sim for gid, sim in candidates}
