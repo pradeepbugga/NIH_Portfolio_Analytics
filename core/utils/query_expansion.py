@@ -1,6 +1,6 @@
 import re
 
-def expand_query_for_fts(normalized_query: str, synonym_registry: dict) -> tuple[str, list[str]]:
+def get_query_synonyms(normalized_query: str, synonym_registry: dict) -> tuple[str, list[str]]:
     """
     Takes a pre-normalized query string, extracts matching RCDC synonyms,
     and returns both the original query and the list of raw synonym terms.

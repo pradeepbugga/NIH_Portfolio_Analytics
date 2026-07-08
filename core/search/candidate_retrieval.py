@@ -1,7 +1,7 @@
 # this script retrieves candidate NIH grants based on embedding similarity
 # you can use either top-k or range-based retrieval (latter preferred for our high recall application)
 
-from core.utils.query_expansion import expand_query_for_fts
+from core.utils.query_expansion import get_query_synonyms
 
 def retrieve_candidates_topk(cur, query_vec, top_k=200):
     
