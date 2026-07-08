@@ -60,7 +60,7 @@ def retrieve_candidates_range(
     # We use websearch_to_tsquery on a coalesced string of title + abstract
 
     # perform query expansion here using synonym registry
-    expanded_fts_query = expand_query_for_fts(query_text)
+    expanded_fts_query = expand_query_for_fts(query_text, synonym_registry)
 
     cur.execute(
         """
