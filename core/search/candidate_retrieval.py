@@ -57,22 +57,31 @@ def retrieve_candidates_range(
         return semantic_results
 
     # --- 2. KEYWORD TRACK (HYBRID ONLY) ---
-    # We use websearch_to_tsquery on a coalesced string of title + abstract
+    synonyms = get_query_synonyms(query_text, synonym_registry or {}) if synonym_registry else []
 
-    # perform query expansion here using synonym registry
-    expanded_fts_query = expand_query_for_fts(query_text, synonym_registry)
-
+    # Construct the query using standard SQL array operations for synonyms.
+    # This prevents syntax errors and ensures the index is fully utilized.
     cur.execute(
         """
         SELECT rg.grant_id
         FROM ResearchGrants rg
         JOIN GrantEmbeddings ge ON rg.grant_id = ge.grant_id
         WHERE ge.is_valid = TRUE 
-          AND to_tsvector('english', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
-              @@ websearch_to_tsquery('english', %s)
+          AND (
+            -- Handle the main multi-word phrase safely
+            to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
+                @@ websearch_to_tsquery('simple', %s)
+            
+            -- Seamlessly fall back to looking up any matching short acronym tokens
+            OR (
+                cardinality(%s::text[]) > 0 
+                AND to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
+                    @@ to_tsquery('simple', array_to_string(%s::text[], ' | '))
+            )
+          )
         LIMIT %s;
         """,
-        (expanded_fts_query, max_results)
+        (query_text, synonyms, synonyms, max_results)
     )
     keyword_results = cur.fetchall()
 
