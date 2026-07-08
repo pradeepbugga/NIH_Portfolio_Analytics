@@ -1,0 +1,341 @@
+{
+  "acquired immunodeficiency syndrome": [
+    "aids",
+    "hiv"
+  ],
+  "acute respiratory distress syndrome": [
+    "ards"
+  ],
+  "adult/somatic stem cell and progenitor cell research": [
+    "stem cell",
+    "hsc",
+    "msc"
+  ],
+  "aging": [
+    "geriatric",
+    "senescence"
+  ],
+  "als": [
+    "amyotrophic lateral sclerosis",
+    "lou gehrig"
+  ],
+  "alzheimer's disease": [
+    "ad",
+    "adrd",
+    "tau",
+    "amyloid"
+  ],
+  "alzheimer's disease related dementias": [
+    "adrd",
+    "ftd",
+    "lbd",
+    "vcid"
+  ],
+  "amyotrophic lateral sclerosis": [
+    "als",
+    "lou gehrig"
+  ],
+  "antimicrobial resistance": [
+    "amr",
+    "mdr"
+  ],
+  "anxiety disorders": [
+    "gad",
+    "ocd",
+    "ptsd"
+  ],
+  "attention deficit disorder": [
+    "adhd",
+    "add"
+  ],
+  "autoimmune diseases": [
+    "autoimmunity",
+    "sle",
+    "ra"
+  ],
+  "bacterial infections": [
+    "bacteria",
+    "antimicrobial"
+  ],
+  "brain injury": [
+    "tbi",
+    "concussion"
+  ],
+  "breast cancer": [
+    "brca"
+  ],
+  "cardiovascular": [
+    "cvd",
+    "heart"
+  ],
+  "celiac disease": [
+    "gluten"
+  ],
+  "cerebrovascular disorders": [
+    "stroke",
+    "cva"
+  ],
+  "chronic obstructive pulmonary disease": [
+    "copd"
+  ],
+  "chronic pain": [
+    "pain",
+    "fibromyalgia"
+  ],
+  "clinical research": [
+    "clinical trial",
+    "human subjects"
+  ],
+  "colorectal cancer": [
+    "crc"
+  ],
+  "coronary heart disease": [
+    "chd",
+    "cad"
+  ],
+  "cystic fibrosis": [
+    "cf"
+  ],
+  "diabetes": [
+    "t1d",
+    "t2d",
+    "iddm",
+    "niddm"
+  ],
+  "diagnostic radiology": [
+    "mri",
+    "ct",
+    "pet",
+    "ultrasound"
+  ],
+  "digestive diseases": [
+    "gi",
+    "ibd",
+    "ibs"
+  ],
+  "down syndrome": [
+    "trisomy 21"
+  ],
+  "eating disorders": [
+    "anorexia",
+    "bulimia"
+  ],
+  "endometriosis": [
+    "pelvic pain"
+  ],
+  "epilepsy": [
+    "seizure"
+  ],
+  "fetal alcohol spectrum disorders": [
+    "fasd",
+    "fas"
+  ],
+  "fibroid tumors (uterine)": [
+    "leiomyoma"
+  ],
+  "fragile x syndrome": [
+    "fxs"
+  ],
+  "genomics": [
+    "gwas",
+    "ngs",
+    "wgs"
+  ],
+  "glaucoma": [
+    "iop"
+  ],
+  "head and neck cancer": [
+    "hnscc"
+  ],
+  "heart disease": [
+    "chd",
+    "cad",
+    "hf"
+  ],
+  "hematology": [
+    "blood",
+    "cbc"
+  ],
+  "hepatitis": [
+    "hbv",
+    "hcv",
+    "hav"
+  ],
+  "human immunodeficiency virus": [
+    "hiv",
+    "aids"
+  ],
+  "huntington's disease": [
+    "hd",
+    "huntingtin"
+  ],
+  "hypertension": [
+    "htn",
+    "high blood pressure"
+  ],
+  "inflammatory bowel disease": [
+    "ibd",
+    "crohn",
+    "colitis"
+  ],
+  "intellectual and developmental disabilities": [
+    "idd",
+    "mrdd"
+  ],
+  "kidney disease": [
+    "ckd",
+    "esrd",
+    "aki"
+  ],
+  "lung cancer": [
+    "nsclc",
+    "sclerc"
+  ],
+  "lupus": [
+    "sle",
+    "systemic lupus erythematosus"
+  ],
+  "lyme disease": [
+    "borrelia"
+  ],
+  "macular degeneration": [
+    "amd"
+  ],
+  "malaria": [
+    "plasmodium"
+  ],
+  "maternal health": [
+    "pregnancy",
+    "postpartum"
+  ],
+  "melanoma": [
+    "skin cancer"
+  ],
+  "menopause": [
+    "hrt",
+    "perimenopause"
+  ],
+  "mental health": [
+    "psychiatry",
+    "bpd",
+    "mdd"
+  ],
+  "migraine": [
+    "headache"
+  ],
+  "multiple sclerosis": [
+    "ms",
+    "eae"
+  ],
+  "muscular dystrophy": [
+    "dmd",
+    "bmd"
+  ],
+  "nanotechnology": [
+    "nanoparticle"
+  ],
+  "neurodegenerative": [
+    "als",
+    "ad",
+    "pd",
+    "hd"
+  ],
+  "neurosciences": [
+    "cns",
+    "pns",
+    "brain",
+    "neural"
+  ],
+  "obesity": [
+    "bmi"
+  ],
+  "osteoarthritis": [
+    "oa"
+  ],
+  "osteoporosis": [
+    "bmd"
+  ],
+  "ovarian cancer": [
+    "brca"
+  ],
+  "pancreatic cancer": [
+    "pdac"
+  ],
+  "parkinson's disease": [
+    "pd",
+    "alpha-synuclein"
+  ],
+  "peripheral vascular disease": [
+    "pad",
+    "pvd"
+  ],
+  "polycystic ovary syndrome": [
+    "pcos"
+  ],
+  "post-traumatic stress disorder": [
+    "ptsd"
+  ],
+  "prostate cancer": [
+    "psa"
+  ],
+  "rare diseases": [
+    "orphan disease"
+  ],
+  "rheumatoid arthritis": [
+    "ra"
+  ],
+  "schizophrenia": [
+    "scz"
+  ],
+  "spinal cord injury": [
+    "sci"
+  ],
+  "stroke": [
+    "cva",
+    "ischemic",
+    "hemorrhagic"
+  ],
+  "substance misuse": [
+    "sud",
+    "oud",
+    "aud"
+  ],
+  "systemic lupus erythematosus": [
+    "sle",
+    "lupus"
+  ],
+  "traumatic brain injury": [
+    "tbi"
+  ],
+  "tuberculosis": [
+    "tb"
+  ],
+  "type 1 diabetes": [
+    "t1d",
+    "iddm"
+  ],
+  "type 2 diabetes": [
+    "t2d",
+    "niddm"
+  ],
+  "ulcerative colitis": [
+    "uc",
+    "ibd"
+  ],
+  "vector-borne diseases": [
+    "zika",
+    "lyme",
+    "malaria",
+    "dengue"
+  ],
+  "violence against women": [
+    "vaw",
+    "ipv"
+  ],
+  "west nile virus": [
+    "wnv"
+  ],
+  "zika virus": [
+    "zkv"
+  ]
+}

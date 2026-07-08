@@ -1,6 +1,8 @@
 # this script retrieves candidate NIH grants based on embedding similarity
 # you can use either top-k or range-based retrieval (latter preferred for our high recall application)
 
+from core.utils.query_expansion import expand_query_for_fts
+
 def retrieve_candidates_topk(cur, query_vec, top_k=200):
     
     # Convert numpy array → Python list
@@ -27,6 +29,7 @@ def retrieve_candidates_range(
     similarity_threshold: float, 
     query_text: str = None, 
     search_mode: str = "semantic", 
+    synonym_registry: dict = None,
     max_results: int = 500000
 ):
     """
@@ -55,6 +58,10 @@ def retrieve_candidates_range(
 
     # --- 2. KEYWORD TRACK (HYBRID ONLY) ---
     # We use websearch_to_tsquery on a coalesced string of title + abstract
+
+    # perform query expansion here using synonym registry
+    expanded_fts_query = expand_query_for_fts(query_text)
+
     cur.execute(
         """
         SELECT rg.grant_id
@@ -65,7 +72,7 @@ def retrieve_candidates_range(
               @@ websearch_to_tsquery('english', %s)
         LIMIT %s;
         """,
-        (query_text, max_results)
+        (expanded_fts_query, max_results)
     )
     keyword_results = cur.fetchall()
 

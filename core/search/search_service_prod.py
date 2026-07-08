@@ -11,7 +11,8 @@ async def hybrid_search_range(
     query: str,
     cur,rerank_fn,
     similarity_threshold: float = 0.25,
-    search_mode: str = "hybrid"
+    search_mode: str = "hybrid",
+    synonym_registry: dict = None
     
     ):
     """
@@ -61,7 +62,8 @@ async def hybrid_search_range(
         query_vec_list, 
         similarity_threshold,
         query,
-        search_mode
+        search_mode,
+        synonym_registry
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 

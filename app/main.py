@@ -35,6 +35,7 @@ load_dotenv()
 # Global placeholders for static reference data (initialized once at startup)
 GLOBAL_AGENCIES_LIST = []
 GLOBAL_VALID_ACTIVITY_CODES = []
+GLOBAL_SYNONYM_REGISTRY = {}
 
 # ================================================================
 # STARTUP LIFESPAN MANAGEMENT (runs exactly once on server boot)
@@ -44,8 +45,9 @@ async def lifespan(app: FastAPI):
     """ 
     Handles critical initialization protocols before ports are opened to traffic.
     This includes loading ML encoder and parsing static reference datasets for agencies and activity codes.
+    This also includes loading synonym mappings for query expansion.
     """
-    global GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES
+    global GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES, GLOBAL_SYNONYM_REGISTRY
     print("Running global application warmups...")
 
     # 1. Warmup the local query encoder (PubmedBERT) to avoid cold-start latency on first query
@@ -75,6 +77,20 @@ async def lifespan(app: FastAPI):
             print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
     
     print("Warmups complete. Application is ready to serve requests.")
+
+    # map and load synonym registry for query expansion
+    synonym_json_path = os.path.abspath(os.path.join(script_dir, "..", "core", "search", "rcdc_synonyms.json"))
+    if os.path.exists(synonym_json_path):
+        try:
+            with open(synonym_json_path, "r") as f:
+                GLOBAL_SYNONYM_REGISTRY = json.load(f)
+            print(f"✅ Cached {len(GLOBAL_SYNONYM_REGISTRY)} domain synonym expansion targets into memory.")
+        except Exception as e:
+            print(f"❌ ERROR reading/parsing synonym JSON: {e}")
+            GLOBAL_SYNONYM_REGISTRY = {}
+    else:
+        print(f"⚠️ Warning: Synonym map not found at {synonym_json_path}")
+
     yield
 
 # ===============================================================
@@ -262,7 +278,7 @@ async def search(request: Request,
         print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
 
         # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
-        results = await hybrid_search_range(query, cur, rerank_fn=distributed_rerank_fn)
+        results = await hybrid_search_range(query, cur, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY)
 
         t_db_end = time.perf_counter()
         print(f"✅ Hybrid search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
@@ -919,7 +935,8 @@ async def portfolio_grants_search(payload: SearchRequest):
                 cur,
                 query_vec_list = query_vec_list,
                 similarity_threshold = 0.25,
-                allowed_grant_ids = allowed_grant_ids,
+                allowed_grant_ids = allowed_grant_ids
+                
             )
 
             vector_sim_map = {gid: sim for gid, sim in candidates}
