@@ -1,9 +1,8 @@
-import re
 
-def get_query_synonyms(normalized_query: str, synonym_registry: dict) -> tuple[str, list[str]]:
+def expand_query_for_fts(normalized_query: str, synonym_registry: dict) -> tuple[str, list[str]]:
     """
     Takes a pre-normalized query string, extracts matching RCDC synonyms,
-    and returns both the original query and the list of raw synonym terms.
+    and returns BOTH the original query and the list of raw synonym strings.
     """
     expanded_terms = []
     
@@ -12,5 +11,4 @@ def get_query_synonyms(normalized_query: str, synonym_registry: dict) -> tuple[s
         if category_name in normalized_query:
             expanded_terms.extend(synonyms)
             
-    # Return both the query and the array of raw short-codes/abbreviations
     return normalized_query, expanded_terms

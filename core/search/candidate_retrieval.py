@@ -1,7 +1,6 @@
 # this script retrieves candidate NIH grants based on embedding similarity
 # you can use either top-k or range-based retrieval (latter preferred for our high recall application)
 
-from core.utils.query_expansion import get_query_synonyms
 
 def retrieve_candidates_topk(cur, query_vec, top_k=200):
     
@@ -29,7 +28,7 @@ def retrieve_candidates_range(
     similarity_threshold: float, 
     query_text: str = None, 
     search_mode: str = "semantic", 
-    synonym_registry: dict = None,
+    synonyms: list = None,
     max_results: int = 500000
 ):
     """
@@ -57,10 +56,8 @@ def retrieve_candidates_range(
         return semantic_results
 
     # --- 2. KEYWORD TRACK (HYBRID ONLY) ---
-    synonyms = get_query_synonyms(query_text, synonym_registry or {}) if synonym_registry else []
+    synonyms = synonyms or []
 
-    # Construct the query using standard SQL array operations for synonyms.
-    # This prevents syntax errors and ensures the index is fully utilized.
     cur.execute(
         """
         SELECT rg.grant_id
@@ -68,11 +65,8 @@ def retrieve_candidates_range(
         JOIN GrantEmbeddings ge ON rg.grant_id = ge.grant_id
         WHERE ge.is_valid = TRUE 
           AND (
-            -- Handle the main multi-word phrase safely
             to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
                 @@ websearch_to_tsquery('simple', %s)
-            
-            -- Seamlessly fall back to looking up any matching short acronym tokens
             OR (
                 cardinality(%s::text[]) > 0 
                 AND to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
@@ -81,7 +75,7 @@ def retrieve_candidates_range(
           )
         LIMIT %s;
         """,
-        (query_text, synonyms, synonyms, max_results)
+        (query_text, synonym_list, synonym_list, max_results)
     )
     keyword_results = cur.fetchall()
 

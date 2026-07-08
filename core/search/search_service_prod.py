@@ -54,6 +54,9 @@ async def hybrid_search_range(
 
     print(f"Query embedded in {time.perf_counter() - t0:.4f}s")
 
+    # 1b) Extract synonyms cleanly as an isolated list before running thread 🚀
+    base_query, query_synonyms = expand_query_for_fts(query, synonym_registry or {})
+
     # 2) Retrieve candidates via pgvector
     t1 = time.perf_counter()
     candidates = await anyio.to_thread.run_sync(
@@ -61,9 +64,10 @@ async def hybrid_search_range(
         cur, 
         query_vec_list, 
         similarity_threshold,
-        query,
+        base_query,       # Pass clean string text parameter
         search_mode,
-        synonym_registry
+        query_synonyms,   # 👈 Pass clean Python list parameter ([])
+        500000            # max_results explicitly filled positionally
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
