@@ -80,33 +80,6 @@ def retrieve_candidates_range(
 
     return list(candidate_map.items())
 
-def retrieve_candidates_range(cur, query_vec_list, similarity_threshold, max_results=500000):
-    
-     
-    cur.execute(
-        """
-        SELECT grant_id, 1 - d AS similarity
-        FROM (
-            SELECT
-                   grant_id,
-                (embedding <=> %s::vector) AS d
-            FROM GrantEmbeddings
-            WHERE is_valid = TRUE
-        ) ge
-        WHERE d <= %s
-        ORDER BY d
-        LIMIT %s
-        """,
-        (
-            query_vec_list,
-            1 - similarity_threshold,
-            max_results,
-        )
-    )
-    return cur.fetchall()
-
-
-
 def retrieve_candidates_range_portfolio(
     cur,
     query_vec_list,
