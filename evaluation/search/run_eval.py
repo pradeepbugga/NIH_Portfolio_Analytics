@@ -33,7 +33,7 @@ async def main():
 
         if category in ["HIV_AIDS"]:
             # replace underscore with slash
-            category = category.replace("_", "/")
+            query = category.replace("_", "/")
 
         results = await hybrid_search_range(query=query, cur=cur, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY, fiscal_years=[2025])
 
