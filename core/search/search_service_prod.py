@@ -77,15 +77,11 @@ async def hybrid_search_range(
             "query": query,
             "model_version": "v1",
             "projects": [],
-            "records": []
+            "records": [],
+            "candidates": []  # Include empty candidates for debugging
         }
 
     print(f"Retrieved {len(candidates)} candidates.")
-
-    # save the candidates to a csv file for debugging
-    
-    df_candidates = pd.DataFrame(candidates, columns=["grant_id", "vector_similarity"])
-    df_candidates.to_csv("./app/candidates_debug.csv", index=False)
 
     t2 = time.perf_counter()
     vector_sim_map = {gid: sim for gid, sim in candidates}
@@ -146,5 +142,6 @@ async def hybrid_search_range(
         "query": query,
         "model_version": "v1",
         "projects": deduped,
-        "records": ranked
+        "records": ranked,
+        "candidates": candidates  # Include raw candidates for debugging
     }
