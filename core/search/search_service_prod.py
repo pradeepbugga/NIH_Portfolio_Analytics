@@ -13,7 +13,8 @@ async def hybrid_search_range(
     cur,rerank_fn,
     similarity_threshold: float = 0.20,
     search_mode: str = "hybrid",
-    synonym_registry: dict = None
+    synonym_registry: dict = None,
+    fiscal_years=None
     
     ):
     """
@@ -36,6 +37,8 @@ async def hybrid_search_range(
     search_mode : str
         The search mode to use for candidate retrieval. Can be either "semantic" for purely semantic search or 
         "hybrid" for a combination of semantic and keyword search. Defaults to "hybrid".
+    synonym_registry : dict
+        A dictionary mapping query terms to their synonyms for query expansion. If None, no synonyms will be used. Defaults to None.
 
     Returns
     -------
@@ -46,6 +49,7 @@ async def hybrid_search_range(
         - ``model_version``: a string identifier for the search model version.
         - ``projects``: a list of deduplicated project records returned by the search.
         - ``records``: a list of all ranked records prior to deduplication.
+        - ``candidates``: a list of candidate grants retrieved based on vector similarity prior to reranking. Each candidate is represented as a tuple of (grant_id, similarity_score).
     """
 
     t0 = time.perf_counter()
@@ -68,6 +72,7 @@ async def hybrid_search_range(
         base_query,       # Pass clean string text parameter
         search_mode,
         query_synonyms,   # 👈 Pass clean Python list parameter ([])
+        fiscal_years,       # Pass fiscal_years parameter (None or list)
         500000            # max_results explicitly filled positionally
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")

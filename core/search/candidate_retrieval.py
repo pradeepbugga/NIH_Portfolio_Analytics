@@ -29,26 +29,56 @@ def retrieve_candidates_range(
     query_text: str = None, 
     search_mode: str = "semantic", 
     synonyms: list = None,
+    fiscal_years: list = None,
     max_results: int = 500000
 ):
     """
     Retrieve candidate grants using either purely semantic or hybrid search.
     """
     # --- 1. SEMANTIC TRACK ---
-    cur.execute(
-        """
-        SELECT grant_id, 1 - d AS similarity
-        FROM (
-            SELECT grant_id, (embedding <=> %s::vector) AS d
-            FROM GrantEmbeddings
-            WHERE is_valid = TRUE
-        ) ge
-        WHERE d <= %s
-        ORDER BY d
-        LIMIT %s
-        """,
-        (query_vec_list, 1 - similarity_threshold, max_results)
-    )
+    if fiscal_years:
+
+         cur.execute(
+            """
+            SELECT ge.grant_id, 1 - d AS similarity
+            FROM (
+                SELECT
+                    ge.grant_id,
+                    (ge.embedding <=> %s::vector) AS d
+                FROM GrantEmbeddings ge
+                JOIN ResearchGrants rg
+                    ON ge.grant_id = rg.grant_id
+                WHERE
+                    ge.is_valid = TRUE
+                    AND rg.fiscal_year = ANY(%s)
+            ) ge
+            WHERE d <= %s
+            ORDER BY d
+            LIMIT %s
+            """,
+            (
+                query_vec_list,
+                fiscal_years,
+                1 - similarity_threshold,
+                max_results,
+            ),
+        )
+
+    else:
+        cur.execute(
+            """
+            SELECT grant_id, 1 - d AS similarity
+            FROM (
+                SELECT grant_id, (embedding <=> %s::vector) AS d
+                FROM GrantEmbeddings
+                WHERE is_valid = TRUE
+            ) ge
+            WHERE d <= %s
+            ORDER BY d
+            LIMIT %s
+            """,
+            (query_vec_list, 1 - similarity_threshold, max_results)
+        )
     semantic_results = cur.fetchall()
     
     # Return early if purely semantic or if no text was provided
@@ -58,25 +88,57 @@ def retrieve_candidates_range(
     # --- 2. KEYWORD TRACK (HYBRID ONLY) ---
     synonym_list = synonyms or []
 
-    cur.execute(
+    keyword_sql = """
+    SELECT rg.grant_id
+    FROM ResearchGrants rg
+    JOIN GrantEmbeddings ge
+        ON rg.grant_id = ge.grant_id
+    WHERE ge.is_valid = TRUE
+    """
+
+    params = []
+
+    if fiscal_years:
+        keyword_sql += """
+        AND rg.fiscal_year = ANY(%s)
         """
-        SELECT rg.grant_id
-        FROM ResearchGrants rg
-        JOIN GrantEmbeddings ge ON rg.grant_id = ge.grant_id
-        WHERE ge.is_valid = TRUE 
-          AND (
-            to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
-                @@ websearch_to_tsquery('simple', %s)
-            OR (
-                cardinality(%s::text[]) > 0 
-                AND to_tsvector('simple', COALESCE(rg.project_title, '') || ' ' || COALESCE(rg.abstract, '')) 
-                    @@ to_tsquery('simple', array_to_string(%s::text[], ' | '))
+        params.append(fiscal_years)
+
+    keyword_sql += """
+    AND (
+        to_tsvector(
+            'simple',
+            COALESCE(rg.project_title,'') || ' ' || COALESCE(rg.abstract,'')
+        ) @@ websearch_to_tsquery('simple', %s)
+
+        OR (
+
+            cardinality(%s::text[]) > 0
+
+            AND
+
+            to_tsvector(
+                'simple',
+                COALESCE(rg.project_title,'') || ' ' || COALESCE(rg.abstract,'')
+            ) @@ to_tsquery(
+                'simple',
+                array_to_string(%s::text[], ' | ')
             )
-          )
-        LIMIT %s;
-        """,
-        (query_text, synonym_list, synonym_list, max_results)
+
+        )
     )
+
+    LIMIT %s
+    """
+
+    params.extend([
+        query_text,
+        synonym_list,
+        synonym_list,
+        max_results,
+    ])
+
+    cur.execute(keyword_sql, params)
     keyword_results = cur.fetchall()
 
     # --- 3. MERGE & DEDUPLICATE ---
