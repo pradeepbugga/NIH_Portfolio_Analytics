@@ -1,16 +1,14 @@
 # combine.py
 # this script combines reranker scores with document metadata and returns sorted results
 
-MIN_SCORE_THRESHOLD = -4.0
 
-
-def combine_and_sort(docs, scores):
+def combine_and_sort(docs, scores, rerank_score_threshold):
     
     assert len(docs) == len(scores)
 
     results = []
     for doc, score in zip(docs, scores):
-        if score > MIN_SCORE_THRESHOLD:
+        if score > rerank_score_threshold:
             results.append({
                 "grant_id": doc["grant_id"],
                 "title": doc["title"],
@@ -48,6 +46,8 @@ def combine_and_sort(docs, scores):
         
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
+
+MIN_SCORE_THRESHOLD = -2.0
 
 def combine_and_sort_semantic_filter(docs, scores):
     

@@ -14,7 +14,8 @@ async def hybrid_search_range(
     similarity_threshold: float = 0.20,
     search_mode: str = "hybrid",
     synonym_registry: dict = None,
-    fiscal_years=None
+    fiscal_years=None,
+    rerank_score_threshold: float = -2.0
     
     ):
     """
@@ -39,6 +40,10 @@ async def hybrid_search_range(
         "hybrid" for a combination of semantic and keyword search. Defaults to "hybrid".
     synonym_registry : dict
         A dictionary mapping query terms to their synonyms for query expansion. If None, no synonyms will be used. Defaults to None.
+    fiscal_years : list
+        A list of fiscal years to filter the grants by. If None, no fiscal year filtering will be applied. Defaults to None.
+    rerank_score_threshold : float
+        Minimum reranker score required for a grant to be included in the final results. Grants with reranker scores below this threshold will be excluded. Defaults to -2.0.
 
     Returns
     -------
@@ -137,7 +142,7 @@ async def hybrid_search_range(
     t4 = time.perf_counter()
     print("Combining, sorting, and deduplicating final results...")
     
-    ranked = combine_and_sort(docs, scores)
+    ranked = combine_and_sort(docs, scores, rerank_score_threshold)
     deduped = dedupe_by_core_project(ranked)
 
     print(f"Results combined and deduplicated in {time.perf_counter() - t4:.4f}s")
