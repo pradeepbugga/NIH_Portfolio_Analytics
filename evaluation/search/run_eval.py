@@ -70,7 +70,7 @@ async def main():
     summary_df = pd.DataFrame(summary)
 
     summary_df.to_csv(
-        "./evaluation/search/results/summary.csv",
+        "./evaluation/search/reports/summary.csv",
         index=False
     )
 
