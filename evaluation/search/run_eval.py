@@ -35,7 +35,7 @@ async def main():
             # replace underscore with slash
             category = category.replace("_", "/")
 
-        results = await hybrid_search_range(query=query, cur=cur, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY)
+        results = await hybrid_search_range(query=query, cur=cur, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY, fiscal_years=[2025])
 
         print(f"Retrieved {len(results['projects'])} projects for category '{category}'.")
 
