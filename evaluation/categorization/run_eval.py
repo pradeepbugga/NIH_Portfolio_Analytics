@@ -3,6 +3,7 @@ from core.db.connection import get_db_connection
 from evaluation.categorization.grant_loader import load_grant_texts
 from evaluation.categorization.classify import classify_grant_text
 from evaluation.categorization.metrics import compute_metrics
+from tqdm import tqdm
 
 from dotenv import load_dotenv
 
@@ -27,7 +28,7 @@ conn.close()
 
 predictions = []
 
-for _, row in benchmark.iterrows():
+for _, row in tqdm(benchmark.iterrows(), total=len(benchmark), desc="Classifying grants"):
     grant_id = row["grant_id"]
     expected = row["label"]
     
