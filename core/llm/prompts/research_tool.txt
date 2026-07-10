@@ -1,0 +1,93 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily a RESEARCH TOOL / METHOD DEVELOPMENT project.
+
+Definition of RESEARCH TOOL:
+The central goal is to create, generalize, or validate a reusable method, platform, assay, device, or computational tool that other researchers could adopt.
+
+The tool may be developed in a specific biological context, but must provide reusable capabilities beyond a single experiment or dataset.
+
+Key criteria (must be central, not incidental):
+- The main deliverable is the method/platform itself
+- The tool provides reusable capabilities that other researchers working on similar problems could adopt
+- Success is defined by usability, scalability, or adoption beyond a single biological application
+- The tool can be developed within a specific biological system as long as it provides a reusable experimental or computational capability.
+
+NOT research tool if:
+- The method is only used to answer a specific biological question and is not positioned as a reusable capability
+- The platform is incidental and not a central deliverable
+- The goal is to improve a therapeutic strategy (e.g., drug delivery, gene therapy)
+- The work only applies an existing method to a specific system without developing new or improved capabilities
+- The primary goal is to develop diagnostic assays or clinical tests, even if they involve method development
+- The method is a means, not the primary scientific contribution
+-  The project is a core facility, shared resource, or service center
+ - The primary goal is to provide access, training, or support for existing methods
+ - The work enables other researchers rather than producing a new method itself
+
+
+Critical rule (VERY IMPORTANT):
+If the answer depends on this question:
+“Is the method the product, or is it just a means to study or treat something?”
+Then:
+ If method = product → YES
+ If method = means → NO
+
+IMPORTANT CLARIFICATION:
+
+A method/platform is NOT considered “just a means” if:
+- it is newly developed or significantly improved, AND
+- the proposed experiments depend on it, AND
+- it provides reusable capabilities (measurement, modeling, control, or simulation)
+
+Strong signals for RESEARCH TOOL:
+- Development of experimental platforms (e.g., microfluidics, organ models, devices)
+- Integration of hardware + software + modeling systems
+- Creation of computational frameworks, simulations, or ML tools
+- Systems designed for measurement, prediction, screening, or control
+- Language like: “platform”, “framework”, “tool”, “system”, “model”, “technology”
+- Development of new assay systems, engineered biological models, or experimental measurement systems
+
+EDGE CASE RULE (VERY IMPORTANT):
+
+If the project BOTH:
+(1) develops a new or significantly improved platform, device, model system, or computational framework, AND
+(2) uses it to study biological or clinical questions,
+
+THEN:
+
+Evaluate the role of the platform:
+
+- If the platform is CENTRAL to the project (i.e., a primary deliverable), 
+- AND the experiments DEPEND on it (i.e., the science could not proceed without it),
+- AND it provides REUSABLE capabilities (measurement, modeling, control, simulation, or screening),
+
+→ YES (research tool)
+
+Otherwise:
+- If the platform is incidental, minor, or only supports a specific biological question → NO
+
+IMPORTANT:
+Do NOT classify as mechanistic just because biological questions are studied,
+but also do NOT classify as a tool unless the platform itself is a primary output.
+NEWNESS CHECK (IMPORTANT):
+
+If the project does NOT introduce a new or significantly improved method, platform, or system,
+and instead applies existing approaches to a biological question,
+
+→ NOT research tool
+
+Instructions:
+- Answer: YES (research tool) or NO (not research tool)
+- Provide 2–4 sentences of reasoning that:
+- Identify the PRIMARY goal
+- Explicitly state whether the method is the product or a means
+- Contrast against at least one alternative (therapeutic, mechanistic, etc.)
+
+Be strict:
+- Only answer YES if the method/platform is the main output
+- If the method is only usable for a narrow, one-off biological question → NO
+- If it provides a reusable capability within that domain → YES
+- If unsure → answer NO
+OUTPUT FORMAT (STRICT JSON):
+{ "reasoning": "<your explanation>", "answer": "YES" or "NO" }

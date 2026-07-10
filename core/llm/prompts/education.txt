@@ -1,0 +1,111 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily an EDUCATION / TRAINING project.
+
+Definition of EDUCATION / TRAINING:
+The central goal is to develop, train, or mentor individuals (students, trainees, fellows, or faculty) to become researchers or professionals, typically through structured programs, curricula, mentorship, or career development pathways.
+
+Key criteria (must be central, not incidental):
+- The primary deliverable is trained individuals, not data, discoveries, or infrastructure
+- The grant includes structured training components (e.g., curriculum, mentorship, fellowships, career development plans)
+- Success is defined by trainee outcomes (e.g., publications, career progression, grant funding, workforce development)
+- The program explicitly aims to build a pipeline of researchers or professionals
+
+NOT education/training if:
+- Training is secondary to another primary goal (e.g., infrastructure, research, tool development)
+- The project primarily builds or supports cores, shared resources, or institutional capacity (even if training is included)
+- The main goal is to conduct research, even if trainees are involved (e.g., K awards, mentored research projects)
+- The project is a conference, workshop, or outreach activity focused on dissemination or networking rather than sustained training
+- The project provides services, access, or support rather than developing trainees
+- The project funds pilot research or infrastructure with some training components (e.g., RIMI, INBRE, CTSA cores)
+
+Critical rule (VERY IMPORTANT):
+
+If the answer depends on this question:
+“Are people being trained as the main product, or is training just a component of something else?”
+
+Then:
+
+- If trained individuals = product → YES
+- If training = supporting activity → NO
+
+Edge case guidance (based on common failure modes):
+- T32, T34, R25, K12, institutional training programs → YES (training is the product)
+- Institutional K-type or CDP-style programs (e.g., K12, SPORE CDP) → YES if they function as structured training pipelines
+- CTSA, INBRE, RIMI, U54 partnerships → NO (infrastructure + capacity building, even if heavy training components exist)
+- Public education / outreach (SEPA, museum programs) → NO (education ≠ researcher training)
+
+WORKSHOP / SEMINAR DISAMBIGUATION:
+
+- One-off events (R13) → NO
+- Recurring structured programs with training goals → YES
+
+PUBLIC VS RESEARCH TRAINING:
+
+- Training researchers / scientists → EDUCATION
+- Training general public / K–12 → NOT education (for this taxonomy)
+
+K AWARD DISAMBIGUATION (CRITICAL):
+
+If the grant is a K award:
+
+Ask:
+“Is the primary goal to support the development of the investigator through training, mentorship, and career progression?”
+
+- If YES → EDUCATION / TRAINING
+- If the grant is primarily a research project with minimal training emphasis → NO
+
+TRAINING VIA RESEARCH (IMPORTANT):
+
+A project CAN be education/training even if it includes research,
+IF:
+- the research is a vehicle for training
+- trainee development is the primary objective
+
+Do NOT classify as research if:
+- the main goal is to develop people, not generate knowledge
+
+TRAINING PROGRAMS IN CORES:
+
+If the project:
+- provides mentoring, workshops, career development programs
+- builds trainee skills or research workforce capacity
+- runs structured programs for trainees or junior investigators
+
+→ EDUCATION / TRAINING
+
+Even if:
+- it is part of a larger center or infrastructure grant
+
+PRIMARY OUTPUT OVERRIDE (FINAL):
+
+Ask:
+“What is being produced at the end of this grant?”
+
+- Trained people → EDUCATION
+- New knowledge → MECHANISTIC
+- Intervention → THERAPEUTIC
+- Model/tool → RESEARCH TOOL
+- Prediction/biomarker → DIAGNOSTIC
+- Coordination/support → INFRASTRUCTURE
+
+This rule overrides all others.
+
+Instructions
+- Answer: YES (education/training) or NO (not education/training)
+- Provide 2–4 sentences of reasoning that:
+- Identify the PRIMARY goal
+- Explicitly state whether training is the product or a supporting component
+- Contrast against at least one alternative (e.g., infrastructure, research, outreach)
+
+Be strict
+- Only answer YES if training is the dominant, central objective
+- If multiple goals exist, choose the primary intent only
+- If unsure → answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{
+  "reasoning": "<your explanation>",
+  "answer": "YES" or "NO"
+}

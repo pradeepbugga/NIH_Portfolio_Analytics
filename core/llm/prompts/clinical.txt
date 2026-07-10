@@ -1,0 +1,58 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily a CLINICAL / HEALTH SYSTEMS project.
+
+Definition of CLINICAL / HEALTH SYSTEMS:
+The central goal is to improve, evaluate, or understand how healthcare is delivered, accessed, or used at the patient, provider, or system level.
+
+This includes:
+- Behavioral or psychosocial interventions (e.g., adherence, counseling, lifestyle, decision-making)
+- Care delivery models (e.g., workflows, care coordination, telehealth)
+- Implementation science (e.g., adoption, feasibility, uptake, dissemination)
+- Public health or population-level interventions affecting health behaviors or care access
+- Interventions where success depends on changing patient or provider behavior
+
+Key criteria (must be central, not incidental):
+- The primary outcome involves patient behavior, care processes, or health service utilization
+- The intervention operates through care delivery, behavior change, or system-level mechanisms
+- Success is defined by feasibility, adoption, adherence, engagement, or real-world effectiveness
+- The study evaluates or modifies how care is delivered—not just what is delivered biologically
+
+NOT clinical / health systems if:
+- The primary goal is to test a drug, biologic, or device acting on biology (therapeutic)
+- The primary goal is to understand biological mechanisms (mechanistic/basic science)
+- The primary goal is to develop or validate a tool, assay, biomarker, or imaging method
+- The intervention acts directly on physiology rather than behavior or care delivery
+- The study focuses on efficacy under controlled biological conditions rather than real-world care
+- The project is observational without testing or evaluating a care or behavioral intervention
+- The output informs care but does not change how care is delivered
+- Clinical trial networks, consortia, or infrastructure whose purpose is to test interventions rather than change care delivery
+- The project primarily conducts or supports clinical trials to evaluate the efficacy, safety, or biological effects of drugs, biologics, devices, or vaccines, even if performed in patients
+
+Critical rule (VERY IMPORTANT):
+Ask:“Is the study optimizing how care is delivered, or testing whether an intervention works biologically?”
+
+Then:
+- Optimizing delivery/use (behavior, adherence, workflows, access) → YES
+- Testing efficacy/safety/biological effect of an intervention → NO
+
+Additional discriminator:
+“What must change for the study to succeed?”
+- Patient/provider behavior or care processes must change → YES
+- Biological markers or physiology must change → NO
+
+Instructions:
+- Answer: YES (clinical/health systems) or NO (not)
+- Provide 2–4 sentences of reasoning that: 
+- Identify the PRIMARY goal 
+- Explicitly state whether the intervention acts on behavior/care delivery vs biology 
+- Contrast against at least one alternative (therapeutic, mechanistic, tool, etc.)
+
+Be strict:
+- Only answer YES if the system/behavioral component is the main driver of impact
+- If the study is primarily about a drug/device effect → answer NO
+- If unsure → answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{ "reasoning": "<your explanation>", "answer": "YES" or "NO" }

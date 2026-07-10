@@ -1,0 +1,125 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily a THERAPEUTIC project.
+
+Definition of THERAPEUTIC:
+The central goal is to test, evaluate, or demonstrate that an intervention improves health outcomes, disease progression, or clinically relevant endpoints.
+
+Therapeutic interventions are intended to act directly on patients to modify disease biology, even if the current study is preclinical.
+
+This includes all stages of therapeutic development, including:
+- discovery and optimization of drug candidates intended for therapeutic use
+- (not molecules used only as experimental probes)
+- screening, SAR, and lead optimization
+- preclinical testing (in vitro or in vivo)
+- IND-enabling studies (toxicity, PK, safety)
+- clinical trials evaluating efficacy or effectiveness
+
+This also includes BOTH:
+
+1) Therapeutic efficacy studies:
+- Directly test improvement in symptoms, disease progression, or survival
+
+2) Therapeutic development studies:
+- Develop, optimize, or validate an intervention intended to treat disease
+- Includes drug candidates, biologics, delivery systems, or therapeutic devices
+- Includes preclinical in vitro or in vivo testing when tied to a treatment goal
+
+Important:
+A project can be therapeutic even if clinical outcomes are not yet measured,
+as long as the central goal is to create or improve a treatment.
+
+Key criteria (must be central, not incidental):
+- An intervention is applied (drug, biologic, behavioral, device, etc.)
+- The intervention is the primary focus of the project
+Success is defined by either:
+  - Demonstrating improvement in clinical or physiological outcomes (efficacy studies), OR
+  - Advancing an intervention toward therapeutic use (e.g., optimization, safety, PK/PD, delivery, or preclinical validation)
+- The study directly evaluates efficacy, effectiveness, or therapeutic benefit
+
+NOT therapeutic if:
+- The goal is to understand biological mechanisms, even if drugs or interventions are used
+- The intervention is used as a tool to probe a pathway (e.g., inhibition, knockdown, stimulation)
+- The intervention is used only to study biological mechanisms (probe)
+- There is no effort to develop or optimize it toward a treatment
+- The study measures biomarkers, signaling, imaging, or mechanistic endpoints only
+- The project optimizes delivery, adherence, targeting, or implementation of treatments (→ clinical/health systems)
+- The project develops diagnostic tools or biomarkers (→ diagnostic)
+- The work builds or validates a method, platform, or assay (→ research tool)
+- The project is observational, correlational, or epidemiological
+- The grant is infrastructure, coordination, or a core facility
+- The intervention modifies the environment, infrastructure, or access rather than directly treating individuals
+- If the primary goal is to characterize, measure, or understand the effects of an intervention (e.g., biological, physiological, behavioral, or system-level effects), even if those effects are beneficial or clinically relevant.
+- compounds, inhibitors, or genetic tools are used only to perturb a system and understand biology, without intent to develop them as treatments
+
+Critical rule (UPDATED):
+
+Ask:
+“Is this project trying to build or improve a treatment for disease?”
+
+- If YES → THERAPEUTIC
+- If NO → continue evaluation
+
+Then refine:
+
+If the intervention is used:
+- to treat disease (even in development stage) → YES
+- to study biology/mechanisms → NO
+
+
+Key disambiguation (VERY IMPORTANT):
+
+Ask:
+“Is the intervention itself being developed into a treatment, or just used to study biology?”
+
+- If being developed into a treatment → YES
+- If used as a probe to understand mechanisms → NO
+
+Additional disambiguation (IMPORTANT):
+
+Ask:
+“Is this intervention specifically tied to treating a disease, or is it a general-purpose technology?”
+
+- If tied to treating a specific disease or condition → YES (THERAPEUTIC)
+- If designed as a general platform for research or broad screening → NO (RESEARCH TOOL)
+
+Additional strict rules (from common failure cases):
+- A randomized trial is NOT automatically therapeutic — if the primary endpoint is mechanistic (e.g., imaging, signaling), answer NO
+- Mention of drugs, inhibitors, or therapies alone is NOT sufficient
+- “May lead to therapies” or “therapeutic targets” → NOT therapeutic
+
+Strong signals for THERAPEUTIC:
+- “drug-like properties”
+- “lead compound” or “lead optimization”
+- “SAR (structure-activity relationship)”
+- “ADME, PK, PD”
+- “IND-enabling studies”
+- “clinical development”
+- “proof-of-concept in disease models”
+
+If these are central → answer YES, even without human outcomes
+
+Platform / device clarification:
+
+If a platform or device is described, ask:
+“Is it intended to be used IN patients to deliver or improve treatment?”
+
+- If YES → THERAPEUTIC
+- If NO → likely RESEARCH TOOL
+
+
+Instructions:
+- Answer: YES (therapeutic) or NO (not therapeutic)
+- Provide 2–4 sentences of reasoning that:
+  - Identify the PRIMARY goal
+  - Explicitly state whether the intervention is used to improve outcomes or as a means to study biology
+  - Contrast against at least one alternative (mechanistic, diagnostic, research tool, or clinical systems)
+
+Be strict:
+- Answer YES if the central goal is to develop, optimize, or evaluate an intervention intended to treat disease
+- Direct measurement of health outcomes is NOT required if the work is clearly part of therapeutic development
+- If unsure → answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{ "reasoning": "<your explanation>", "answer": "YES" or "NO" }

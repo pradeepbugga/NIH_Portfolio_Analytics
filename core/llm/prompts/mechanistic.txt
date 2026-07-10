@@ -1,0 +1,121 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily a MECHANISTIC / BASIC SCIENCE project.
+
+Definition of MECHANISTIC INTENT:
+The central goal is to understand, explain, or uncover causal biological mechanisms, pathways, or processes. The main scientific contribution is knowledge about how or why a biological system behaves as it does.
+
+Key criteria (must be central, not incidental):
+- The primary goal is to understand how or why a biological system behaves as it does. This may include identifying mechanisms, pathways, system dynamics, or biological relationships, even if direct causal manipulation is not performed.
+- The main deliverable is biological understanding, not a product or intervention
+- The work tests hypotheses about mechanisms, pathways, regulation, or interactions
+- Success is defined by explanatory insight, not by performance of a tool or efficacy of a therapy
+
+NOT mechanistic if:
+- The goal is to develop, optimize, or evaluate a therapy (drug, vaccine, intervention)
+- The goal is to develop or validate a diagnostic or predictive model
+- The goal is to build a tool, platform, or method (even if biology is studied)
+- The project is purely observational with the primary goal of identifying associations,
+risk factors, or population-level correlations WITHOUT aiming to explain biological processes.
+- Mechanistic language (e.g., “pathway”, “mechanism”) is used only to support another goal
+- Mechanistic studies are only one aim within a larger therapeutic, clinical, or tool-building project
+- If the primary goal is to predict response to therapy, classify patients, identify biomarkers for clinical use
+- The study primarily links biological variables to outcomes without explaining system-level processes
+
+Critical rule (FINAL):
+
+Ask:
+“Is the primary goal to understand how a biological system works?”
+
+Then:
+- If YES → MECHANISTIC
+Even if:
+- measurements are central- correlations are used
+- biomarkers are mentioned
+Only say NO if:
+- the study stops at prediction or classification
+
+Clarification:
+- Measurement, observation, or correlation are valid IF used to understand system behavior
+- Prediction, classification, or biomarker development are NOT mechanistic
+
+Additional discriminators:
+Observational or correlational data CAN support mechanistic studies
+if the goal is to understand biological processes or system behavior.
+
+If the study primarily links biological variables to outcomes
+(e.g., disease severity, treatment response, behavior)
+without explaining how the underlying system operates,
+
+→ NOT mechanistic
+
+BIOMARKER VS MECHANISM (CRITICAL):
+If a biological measurement is being studied to understand:
+-why it occurs
+- how it is generated
+- how it relates to underlying biological or physical processes→ MECHANISTIC
+If the measurement is used only to:
+- predict outcomes
+- classify disease-
+ serve as a clinical marker→ NOT mechanistic
+
+Strong signals for MECHANISTIC:
+- understanding biological processes, pathways, or regulation
+- neural, cellular, or molecular system behavior
+- linking biological signals to function or phenotype
+- identifying how components of a system interact
+- explaining variability in biological outcomes
+- studies of physiology, signaling, or system dynamics
+- perturbation or manipulation of biological systems (genetic, pharmacologic, environmental) to study function
+
+If the study investigates how a molecular or cellular target functions,
+even if it is described as a potential therapeutic target,
+
+→ MECHANISTIC
+
+If the study primarily develops or tests that target as a treatment,
+
+→ NOT mechanistic
+
+Priority rule (IMPORTANT):
+
+If the primary output is:
+- a treatment → NOT mechanistic
+- a tool/platform → NOT mechanistic
+
+even if biological understanding is also generated
+
+BIOMARKER DISAMBIGUATION (REPLACEMENT):
+If a biomarker is mentioned, ask:
+Is the project trying to USE the biomarker for prediction/classification?
+→ YES = NOT mechanistic
+OR
+Is the project trying to UNDERSTAND how or why the biomarker arises?
+→ YES = MECHANISTIC
+
+MEASUREMENT-DRIVEN MECHANISM (CRITICAL):
+If a study:
+- measures a biological or physical property, AND
+- aims to understand how that property arises or relates to system behavior,
+→ MECHANISTIC
+Even if:
+- the measurement could later be used as a biomarker
+
+Instructions:
+- Answer: YES (mechanistic) or NO (not mechanistic)
+- Provide 2–4 sentences of reasoning that:
+  - Identify the PRIMARY goal
+  - Explicitly state whether biological understanding is the product or a means
+  - Contrast against at least one alternative (therapeutic, diagnostic, observational, or tool)
+
+Be strict:
+- Only answer YES if mechanistic understanding is the dominant, central objective
+- If the grant mixes goals, prioritize the top-level objective (usually stated early)
+- If unsure → answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{
+  "reasoning": "<your explanation>",
+  "answer": "YES" or "NO"
+}

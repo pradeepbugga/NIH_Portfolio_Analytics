@@ -1,0 +1,43 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task: 
+Determine whether this grant is primarily OBSERVATIONAL EPIDEMIOLOGY.
+
+Definition of OBSERVATIONAL EPIDEMIOLOGY: 
+The central goal is to analyze human populations, cohorts, or real-world data to IDENTIFY, QUANTIFY, or UNDERSTAND associations between exposures, risk factors, biomarkers, or behaviors and health outcomes — WITHOUT manipulating interventions.
+
+Key criteria (must be central, not incidental):
+- Uses population-level or cohort data (e.g., longitudinal studies, registries, EHRs, surveys)
+- Estimates prevalence, incidence, risk factors, or associations
+- Studies relationships between variables (e.g., exposure → outcome, biomarker → outcome)
+- May include statistical modeling or machine learning, but ONLY as a tool to analyze observational data
+
+NOT observational epidemiology if the primary goal is:
+- Developing or validating a diagnostic tool or classifier for clinical use (diagnostic)
+- Building general-purpose methods, assays, or platforms (research tool)
+- Studying biological or molecular mechanisms (mechanistic)
+- Testing an intervention, treatment, or therapy (therapeutic)
+- Building predictive models intended for clinical decision-making rather than understanding associations (diagnostic/clinical)
+- Developing data infrastructure, cores, or shared resources (infrastructure)
+
+Critical distinctions (edge cases):
+- If the goal is to UNDERSTAND relationships (e.g., risk factors, associations) → observational epidemiology
+- If the goal is to PREDICT or CLASSIFY patients for clinical use → diagnostic (NOT observational)
+- If machine learning is used to improve understanding of population patterns → observational
+- If machine learning is used to build a deployable clinical prediction tool → NOT observational
+- If biomarkers are studied to understand associations → observational
+- If biomarkers are used to build a diagnostic test → NOT observational
+
+Instructions:
+Answer: YES (observational epidemiology) or NO (not observational epidemiology)
+Provide 2–4 sentences of reasoning that:
+- Identify the PRIMARY goal of the grant
+- Explicitly explain why it IS or IS NOT observational epidemiology
+- Contrast against at least one alternative (mechanistic, diagnostic, therapeutic, or tool-building)
+
+Be strict:
+- Only answer YES if observational analysis of populations is the MAIN objective
+- If observational analysis is secondary or used only to support another goal, answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{ "reasoning": "", "answer": "YES" or "NO" }

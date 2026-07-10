@@ -1,0 +1,147 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily a RESEARCH INFRASTRUCTURE / PROGRAMMATIC project.
+
+Definition of RESEARCH INFRASTRUCTURE / PROGRAMMATIC
+
+The central goal is to build, maintain, or coordinate systems that enable and support research at scale, including either:
+
+- Shared resources (e.g., databases, repositories, core facilities), OR
+- Programmatic / center-based infrastructure (e.g., multi-project centers, coordinated research networks, or institutional platforms that integrate multiple research efforts)
+
+Key criteria (must be central, not incidental):
+- The main deliverable is a shared resource (e.g., database, repository, core facility, coordinated network, large-scale dataset, or service platform)
+- The resource is intended for use by multiple investigators beyond the immediate project team
+- Users access, query, submit to, or utilize the resource directly (not just use a tool independently)
+- Success is defined by access, usage, integration, scale, or community adoption
+- The project enables research broadly rather than answering a single scientific question
+
+OR (Programmatic / Center Infrastructure criteria):
+- The project establishes or maintains a multi-project center, network, or coordinated research program
+- It includes multiple projects and cores (e.g., administrative, scientific, pilot, shared resources)
+- The main deliverable is a research ecosystem, coordination structure, or institutional capability
+- Success is defined by integration, coordination, research capacity, or acceleration of multiple research efforts
+- The project enables research by organizing and supporting multiple investigators, even if resources are primarily used internally
+
+
+NOT infrastructure if:
+- The project is a single research study (even if large or collaborative)
+- The primary output is biological, clinical, or mechanistic knowledge
+- Training is the main product (education category)
+- A tool/method is developed for independent use (research tool category)
+- Coordination is minor and not the primary deliverable
+
+Critical rule (VERY IMPORTANT):
+If the answer depends on this question:
+“Is the primary product a shared resource OR a coordinated system that enables multiple research efforts?”
+
+Then:
+
+- If the project provides a user-accessible resource OR a coordinated multi-project research system (center, cores, network) → YES
+- If the project primarily conducts its own scientific study, even using complex methods or datasets → NO
+
+Structural override (IMPORTANT):
+
+If the grant:
+
+Uses mechanisms such as P50, U54, CTSA, INBRE, RIMI, OR
+Describes multiple projects + cores + administrative structure
+
+Then:
+→ classify as YES (infrastructure/programmatic), even if scientific aims are included
+
+Additional guardrails:
+- Training programs produce people, not infrastructure
+- Large datasets only count if they are explicitly built and maintained as a shared community resource
+- Multi-project structure is required for programmatic classification; a single project with collaborators is NOT infrastructure
+- The presence of research aims does not disqualify infrastructure if the center/program itself is the primary deliverable
+
+CORE DISAMBIGUATION:
+
+If a "Core" is:
+
+- Administrative / coordination / dissemination only
+→ YES (programmatic infrastructure)
+
+- Technical service used by multiple projects
+→ YES (shared resource infrastructure)
+
+- Only supporting a single project
+→ NO
+
+SUBCOMPONENT OVERRIDE (CRITICAL):
+
+If the grant is explicitly labeled as a:
+- Core
+- Unit
+- Component
+- Program within a Center
+
+(e.g., “Genome Characterization Unit”, “Administrative Core”, “Data Core”)
+
+THEN:
+
+→ Assume it is part of a larger multi-project or center structure
+
+→ Classify as YES (infrastructure/programmatic)
+
+UNLESS:
+- The abstract clearly states it is a standalone R01-style research project
+
+STRUCTURAL OVERRIDE (EXPANDED):
+
+If the grant uses mechanisms such as:
+P50, U54, UM1, UL1 (CTSA), P30, P20, U2C/TL1, NCORP, SPORE
+
+OR explicitly describes:
+- multiple projects + cores
+- pilot programs
+- administrative and coordination structure
+
+→ classify as YES (infrastructure/programmatic)
+
+DATA GENERATION EXCLUSION (CRITICAL):
+
+If the project:
+- generates data, sequencing, or analyses
+- BUT does NOT explicitly provide it as a maintained, shared resource OR coordinated program
+
+→ NOT infrastructure
+→ classify as scientific research
+
+PRIMARY OUTPUT TEST (CRITICAL):
+
+Ask:
+“What remains if you remove the scientific aims?”
+
+- If the value is still a center, network, or resource → YES (infrastructure)
+- If the value disappears → NO (it is a research project)
+
+Instructions:
+- Answer: YES (infrastructure) or NO (not infrastructure)
+- Provide 2–4 sentences of reasoning that:
+  - Identify the PRIMARY goal
+  - Explicitly state whether a shared resource is the product
+  - Contrast against at least one alternative (training, tool, mechanistic, etc.)
+
+Be strict:
+
+Answer YES if EITHER:
+
+(1) Shared Resource Infrastructure:
+- A user-accessible resource/platform is the main output
+
+OR
+
+(2) Programmatic / Center Infrastructure:
+- The main output is a coordinated research program, center, or network
+- Even if no standalone user-facing resource exists
+
+If neither is clearly the primary deliverable → NO
+
+OUTPUT FORMAT (STRICT JSON):
+{
+  "reasoning": "<your explanation>",
+  "answer": "YES" or "NO"
+}

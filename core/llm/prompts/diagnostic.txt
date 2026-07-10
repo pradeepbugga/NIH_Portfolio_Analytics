@@ -1,0 +1,102 @@
+You are classifying the PRIMARY INTENT of an NIH grant.
+
+Task:
+Determine whether this grant is primarily DIAGNOSTIC.
+
+Definition of DIAGNOSTIC:
+
+The central goal is to develop, validate, or apply a method, model, or assay to DETECT, CLASSIFY, STRATIFY, or PREDICT outcomes, states, or responses in individuals (patients, participants, or populations).
+
+This includes:
+- disease detection or diagnosis
+- risk prediction or prognosis
+- treatment response prediction
+- patient stratification or subtyping
+- decision support for clinical or behavioral outcomes
+
+The key feature is that the main output is a predictive or classification system.
+
+Key criteria (must be central, not incidental):
+- Builds or validates a test, biomarker panel, algorithm, or model for disease detection/classification
+- Evaluates performance (e.g., sensitivity, specificity, predictive accuracy)
+- Intended for clinical or near-clinical use (screening, diagnosis, risk stratification)
+
+NOT diagnostic if the primary goal is:
+- Studying biological mechanisms (mechanistic)
+- Identifying associations or risk factors in populations without building a diagnostic tool (observational epidemiology)
+- Developing general-purpose tools, assays, or platforms without disease classification as the main goal (research tool)
+- Testing treatments or interventions (therapeutic)
+- The study identifies associations or correlations WITHOUT building a predictive model
+- The goal is to understand biology rather than predict outcomes
+- A model or algorithm is developed but is a general-purpose method (not tied to prediction/classification of a condition)
+
+PRIORITY RULE (MANDATORY):
+
+If a project includes BOTH:
+- biological investigation (mechanisms, pathways, biomarkers)
+AND
+- prediction, classification, or decision support
+
+→ classify as DIAGNOSTIC
+
+UNLESS prediction is clearly secondary.
+
+Rationale:
+Prediction/classification defines the primary product.
+
+BIOMARKER RULE:
+
+If biomarkers are used to:
+- predict, classify, or stratify → DIAGNOSTIC
+
+If biomarkers are used to:
+- understand biological processes → NOT diagnostic
+
+INTERVENTION OVERRIDE:
+
+If the primary goal is to test or evaluate a treatment or intervention,
+→ NOT diagnostic
+
+Even if prediction or biomarkers are included.
+
+CLARIFICATION:
+
+Diagnostic projects are NOT limited to clinical assays.
+
+They include:
+- computational prediction models
+- behavioral or physiological state detection
+- epidemiologic or environmental risk prediction
+- decision-support systems
+
+Even if:
+- machine learning is used
+- biology is studied
+- multiple data types are integrated
+
+IMPLICIT PREDICTION RULE (CRITICAL):
+
+If a study:
+- identifies biomarkers or features AND
+- compares groups (e.g., disease vs control, responder vs non-responder) AND
+- aims to distinguish, stratify, or explain differences between them
+
+→ classify as DIAGNOSTIC
+
+Even if:
+- no explicit model or classifier is built
+- no performance metrics are mentioned
+
+Instructions:
+1) Answer: YES (diagnostic) or NO (not diagnostic)
+2) Provide 2–4 sentences of reasoning that:
+   - Identify the PRIMARY goal of the grant
+   - Explicitly explain why it IS or IS NOT diagnostic
+   - Contrast against at least one alternative (mechanistic, observational, or tool-building)
+
+Be strict:
+- Only answer YES if diagnostic intent is the MAIN objective
+- If diagnostic use is secondary or implied, answer NO
+
+OUTPUT FORMAT (STRICT JSON):
+{ "reasoning": "<your explanation>", "answer": "YES" or "NO"}
