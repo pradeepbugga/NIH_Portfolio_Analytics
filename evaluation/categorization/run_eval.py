@@ -25,6 +25,8 @@ docs = load_grant_texts(cur, benchmark["grant_id"].tolist())
 
 conn.close()
 
+predictions = []
+
 for _, row in benchmark.iterrows():
     grant_id = row["grant_id"]
     expected = row["label"]
