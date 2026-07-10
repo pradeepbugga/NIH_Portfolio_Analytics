@@ -4,6 +4,10 @@ from evaluation.categorization.grant_loader import load_grant_texts
 from evaluation.categorization.classify import classify_grant_text
 from evaluation.categorization.metrics import compute_metrics
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 category = "research_tool"
 
 
