@@ -17,7 +17,7 @@ def load_grant_texts(cur, grant_ids):
     cur.execute(
         """
         SELECT grant_id, project_title, abstract
-        FROM grants
+        FROM researchgrants
         WHERE grant_id = ANY(%s)
         """,
         (grant_ids,),
