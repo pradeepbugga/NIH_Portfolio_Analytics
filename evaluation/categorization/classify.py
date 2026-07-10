@@ -1,6 +1,8 @@
 from openai import OpenAI
 import json
 
+client = OpenAI()
+
 def classify_grant_text(title:str, abstract:str, prompt:str):
 
     response = client.responses.create(
