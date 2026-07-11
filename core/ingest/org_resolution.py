@@ -70,7 +70,7 @@ def is_org_complete(org: dict) -> bool:
     
     return True
 
-def db_lookup_fn(cur, core_projectnum: str, fiscal_year: int, organization: dict):
+def db_lookup_fn(cur, core_project_num: str, fiscal_year: int, organization: dict):
     for org_year in [fiscal_year, fiscal_year - 1]:
         cur.execute('''
             SELECT o.name, o.city, o.state, o.country
