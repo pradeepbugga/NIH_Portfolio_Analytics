@@ -1,7 +1,4 @@
-
-# this script contains functions to process NIH grant data and insert or update it in the database
-
-from core.ingest.hashing import content_hash, check_hash
+from core.ingest.hashing import compute_content_hash, fetch_existing_hash
 from core.ingest.persistence import insert_organization, insert_research_grant, update_research_grant, insert_pis, update_grant_embeddings
 from core.ingest.normalize import normalize_project_num
 from core.ingest.org_resolution import resolve_org
@@ -9,6 +6,24 @@ from core.ingest.org_resolution import resolve_org
 
 def process_result(result: dict, cur, org_cache: dict, ingest_id: str, policy: dict, metrics: dict):
         
+    """
+    Process a single NIH grant result, resolve the organization, compute the content hash, and insert or update the record in the database.
+
+    Parameters
+    ----------
+    result (dict): A dictionary containing NIH grant data.
+    cur: A database cursor for executing SQL queries.
+    org_cache (dict): A cache of organization information to avoid redundant API calls.
+    ingest_id (str): A unique identifier for the current ingestion process.
+    policy (dict): A dictionary containing policy settings for organization resolution.
+    metrics (dict): A dictionary to track metrics such as the number of inserted, updated, skipped, and errored records.
+
+    Raises
+    ------
+    ValueError: If the organization cannot be resolved for the given grant.
+    """
+    
+
     #populate hash for record integrity
     hash_result = content_hash(result)
     grant_id, hash_check = check_hash(cur, result)
