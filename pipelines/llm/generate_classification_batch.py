@@ -5,12 +5,12 @@ from dotenv import load_dotenv
 
 from core.db.connection import get_db_connection
 from core.llm.prompt_loader import load_prompt
-from core.llm.batch import build_classification_batch_task
+from core.llm.batch import build_classification_batch_task, split_jsonl
 
 def main():
 
 
-    load_dotenv()  
+    load_dotenv()   
 
     # ------------
     # DEFINE ARGUMENTS
@@ -81,7 +81,13 @@ def main():
 
     conn.close()
 
+    parts = split_jsonl(
+        input_path=output_path,
+        output_dir=output_dir / "split"
+    )
+
     print(stats)
+    print(f"Created {len(parts)} split JSONL files in {output_dir / 'split'}")
 
 if __name__ == "__main__":
     main()
