@@ -1,11 +1,21 @@
-#org_resolution.py
-#this script contains functions to resolve organization information for NIH grant data
-
 from core.ingest.api import api_url
 import requests
 
-# Resolves organization information directly from the payload
 def resolve_from_payload(organization: dict):
+
+    """
+    Resolves organization information directly from the payload.
+
+    Parameters
+    ----------
+    organization (dict): A dictionary containing organization data, including 'org_name', 'org_city', 'org_state', and 'org_country'.
+
+    Returns
+    -------
+    dict or None: A dictionary containing the resolved organization information with keys 'name', 'city', 'state', and 'country'. 
+    Returns None if the organization data is not provided.
+    """
+
     if not organization:
         return None
     
@@ -21,9 +31,24 @@ def resolve_from_payload(organization: dict):
         "country": org_country or None
     }
     
-# Applies the intramural rule for NIH grants
-
 def apply_intramural_rule(core_project_num: str, org: dict, agency_abbr: str):
+
+    """
+    Applies the intramural rule for NIH grants. If the core project number starts with "Z", 
+    it indicates an intramural project, and the organization information is set to a default value
+    based on the agency abbreviation.
+
+    Parameters
+    ----------
+    core_project_num (str): The core project number of the NIH grant.
+    org (dict): A dictionary containing organization data, including 'name', 'city', 'state', and 'country'.
+    agency_abbr (str): The abbreviation of the agency administering the grant (e.g., "FDA" for the Food and Drug Administration).
+    
+    Returns
+    -------
+    dict: A dictionary containing the resolved organization information with keys 'name', 'city', 'state', and 'country'.
+    """ 
+
     if not core_project_num.startswith("Z"):
         return org
 
@@ -53,9 +78,20 @@ def apply_intramural_rule(core_project_num: str, org: dict, agency_abbr: str):
     }
 
 
-# Checks if the organization information is complete
-
 def is_org_complete(org: dict) -> bool:
+
+    """
+    Checks if the organization information is complete.
+
+    Parameters
+    ----------
+    org (dict): A dictionary containing organization data, including 'name', 'city', 'state', and 'country'.
+
+    Returns
+    -------
+    bool: True if the organization information is complete, False otherwise.
+    """
+
     if not org:
         return False
 
@@ -70,7 +106,26 @@ def is_org_complete(org: dict) -> bool:
     
     return True
 
-def db_lookup_fn(cur, core_project_num: str, fiscal_year: int, organization: dict):
+def resolve_from_prior_db(cur, core_project_num: str, fiscal_year: int, organization: dict):
+
+    """
+    Attempts to resolve organization information from prior database records for the same core project number.
+
+    Parameters
+    ----------
+    cur: A database cursor for executing SQL queries.
+    core_project_num (str): The core project number of the NIH grant.
+    fiscal_year (int): The fiscal year of the NIH grant.
+    organization (dict): A dictionary containing organization data, including 'name', 'city', 'state', and 'country'.
+
+    Returns
+    -------
+    dict or None: A dictionary containing the resolved organization information with keys 'name', 'city', 'state', and 'country'. 
+    Returns None if no prior record is found or if the organization
+    information is incomplete.
+    """
+
+
     for org_year in [fiscal_year, fiscal_year - 1]:
         cur.execute('''
             SELECT o.name, o.city, o.state, o.country
@@ -89,8 +144,24 @@ def db_lookup_fn(cur, core_project_num: str, fiscal_year: int, organization: dic
                 "state": org_state,
                 "country": org_country
             }
-# Resolves organization information from a cache
+
 def resolve_from_cache(core_project_num: str, cache: dict):
+
+    """
+    Attempts to resolve organization information from a cache.
+
+    Parameters
+    ----------
+    core_project_num (str): The core project number of the NIH grant.
+    cache (dict): A dictionary containing cached organization information, where the keys are core project numbers
+    and the values are dictionaries with keys 'name', 'city', 'state', and 'country'.
+
+    Returns
+    -------
+    dict or None: A dictionary containing the resolved organization information with keys 'name', 'city', 'state', and 'country'. 
+    Returns None if no cached record is found.
+    """
+
     org = cache.get(core_project_num)
     if not org:
         return None
@@ -100,12 +171,23 @@ def resolve_from_cache(core_project_num: str, cache: dict):
         "state": org.get("state"),
         "country": org.get("country")
     }
-# Resolves organization information by querying future API data
+
 def resolve_from_future_api(core_project_num: str, current_fy: int):
 
     """
     Attempts to retrieve missing org info by querying next 2 fiscal years.
+    
+    Parameters
+    ----------
+    core_project_num (str): The core project number of the NIH grant.
+    current_fy (int): The current fiscal year.
+
+    Returns
+    -------
+    dict or None: A dictionary containing the resolved organization information with keys 'name', 'city', 'state', and 'country'.
+    Returns None if no future record is found.
     """
+
 
     for year in [current_fy + 1, current_fy + 2]:
         payload = {
@@ -142,9 +224,35 @@ def resolve_from_future_api(core_project_num: str, current_fy: int):
             }
     return None
 
-def resolve_org(*, cur, core_project_num: str, fiscal_year: int, organization: dict, agency_abbr: str, cache:dict, policy:dict):   
-    
-    
+def resolve_org(*, cur, core_project_num: str, fiscal_year: int, organization: dict, agency_abbr: str, cache:dict, policy:dict): 
+
+    """
+    Resolves organization information for a given NIH grant result using multiple strategies, 
+    including payload data, prior database records, cache, and future API lookups.
+
+    Parameters
+    ----------
+    cur: A database cursor for executing SQL queries.
+    core_project_num (str): The core project number of the NIH grant.
+    fiscal_year (int): The fiscal year of the NIH grant.
+    organization (dict): A dictionary containing organization data, including 'name', 'city', 'state', and 'country'.
+    agency_abbr (str): The abbreviation of the agency administering the grant (e.g., "FDA" for the Food and Drug Administration).
+    cache (dict): A dictionary containing cached organization information, where the keys are core project numbers
+    and the values are dictionaries with keys 'name', 'city', 'state', and 'country'.
+    policy (dict): A dictionary containing policy settings for organization resolution, including 'allow_future_lookup' and 'allow_manual_lookup'.
+
+    Returns
+    -------
+    tuple: A tuple containing the resolved organization information (dict) and the resolution status (str).
+    The resolution status can be one of the following:
+        - "payload": Resolved from payload data.
+        - "prior_db": Resolved from prior database records.
+        - "cache": Resolved from cache.
+        - "future_api": Resolved from future API lookups.
+        - "manual": Resolved through manual input (if allowed).
+        - "missing": Could not resolve organization information.
+    """  
+        
     # First, try to resolve from payload
     org = resolve_from_payload(organization)
     if org: 
@@ -155,7 +263,7 @@ def resolve_org(*, cur, core_project_num: str, fiscal_year: int, organization: d
     
     
     # Next, try to resolve from prior database records
-    org = db_lookup_fn(cur, core_project_num, fiscal_year, organization)
+    org = resolve_from_prior_db(cur, core_project_num, fiscal_year, organization)
     if org:
         return org, "prior_db"
     

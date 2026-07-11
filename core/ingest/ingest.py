@@ -4,8 +4,8 @@
 import json
 import time
 from core.ingest.normalize import normalize_project_num
-from core.ingest.api import api_url, page_limit, sleep_seconds, agencies
-from core.ingest.api import fetch_projects, build_payload, MAX_RETRIES, backoff
+from core.ingest.reporter_client import API_URL, PAGE_LIMIT, SLEEP_SECONDS, AGENCIES, MAX_RETRIES
+from core.ingest.reporter_client import fetch_projects, build_payload, backoff
 from core.ingest.process import process_result
 from tqdm import tqdm
 from core.ingest.persistence import record_error
@@ -15,9 +15,28 @@ class DataQualityError(Exception):
     pass
 
 def ingest_year(year:int, conn, cur, org_cache:dict, ingest_id:str, POLICY:dict, metrics:dict):
+
+    """
+    Ingests NIH grant data for a given fiscal year, normalizes it, and stores it in a database.
+
+    Parameters
+    ----------
+    year (int): The fiscal year for which to ingest NIH grant data.
+    conn: A database connection object for executing SQL queries.
+    cur: A database cursor for executing SQL queries.
+    org_cache (dict): A cache of organization information to avoid redundant API calls.
+    ingest_id (str): A unique identifier for the current ingestion process.
+    POLICY (dict): A dictionary containing policy settings for organization resolution.
+    metrics (dict): A dictionary to track metrics such as the number of inserted, updated, skipped, and errored records.
+
+    Raises
+    ------
+    RuntimeError: If the NIH API is unavailable after the maximum number of retries.
+    
+    """
     
 
-    for agency in agencies:
+    for agency in AGENCIES:
         offset=0
         search_id = None
         total = float('inf')
@@ -53,8 +72,8 @@ def ingest_year(year:int, conn, cur, org_cache:dict, ingest_id:str, POLICY:dict,
                 
                     
             
-            offset += page_limit
-            time.sleep(sleep_seconds)
+            offset += PAGE_LIMIT
+            time.sleep(SLEEP_SECONDS)
 
         if pbar:
             pbar.close()
