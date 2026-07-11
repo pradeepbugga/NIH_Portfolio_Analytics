@@ -1,10 +1,35 @@
 from pathlib import 
 import json
 
-def build_batch_task (grant_id, title, abstract, prompt, model, reasoning=None):
+def build_classification_batch_task(grant_id: str, title: str, abstract: str, prompt: str, model: str, reasoning: str = None) -> dict:
+
     """
-    Build a batch task for the given grant_id, title, and abstract.
+    Build a batch classification task for the given grant_id, title, and abstract.
+    Also ensure the format of the output is a JSON object with "reasoning" and "answer" fields, where "answer" is either "YES" or "NO".
+
+    Parameters
+    ----------
+
+    grant_id 
+        The grant ID.
+    title
+        The title of the grant.
+    abstract
+        The abstract of the grant.
+    prompt
+        The prompt to be used for classification.
+    model
+        The model to be used for classification.
+    reasoning
+        Optional reasoning to be included in the task.
+
+    Returns
+    -------
+    dict
+        A dictionary representing the batch task for the given grant.
     """
+
+
     task = {
         "custom_id": grant_id,
         "method": "POST",
@@ -15,16 +40,78 @@ def build_batch_task (grant_id, title, abstract, prompt, model, reasoning=None):
             "input":[{"role": "system", "content": prompt}, 
                 {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"}],
             #"safety_identifier":  "  safety identifier for gpt as some grants will be flagged 
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "classification",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "reasoning": {"type": "string"},
+                            "answer": 
+                                {
+                                "type": "string",
+                                "enum": ["YES", "NO"]
+                                }
+                            },
+                        "required": ["reasoning","answer"],
+                        "additionalProperties": False
+                        }
+                    }
+                }
+    
+        }
+    }
+    return task
+
+def build_summary_batch_task (grant_id: str, title: str, abstract: str, prompt: str, model: str, reasoning: str = None) -> dict:
+    """
+    Build a batch summarization task for the given grant_id, title, and abstract.
+    No specific output format is enforced, allowing for more flexible summarization.
+    """
+    task = {
+        "custom_id": grant_id,
+        "method": "POST",
+        "url": "/v1/responses",
+        "body": {
+            "model": model,            
+            "reasoning": reasoning,
+            "input":[{"role": "system", "content": prompt}, 
+                {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"}]
+            #"safety_identifier":  "  safety identifier for gpt as some grants will be flagged     
         }
     }
     return task
 
 
-# following function generates a batch file for the given grant_ids and their corresponding titles and abstracts
-
-def generate_batch_jsonl(cur, output_path, prompt, model, reasoning=None, fiscal_year = 2025):
+def generate_batch_jsonl(cur: any, output_path: str | Path, prompt: str, build_task: callable, model: str, reasoning: str = None, fiscal_year: int = 2025) -> dict:
     """
     Generate a batch JSONL file for the given grant_ids and their corresponding titles and abstracts.
+
+    Parameters
+    ----------
+
+    cur
+        SQL Database cursor to fetch grant data.
+    output_path
+        Path to the output JSONL file.
+    prompt
+        The prompt to be used for classification or summarization.
+    build_task
+        Function to build the batch task (either classification or summarization).
+    model
+        The model to be used for classification or summarization.
+    reasoning
+        Optional reasoning to be included in the task.
+    fiscal_year
+        The fiscal year to filter the grants by. Defaults to 2025.  
+
+    Returns
+    -------
+    dict
+        A dictionary containing the total number of records fetched and written to the output file.
+
     """
     total_fetch = 0
     total_written = 0
@@ -56,23 +143,23 @@ def generate_batch_jsonl(cur, output_path, prompt, model, reasoning=None, fiscal
                 total_written += 1
                 f.write(json.dumps(task) + "\n")
 
-    return 
-        {"total_fetch": total_fetch,
-         "total_written": total_written}
+    return {
+        "total_fetch": total_fetch,
+        "total_written": total_written,
+        }
 
 
-
-def split_jsonl(input_path, output_dir, limit=25_000):
+def split_jsonl(input_path: str | Path, output_dir: str | Path, limit: int = 25000) -> list[Path]:
     """
     Split a JSONL file into multiple smaller JSONL files.
 
     Parameters
     ----------
-    input_path : str | Path
+    input_path 
         Path to the input JSONL file.
-    output_dir : str | Path
+    output_dir 
         Directory where split files will be written.
-    limit : int, optional
+    limit 
         Maximum number of records per file. Defaults to the
         current OpenAI Batch API limit (25,000).
 
@@ -118,15 +205,15 @@ def split_jsonl(input_path, output_dir, limit=25_000):
 
     return output_paths
     
-def combined_jsonl(input_paths, output_path):
+def combine_jsonl(input_paths: list[str | Path], output_path: str | Path) -> Path:
     """
-    Combine multiple JSONL files into a single JSONL file.
+    Combine multiple JSONL files into a single JSONL file (useful for merging split files after batch API processing).
 
     Parameters
     ----------
-    input_paths : list[str | Path]
+    input_paths : 
         Paths to the input JSONL files.
-    output_path : str | Path
+    output_path : 
         Path to the output JSONL file.
 
     Returns
@@ -137,15 +224,6 @@ def combined_jsonl(input_paths, output_path):
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with output_path.open("w") as out_file:
-
-        for input_path in input_paths:
-            input_path = Path(input_path)
-
-            with input_path.open("r") as in_file:
-                for line in in_file:
-                    out_file.write(line)
 
     seen_grant_ids = set()
     duplicates = 0
