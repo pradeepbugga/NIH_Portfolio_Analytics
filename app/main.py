@@ -19,6 +19,13 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 from core.db.connection import get_db_connection
+from core.services.formatting import extract_funding, extract_ontology_distribution, format_output_grants
+
+from app.startup import GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES, GLOBAL_SYNONYM_REGISTRY, application_lifespan
+from core.services.search_services import search
+from core.services.activity_service import get_activity_portfolio
+from core.services.agency_service import get_agency_portfolio
+
 from core.search.search_service_prod import hybrid_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
@@ -32,149 +39,34 @@ from core.category.mapping import category_mapping, machine_human_map
 
 load_dotenv()
 
-# Global placeholders for static reference data (initialized once at startup)
-GLOBAL_AGENCIES_LIST = []
-GLOBAL_VALID_ACTIVITY_CODES = []
-GLOBAL_SYNONYM_REGISTRY = {}
-
-# ================================================================
-# STARTUP LIFESPAN MANAGEMENT (runs exactly once on server boot)
-# ================================================================
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """ 
-    Handles critical initialization protocols before ports are opened to traffic.
-    This includes loading ML encoder and parsing static reference datasets for agencies and activity codes.
-    This also includes loading synonym mappings for query expansion.
-    """
-    global GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES, GLOBAL_SYNONYM_REGISTRY
-    print("Running global application warmups...")
-
-    # 1. Warmup the local query encoder (PubmedBERT) to avoid cold-start latency on first query
-    warmup_query_encoder()
-    
-    # 2. Pre-cache reference dataset csv metrics to prevent repeated disk reads on every request
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # map and load agency data
-    csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv"))
-    if os.path.exists(csv_path):
-        try:
-            df = pd.read_csv(csv_path).fillna("")
-            GLOBAL_AGENCIES_LIST = df.sort_values(by="agency_ic").to_dict(orient="records")
-            print(f"✅ Cached {len(GLOBAL_AGENCIES_LIST)} agency mapping matrices.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing agency CSV: {e}")
-
-    # map and load activity code data
-    activity_csv_path = os.path.abspath(os.path.join(script_dir, "..", "core", "activity_codes", "2025_code_list.csv"))
-    if os.path.exists(activity_csv_path):
-        try:
-            df_activity = pd.read_csv(activity_csv_path)
-            GLOBAL_ACTIVITY_CODES = df_activity["Activity_Code"].str.upper().tolist()
-            print(f"✅ Cached {len(GLOBAL_VALID_ACTIVITY_CODES)} valid global structural activity codes.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
-    
-    print("Warmups complete. Application is ready to serve requests.")
-
-    # map and load synonym registry for query expansion
-    synonym_json_path = os.path.abspath(os.path.join(script_dir, "..", "core", "search", "rcdc_synonyms.json"))
-    if os.path.exists(synonym_json_path):
-        try:
-            with open(synonym_json_path, "r") as f:
-                GLOBAL_SYNONYM_REGISTRY = json.load(f)
-            print(f"✅ Cached {len(GLOBAL_SYNONYM_REGISTRY)} domain synonym expansion targets into memory.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing synonym JSON: {e}")
-            GLOBAL_SYNONYM_REGISTRY = {}
-    else:
-        print(f"⚠️ Warning: Synonym map not found at {synonym_json_path}")
-
-    yield
 
 # ===============================================================
 # FRAMEWORK INITIALIZATION AND ROUTER SETUP
 # ===============================================================
-app = FastAPI(title="NIH Grant Search API", lifespan=lifespan)
+app = FastAPI(title="NIH Grant Search API", lifespan=application_lifespan)
 
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
-
-# ===============================================================
-# UTILITY FUNCTIONS
-# ===============================================================
-
-def normalize_query(q: str) -> str:
-    """Remove extra whitespace and convert to lowercase for consistent query processing."""
-    return " ".join(q.lower().split())
-
-def extract_funding(results):
-    """
-    Extracts and scales yearly funding totals from search results, adjusting for the current fiscal year.
-    """
- 
-    yearly_totals = {}
-    now = datetime.now()
-    current_fy = now.year if now.month < 10 else now.year + 1
-    months_elapsed = (now.month - 10) % 12 + 1
-    scaling_factor = 12/months_elapsed
-
-    print(f"Current fiscal year: {current_fy}, months elapsed: {months_elapsed}, scaling factor: {scaling_factor}")
-    for r in results["records"]:
-        yr = r["fiscal_year"]
-        
-        amt = r["amount"] or 0 
-        yearly_totals[yr] = yearly_totals.get(yr, 0) + amt
-
-    if current_fy in yearly_totals:
-        yearly_totals[current_fy] *= scaling_factor
-    years = sorted(yearly_totals.keys())
-
-    funding = [yearly_totals[yr] for yr in years]
-
-    return years, funding
-
-def extract_ontology_distribution(results):
-    """Calculates the total funding distribution across abstract categories (generated by LLM) from search results."""
-
-    labels = [
-        ("Mechanistic / Basic Science", "mechanistic"),
-        ("Therapeutic", "therapeutic"),
-        ("Diagnostic", "diagnostic"),
-        ("Research Tool", "research_tool"),
-        ("Clinical / Health Systems", "clinical"),
-        ("Research Infrastructure", "infrastructure"),
-        ("Education / Training", "education"),
-        ("Observational Epidemiology", "obs_ep")
-    ]
-
-    totals = {}
-    for display_name, key in labels:
-        total = 0
-        for r in results["records"]:
-            if r.get(key)==1:
-                total += r.get("amount") or 0
-        totals[display_name] = total
-
-    return list(totals.keys()), list(totals.values())
-
-def format_output_grants(ranked_docs):
-    """Helper layout to normalize object fields perfectly for JavaScript render tracks"""
-    for g in ranked_docs:
-        g["organization"] = g.get("org_name")
-        g["funding"] = g.get("amount")
-        first, middle, last = g.get("pi_first_name") or "", g.get("pi_middle_name") or "", g.get("pi_last_name") or ""
-        g["pi"] = " ".join(x for x in [first, middle, last] if x)
-    return ranked_docs
-
 
 # ===============================================================
 # API APPLICATION CORE ENDPOINTS
 # ===============================================================
 @app.get("/", response_class=HTMLResponse)
 def home_page(request: Request):
-    """Renders the home page with a search bar and agency/activity code filters."""
+    """
+    Renders the home page with a search bar and agency/activity code filters.
+
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+    
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the home page with the search bar and filters.
+    """
+
 
     return templates.TemplateResponse(
         "index.html", 
@@ -187,7 +79,21 @@ def home_page(request: Request):
 
 @app.get("/portfolio")
 def portfolio_page(request: Request):
-    """Renders the portfolio page (global analysis of NIH grants)."""
+
+    """
+    Renders the portfolio page (global analysis of NIH grants).
+
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+    
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the portfolio page.
+    """
+
     return templates.TemplateResponse(
         "portfolio.html",
         {"request": request}
@@ -195,7 +101,21 @@ def portfolio_page(request: Request):
 
 @app.get("/categories")
 def categories_page(request: Request):
-    """Renders the categories page (look-up table for category definitions)."""
+
+    """
+    Renders the categories page (look-up table for category definitions).
+    
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.   
+
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the categories page.
+    
+    """
     return templates.TemplateResponse(
         "categories.html",
         {"request": request}
@@ -204,7 +124,21 @@ def categories_page(request: Request):
 
 @app.get("/contact_us")
 def contact_page(request: Request):
-    """Renders the contact us page for user inquiries."""
+
+    """
+    Renders the contact us page for user inquiries.
+
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+    
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the contact us page.
+    """
+
     return templates.TemplateResponse(
         "contact_us.html",
         {"request": request}
@@ -213,485 +147,106 @@ def contact_page(request: Request):
 @app.get("/search")
 async def search(request: Request,
     query: str = Query(..., description="Search query string")):
+
     """
-    Handles the semantic search endpoint, performing query embedding, candidate retrieval, reranking, and result formatting.
+    Handles the search endpoint, performing a hybrid search over NIH grant documents.
+
+    Parameters
+    ----------
+
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+    query : str
+        The search query string provided by the user.   
+
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the search results page with ranked grants and visualizations.
     """
 
-    t_start = time.perf_counter()
-    print("\n" + "="*50)
-    print("=== STARTING DETAILED LATENCY BENCHMARK ===")
-    print("="*50)
-   
- 
-    # 1.normalize query before searching
-    query = normalize_query(query)
-    t_query = time.perf_counter()
-    print(f"✅ Query normalized: '{query}' (Latency: {t_query - t_start:.4f}s)")
+    context = await search(request, query, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY)
 
-    # 2. Delegate database connection to a thread-safe context to avoid blocking the event loop
-    conn = await anyio.to_thread.run_sync(get_db_connection)
-    cur = conn.cursor()
+    context["request"] = request
 
-    processed_results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_results.json")
-
-
-    try:
-        t_db_start = time.perf_counter()
-
-        cached_results = await anyio.to_thread.run_sync(get_cached_results, cur, query)
-
-        if cached_results:
-            print(f"✅ Cache hit for query '{query}'")
-            years, funding = extract_funding(cached_results)
-            ontology_labels, ontology_values = extract_ontology_distribution(cached_results)
-            
-            # delegate the formatting to a thread-safe context to avoid blocking the event loop
-            formatted_cached_records = await anyio.to_thread.run_sync(format_output_grants, cached_results["records"]) 
-
-            def save_debug_json():
-                with open(processed_results_path, "w") as f:
-                    json.dump(formatted_cached_records, f, indent=4)
-            await anyio.to_thread.run_sync(save_debug_json)
-
-            print(f"✅ Cached results formatted and saved to disk for inspection (Latency: {time.perf_counter() - t_db_start:.4f}s)")
-
-            return templates.TemplateResponse(
-            "results.html",
-            {
-                "request": request,
-                "query": query,
-                "years": years,
-                "funding": funding,
-                "results": formatted_cached_records,
-                "ontology_labels": ontology_labels,
-                "ontology_values": ontology_values
-            }
-            )
-
-        # ================================================================
-        # CACHE MISS: Proceed with full hybrid search pipeline
-        # ================================================================
-
-
-        # A. DATABASE TUNING AND VECTOR SCAN RETRIEVAL
-        t_db_mid = time.perf_counter()
-        print(f"✅ Database ready for search (Latency: {t_db_mid - t_db_start:.4f}s)")
-
-        # execute the vector retrieval in a thread-safe context to avoid blocking the event loop
-        results = await hybrid_search_range(query, cur, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY)
-
-        t_db_end = time.perf_counter()
-        print(f"✅ Hybrid search completed (Latency: {t_db_end - t_db_mid:.4f}s)")
-
-
-        # B. WRITE BACK TO CACHE: Save the results to Postgres for future queries
-        t_cache_start = time.perf_counter()
-        await anyio.to_thread.run_sync(save_cached_results, cur, query, results)
-        await anyio.to_thread.run_sync(conn.commit)
-        print(f"✅ Results cached (Latency: {time.perf_counter() - t_cache_start:.4f}s)")
-        
-        # C. POST-PROCESSING: Extract funding and ontology distributions, format results for frontend
-        t_format_start = time.perf_counter()
-        years, funding = extract_funding(results)
-        ontology_labels, ontology_values = extract_ontology_distribution(results)
-
-        formatted_live_records = await anyio.to_thread.run_sync(format_output_grants, results["records"])
-        print(f"✅ Results formatted for frontend (Latency: {time.perf_counter() - t_format_start:.4f}s)")
-
-        # D. LOCAL DEBUGGING: Save the formatted results to disk for inspection
-        t_disk_start = time.perf_counter()
-
-        def save_live_json():
-            with open(processed_results_path, "w") as f:
-                json.dump(formatted_live_records, f, indent=4)
-        await anyio.to_thread.run_sync(save_live_json)
-
-        
-        print(f"✅ Results saved to disk for inspection (Latency: {time.perf_counter() - t_disk_start:.4f}s)")  
-
-        t_end = time.perf_counter()
-        print(f"✅ Total search latency: {t_end - t_start:.4f}s")
-
-
-        return templates.TemplateResponse(
-            "results.html",
-           {
-            "request": request,
-            "query": query,
-            "years": years,
-            "funding": funding,
-            "results": formatted_live_records,
-            "ontology_labels": ontology_labels,
-            "ontology_values": ontology_values
-            }
+    return templates.TemplateResponse(
+        "results.html",
+        context
     )
-    finally:
-        await anyio.to_thread.run_sync(cur.close)
-        await anyio.to_thread.run_sync(conn.close)
+
+   
 
 @app.get("/activity_codes", response_class=HTMLResponse)
 async def activity_codes_multi_search(
     request: Request, 
     codes: str = Query(..., description="Comma-separated 3-character NIH Activity codes")
 ):
+
     """
-    Handles the activity code search endpoint, retrieving and aggregating grants based on entered NIH activity codes.
+    Handles the activity codes search endpoint, retrieving and aggregating grants based on a list of NIH activity codes.
+
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+    codes : str
+        A comma-separated string of NIH activity codes (e.g., "R01,R21,R03") to filter grants by.
+
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the search results page with ranked grants and visualizations for the specified activity codes.
     """
+    
+    context = await get_activity_portfolio(codes, code_registry = GLOBAL_VALID_ACTIVITY_CODES)
 
-    t0 = time.time()
-    # 1. Parse and sanitize input (Extracts exactly what the user typed)
-    target_codes = [c.strip().upper() for c in codes.split(",") if c.strip()]
-    if not target_codes or len(target_codes) > 5:
-        raise HTTPException(status_code=400, detail="Must provide between 1 and 5 activity codes.")
-        
-    tuple_codes = tuple(target_codes)
+    context["request"] = request
 
-    # 2. Define core blocking work to offload to a thread-safe context to avoid blocking the event loop
-
-    def run_database_operations():
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        try:
-            
-            # STEP 1: HISTORICAL DATA FOR CHARTS
-            t_start = time.time()
-
-            # Strictly check against the 3-character activity code substring
-            timeline_query = """
-                SELECT fiscal_year, SUM(total_award_amount)
-                FROM ResearchGrants
-                WHERE activity_code IN %s
-                GROUP BY fiscal_year
-                ORDER BY fiscal_year ASC;
-            """
-            cur.execute(timeline_query, (tuple_codes,))
-            timeline_rows = cur.fetchall()
-            print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
-            
-            years = [row[0] for row in timeline_rows]
-            funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
-
-            # STEP 2: CATEGORY DISTRIBUTION AGGREGATION
-            t_start = time.time()
-            ontology_query = """
-                SELECT               
-                    COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
-                FROM ResearchGrants rg
-                INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-                WHERE rg.activity_code IN %s;
-            """
-            cur.execute(ontology_query, (tuple_codes,))
-            onto_row = cur.fetchone()
-            print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
-            
-            ontology_labels = [
-                "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
-                "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
-            ]
-            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
-
-            # STEP 3: TABLE REVIEWS (2025 Viewport Only)
-            t_start = time.time()
-            table_query = """
-                SELECT
-                    rg.grant_id,
-                    rg.project_title,
-                    o.name AS organization,
-                    rg.contact_pi_id,
-                    rg.total_award_amount,
-                    rg.agency_ic,
-                    rg.fiscal_year,
-                    gl.mechanistic, gl.therapeutic, gl.diagnostic, gl.research_tool,
-                    gl.clinical, gl.infrastructure, gl.education, gl.obs_ep,               
-                    s.two_sentence_summary AS summary_text
-                FROM ResearchGrants rg
-                JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-                INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-                LEFT JOIN organizations o ON rg.organization_id = o.id
-                WHERE 
-                    rg.activity_code IN %s
-                    AND rg.fiscal_year = 2025
-                ORDER BY rg.total_award_amount DESC;
-            """
-            cur.execute(table_query, (tuple_codes,))
-            rows = cur.fetchall()
-            print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
-            
-            grants = []
-            for row in rows:
-                grant_id = row[0]
-                activity_code = grant_id[1:4] if len(grant_id) > 4 else "N/A"
-
-                grants.append({
-                    "grant_id": grant_id, "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
-                    "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
-                    "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
-                    "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14], "summary": row[15], "activity_code": activity_code
-                })
-
-            return years, funding, ontology_labels, ontology_values, grants
-
-        finally:
-            cur.close()
-            conn.close()
-
-    try:
-        years, funding, ontology_labels, ontology_values, grants = await anyio.to_thread.run(run_database_operations)
-
-    except Exception as e:
-        print(f"❌ Error in activity_codes route: {e}")
-        raise HTTPException(status_code=500, detail="Database lookup error.")
-
-    display_title = f"Activity Codes: {', '.join(target_codes)}"
-    print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
-            
     return templates.TemplateResponse(
         "results.html",
-        {
-            "request": request,
-            "query": display_title,
-            "years": years,
-            "funding": funding,
-            "results": grants,
-            "ontology_labels": ontology_labels,
-            "ontology_values": ontology_values
-        }
+        context
     )
+
+
+
 
 @app.get("/agency/{agency_code}", response_class=HTMLResponse)
 async def agency_portal(request: Request, agency_code: str):
+
     """
-    Handles the agency portal endpoint, retrieving and aggregating grants based on a specific NIH agency code
+    Handles the agency portal endpoint, retrieving and aggregating grants based on a specific NIH agency code.
+
+    Parameters
+    ----------
+    request : Request
+        The FastAPI request object, used to pass context to the template.
+
+    agency_code : str
+        The NIH agency code (e.g., "NCI", "NIAID") to filter grants by.
+
+    Returns
+    -------
+    TemplateResponse
+        A Jinja2 template response rendering the search results page with ranked grants and visualizations for the specified agency.
     """
-    t0 = time.time()
-    target_code = agency_code.upper()
 
-    # 1. Delegate database operations to a thread-safe context to avoid blocking the event loop
-    def run_agency_filtering():
+    context = await get_agency_portfolio(agency_code, code_registry = GLOBAL_AGENCIES_LIST)
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        try: 
-            # STEP 1: HISTORICAL DATA FOR CHARTS 
-            t_start = time.time()
-            timeline_query = """
-                SELECT fiscal_year, SUM(total_award_amount)
-                FROM ResearchGrants
-                WHERE agency_code = %s
-                GROUP BY fiscal_year
-                ORDER BY fiscal_year ASC;
-            """
-            cur.execute(timeline_query, (target_code,))
-            timeline_rows = cur.fetchall()
-            print(f"⏱️ DB Timeline Query took: {time.time() - t_start:.4f}s")
-
-            years = [row[0] for row in timeline_rows]
-            funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
-
-            # STEP 2: CATEGORY DISTRIBUTION AGGREGATION (Ontology Labels)
-            t_start = time.time()
-            ontology_query = """
-                SELECT               
-                    COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.therapeutic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.diagnostic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.research_tool = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.clinical = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.infrastructure = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.education = 1 THEN rg.total_award_amount ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN gl.obs_ep = 1 THEN rg.total_award_amount ELSE 0 END), 0)
-                FROM ResearchGrants rg
-                INNER JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-                WHERE rg.agency_code = %s;
-            """
-            cur.execute(ontology_query, (target_code,))
-            onto_row = cur.fetchone()
-            print(f"⏱️ DB Ontology Query took: {time.time() - t_start:.4f}s")
-
-            ontology_labels = [
-                "Mechanistic / Basic Science", "Therapeutic", "Diagnostic", "Research Tool", 
-                "Clinical / Health Systems", "Research Infrastructure", "Education / Training", "Observational Epidemiology"
-            ]
-            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
-
-            # STEP 3: TABLE REVIEWS (2025 Viewport Only) - Fetch all grants for the agency in 2025
-            t_start = time.time()
-            table_query = """
-                SELECT
-                    rg.grant_id,
-                    rg.project_title,
-                    o.name AS organization,
-                    rg.contact_pi_id,
-                    rg.total_award_amount,
-                    rg.agency_ic,                
-                    rg.fiscal_year,
-                    gl.mechanistic,
-                    gl.therapeutic,
-                    gl.diagnostic,
-                    gl.research_tool,
-                    gl.clinical,
-                    gl.infrastructure,
-                    gl.education,
-                    gl.obs_ep,
-                    rg.activity_code,
-                    s.two_sentence_summary AS summary_text
-                FROM ResearchGrants rg
-                JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-                INNER JOIN Grant_Summaries s ON rg.grant_id = s.grant_id
-                LEFT JOIN organizations o ON rg.organization_id = o.id
-                WHERE 
-                    rg.agency_code = %s 
-                    AND rg.fiscal_year = 2025 -- ✨ Keep memory completely flat
-                ORDER BY rg.total_award_amount DESC;
-            """
-            cur.execute(table_query, (target_code,))
-            rows = cur.fetchall()
-            print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
-
-            grants = []
-            for row in rows:
-                grants.append({
-                    "grant_id": row[0],
-                    "title": row[1],
-                    "organization": row[2] if row[2] else "Unknown Institution",
-                    "pi": row[3],
-                    "amount": float(row[4]) if row[4] else 0.0,
-                    "agency_ic": row[5],
-                    "fiscal_year": int(row[6]) if row[6] else 2025,                
-                    "mechanistic": row[7],
-                    "therapeutic": row[8],
-                    "diagnostic": row[9],
-                    "research_tool": row[10],
-                    "clinical": row[11],
-                    "infrastructure": row[12],
-                    "education": row[13],
-                    "obs_ep": row[14],
-                    "activity_code": row[15],
-                    "summary": row[16]
-                })
-
-            return years, funding, ontology_labels, ontology_values, grants
-
-        finally:
-            cur.close()
-            conn.close()
-
-    # 2. Execute the database operations in a thread-safe context to avoid blocking the event loop
-    try:
-        years, funding, ontology_labels, ontology_values, grants = await anyio.to_thread.run(run_agency_filtering)
-    except Exception as e:
-        print(f"❌ Error in agency_portal route: {e}")
-        raise HTTPException(status_code=500, detail="Database lookup error.")
-
-    # STEP 3: RESOLVE CSV METADATA DISPLAY NAME
-    t_start = time.time()
-    display_title = f"Agency Portfolio: {target_code}"
-    
-    # Map target code against the agencies_updated.csv to find the human-readable abbreviation
-    for agency in GLOBAL_AGENCIES_LIST:
-        if agency.get("funding_code") == target_code:
-            display_title = agency.get("abbreviation", display_title)
-            break
-
-    print(f"⏱️ CSV Metadata Parsing took: {time.time() - t_start:.4f}s")
-    print(f"🚀 TOTAL BACKEND RUNTIME: {time.time() - t0:.4f}s")
-
-    # STEP 4: RENDER RESULTS PAGE 
+    context["request"] = request
 
     return templates.TemplateResponse(
         "results.html",
-        {
-            "request": request,
-            "query": display_title,
-            "years": years,
-            "funding": funding,
-            "results": grants, # Populates the 2025 UI data table view flawlessly
-            "ontology_labels": ontology_labels,
-            "ontology_values": ontology_values
-        }
+        context
     )
-    
+
 
 
 @app.get("/api/portfolio/categories")
 async def portfolio_categories(year: int = Query(..., description="Target fiscal year for categorization analysis")):
-    """
-    API endpoint to retrieve the total funding distribution across abstract categories for a given fiscal year.
-    """
-   
-    def fetch_category_distribution():
-        conn = get_db_connection()
-        cur = conn.cursor()
-        try: 
-            cur.execute("""
-                SELECT
-
-                    SUM(CASE WHEN gl.mechanistic = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.therapeutic = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.diagnostic = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.research_tool = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.clinical = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.infrastructure = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.education = 1
-                        THEN rg.total_award_amount ELSE 0 END),
-
-                    SUM(CASE WHEN gl.obs_ep = 1
-                        THEN rg.total_award_amount ELSE 0 END)
-
-                FROM grant_labels gl
-
-                JOIN ResearchGrants rg
-                    ON gl.grant_id = rg.grant_id
-
-                WHERE rg.fiscal_year = %s
-            """, (year,))
-
-            row = cur.fetchone()
-            if not row:
-                return [0]*8
-            return [val or 0 for val in row]
-        finally:
-            cur.close()
-            conn.close()
     
-    try: 
-        data_matrix = await anyio.to_thread.run(fetch_category_distribution)
-    except Exception as e:
-        print(f"❌ Error fetching category distribution: {e}")
-        raise HTTPException(status_code=500, detail="Database lookup error.")
+    context = await get_category_distribution(year)
 
-    # format into key-value pairs for frontend consumption
-    return  {
-                "Mechanistic / Basic Science": row[0] or 0,
-                "Therapeutic": row[1] or 0,
-                "Diagnostic": row[2] or 0,
-                "Research Tool": row[3] or 0,
-                "Clinical / Health Systems": row[4] or 0,
-                "Research Infrastructure": row[5] or 0,
-                "Education / Training": row[6] or 0,
-                "Observational Epidemiology": row[7] or 0
-            }
+    return context
 
 
 @app.get("/api/portfolio/grants")
