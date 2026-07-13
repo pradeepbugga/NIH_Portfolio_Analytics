@@ -3,6 +3,11 @@ from core.db import get_db_connection
 from core.constants import ONTOLOGY_LABELS
 from core.search.constants import VALID_CATEGORY_COLUMNS
 
+from core.search.modal_reranker import rerank_fn
+from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
+from core.search.load_docs import load_grant_texts
+from core.search.combine import combine_and_sort_semantic_filter
+
 
 async def get_category_distribution(year: int) -> dict:
 
