@@ -48,7 +48,7 @@ def run_embedding_job(cfg: EmbeddingConfig):
             hashes.append(content_hash)
 
             if len(texts) == cfg.batch_size:
-                vectors = embed_batch(model, texts)
+                vectors = embed_batch(model, list(texts))
                 for gid, h, v in zip(ids, hashes, vectors):
                     upsert_embedding(write_cur, gid, h, cfg, v)
                 write_conn.commit()
@@ -62,7 +62,7 @@ def run_embedding_job(cfg: EmbeddingConfig):
 
         # embed any remaining grants that didn't fill a complete batch
         if texts:
-            vectors = embed_batch(model, texts)
+            vectors = embed_batch(model, list(texts))
             for gid, h, v in zip(ids, hashes, vectors):
                 upsert_embedding(write_cur, gid, h, cfg, v)
             write_conn.commit()
@@ -139,3 +139,5 @@ def run_summary_embedding_job(cfg: EmbeddingConfig):
     count_cur.close()
     write_conn.close()
     read_conn.close()
+
+
