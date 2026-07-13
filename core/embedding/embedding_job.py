@@ -70,11 +70,13 @@ def run_embedding_job(cfg: EmbeddingConfig):
             embedded_count += len(ids)
             pbar.update(len(ids))
 
-        pbar.close()
         
         print(f"✅ Embedding job completed. Total grants embedded/updated: {embedded_count}")
 
     finally:
+
+        if pbar is not None:
+            pbar.close()
 
         write_cur.close()
         read_cur.close()
