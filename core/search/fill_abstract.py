@@ -11,19 +11,27 @@ cur = conn.cursor()
 def add_abstracts(df):
     grant_ids = df["grant_id"].unique().tolist()
 
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                grant_id,
-                abstract
-            FROM ResearchGrants
-            WHERE grant_id = ANY(%s)
-            """,
-            (grant_ids,)
-        )
+    conn = get_db_connection()
 
-        rows = cur.fetchall()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    grant_id,
+                    abstract
+                FROM ResearchGrants
+                WHERE grant_id = ANY(%s)
+                """,
+                (grant_ids,)
+            )
+
+            rows = cur.fetchall()
+
+    finally:
+        conn.close()
+        
+    abstract_map = {grant_id: abstract for grant_id, abstract in rows}
     df["abstract"] = df["grant_id"].map(abstract_map)
 
     return df
