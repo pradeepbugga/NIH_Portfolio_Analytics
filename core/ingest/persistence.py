@@ -223,7 +223,7 @@ def insert_pis(cur, grant_id: str, pis: list):
         # Insert the PI into the database, or update if they already exist
         cur.execute("""
                 INSERT INTO PIs (canonical_name, first_name, middle_name, last_name)
-                VALUES (%s, %s, %s, %s) RETURNING id",
+                VALUES (%s, %s, %s, %s) RETURNING id"
                 ON CONFLICT (canonical_name) DO UPDATE 
                 SET canonical_name = EXCLUDED.canonical_name -- This is a trick to force a RETURNING id
                 RETURNING id
