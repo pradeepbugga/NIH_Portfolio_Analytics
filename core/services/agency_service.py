@@ -1,16 +1,16 @@
 import time
 import anyio
 from fastapi import HTTPException
-from core.db import get_db_connection
+from core.db.connection import get_db_connection
 
-from core.consants import ONTOLOGY_LABELS
+from core.constants import ONTOLOGY_LABELS
 
 
-async def get_agency_portfolio(agency_code: str):
-
+async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> dict:
+    
     target_code = agency_code.upper()
 
-    conn = await anyio.to_thread.run(get_db_connection)
+    conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
 
     def run_agency_filtering():
@@ -83,8 +83,7 @@ async def get_agency_portfolio(agency_code: str):
             """
             cur.execute(table_query, (target_code,))
             rows = cur.fetchall()
-            print(f"⏱️ DB 2025 Table Query took: {time.time() - t_start:.4f}s")
-
+           
             grants = []
             for row in rows:
                 grants.append({
@@ -113,15 +112,12 @@ async def get_agency_portfolio(agency_code: str):
             cur.close()
             conn.close()
 
-    try:
-        years, funding, ontology_values, grants = await anyio.to_thread.run(run_agency_filtering)
-    except Exception as e:
-        print(f"❌ Error in agency_portal route: {e}")
-        raise HTTPException(status_code=500, detail="Database lookup error.")
+    years, funding, ontology_values, grants = await anyio.to_thread.run_sync(run_agency_filtering)
+    
 
     display_title = f"Agency Portfolio: {target_code}"
     
-    for agency in GLOBAL_AGENCIES_LIST:
+    for agency in code_registry:
         if agency.get("funding_code") == target_code:
             display_title = agency.get("abbreviation", display_title)
             break
@@ -131,7 +127,7 @@ async def get_agency_portfolio(agency_code: str):
             "query": display_title,
             "years": years,
             "funding": funding,
-            "results": grants, # Populates the 2025 UI data table view flawlessly
+            "results": grants, 
             "ontology_labels": ONTOLOGY_LABELS, 
             "ontology_values": ontology_values
         }
