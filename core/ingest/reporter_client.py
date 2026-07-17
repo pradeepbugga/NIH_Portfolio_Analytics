@@ -11,7 +11,7 @@ SLEEP_SECONDS = 1
 
 # NIH institute/center (IC) codes used for the `agency_ic_code`
 # field when querying the NIH RePORTER projects API.
-agencies = [
+AGENCIES = [
     'AA','AG','AI','AR','AT','CA','CT','DA','DC','DE',
     'DK','EB','ES','EY','GM','HD','HG','HL','LM',
     'MD','MH','NR','NS','OD','RR','TR','TW'
@@ -28,7 +28,7 @@ def backoff(attempt):
 
 
 def fetch_projects(payload: dict) -> dict:
-    resp = requests.post(API_URL json=payload, timeout=30)
+    resp = requests.post(API_URL, json=payload, timeout=10)
     resp.raise_for_status()
     return resp.json()
 
