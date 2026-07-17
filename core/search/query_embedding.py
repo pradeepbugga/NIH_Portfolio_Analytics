@@ -4,20 +4,20 @@
 
 from sentence_transformers import SentenceTransformer
 import torch
+from functools import lru_cache
 
-_model = None
 
-#this uses lazy initialization to load the model only once
-
+@lru_cache(maxsize=1)
 def get_query_encoder():
-    global _model
-    if _model is None:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        _model = SentenceTransformer(
-            "NeuML/pubmedbert-base-embeddings",
-            device=device
-        )
-    return _model
+
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
+
+    return SentenceTransformer(
+        "NeuML/pubmedbert-base-embeddings",
+        device=device,
+    )
 
 def embed_query(text: str):
     model = get_query_encoder()
