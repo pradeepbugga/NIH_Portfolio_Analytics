@@ -229,12 +229,7 @@ def insert_pis(cur, grant_id: str, pis: list):
                 RETURNING id
                 """, (canonical, first, middle, last))
 
-        row = cur.fetchone()
-        if not row:
-            cur.execute("SELECT id FROM PIs WHERE canonical_name = %s", (canonical,))
-               
-        else:
-            pi_id = row[0] 
+        pi_id = cur.fetchone()[0]
 
         # Link the PI to the research grant
         cur.execute("""
