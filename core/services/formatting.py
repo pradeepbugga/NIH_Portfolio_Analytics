@@ -1,3 +1,6 @@
+import time
+from datetime import datetime
+
 def extract_funding(results: dict) -> tuple[list[int], list[float]]:
     """
     Extracts and scales yearly funding totals from search results, adjusting for the current fiscal year.
