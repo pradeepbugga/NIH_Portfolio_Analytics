@@ -42,7 +42,11 @@ def fetch_existing_hash(cur, result: dict):
    
     project_num = result.get("project_num")
     sub_id = result.get("subproject_id")
-    grant_id = f"{project_num}-{sub_id}" if sub_id else project_num
+    grant_id = (
+        f"{project_num}-{sub_id}"
+        if sub_id not in (None, "")
+        else project_num
+    )
     
 
     cur.execute("""
