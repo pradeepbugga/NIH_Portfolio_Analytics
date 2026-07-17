@@ -1,9 +1,7 @@
 import anyio
-from fastapi import HTTPException
-from core.db import get_db_connection
+from core.db.connection import get_db_connection
 
-
-from core.consants import ONTOLOGY_LABELS
+from core.constants import ONTOLOGY_LABELS
 
 
 async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) -> dict:
@@ -33,7 +31,7 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
     
     target_codes = [c.strip().upper() for c in codes if c.strip()]
     if not target_codes or len(target_codes) > 5:
-        raise HTTPException(status_code=400, detail="Must provide between 1 and 5 activity codes.")
+        raise ValueError("Must provide between 1 and 5 activity codes.")
     
     tuple_codes = tuple(target_codes)
 
@@ -130,7 +128,7 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
 
     except Exception as e:
         print(f"❌ Error in activity_codes route: {e}")
-        raise HTTPException(status_code=500, detail="Database lookup error.")
+        raise
 
     display_title = f"Activity Codes: {', '.join(target_codes)}"
             
@@ -139,7 +137,7 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
             "years": years,
             "funding": funding,
             "results": grants,
-            "ontology_labels": ONTOLGY_LABELS,
+            "ontology_labels": ONTOLOGY_LABELS,
             "ontology_values": ontology_values
         }
     
