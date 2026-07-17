@@ -66,7 +66,7 @@ def ingest_year(year:int, conn, cur, org_cache:dict, ingest_id:str, POLICY:dict,
                 except DataQualityError as e:
                     conn.rollback()
                     grant_id = f"{result.get('project_num')}-{result.get('subproject_id')}" if result.get('subproject_id') else result.get('project_num')
-                    record_error(cur, grant_id, ingest_id, e.__name__, str(e))
+                    record_error(cur, grant_id, ingest_id, type(e).__name__, str(e))
                     metrics["num_errors"] += 1
                     continue
                 
