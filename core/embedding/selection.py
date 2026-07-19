@@ -1,7 +1,8 @@
-# this script contains functions for selecting grants that need to be embedded
-
-
 def stream_grants_to_embed(cur):
+    """
+    Streams grants from ResearchGrants that lack an up-to-date embedding in the GrantEmbeddings table.
+    """
+
     cur.execute("""
         SELECT
             rg.grant_id,
