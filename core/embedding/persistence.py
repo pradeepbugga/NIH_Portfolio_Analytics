@@ -1,8 +1,10 @@
-# this script contains functions for persisting grant embeddings to the database
+def upsert_embedding(cur, grant_id: str, content_hash: str, cfg: object, vector: list): 
+    """
+    Inserts or updates an embedding in its dedicated table.
 
+    Parameters:
 
-# this function inserts or updates a grant embedding in the database
-def upsert_embedding(cur, grant_id, content_hash, cfg, vector):
+    """
     cur.execute(
         """
         INSERT INTO GrantEmbeddings
