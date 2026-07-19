@@ -1,4 +1,4 @@
-from pathlib import 
+from pathlib import Path
 import json
 
 def build_classification_batch_task(grant_id: str, title: str, abstract: str, prompt: str, model: str, reasoning: str = None) -> dict:
@@ -85,7 +85,7 @@ def build_summary_batch_task (grant_id: str, title: str, abstract: str, prompt: 
     return task
 
 
-def generate_batch_jsonl(cur: any, output_path: str | Path, prompt: str, build_task: callable, model: str, reasoning: str = None, fiscal_year: int = 2025) -> dict:
+def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: callable, model: str, reasoning: str = None, fiscal_year: int = 2025) -> dict:
     """
     Generate a batch JSONL file for the given grant_ids and their corresponding titles and abstracts.
 
@@ -138,7 +138,7 @@ def generate_batch_jsonl(cur: any, output_path: str | Path, prompt: str, build_t
                 if len(abstract.split()) < 10:
                     continue
 
-                task = build_batch_task(grant_id, title, abstract, prompt, model, reasoning)
+                task = build_task(grant_id, title, abstract, prompt, model, reasoning)
 
                 total_written += 1
                 f.write(json.dumps(task) + "\n")
