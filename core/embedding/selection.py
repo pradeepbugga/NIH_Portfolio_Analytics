@@ -1,8 +1,8 @@
 # this script contains functions for selecting grants that need to be embedded
 
+
 def stream_grants_to_embed(cur):
-    cur.execute(
-        """
+    cur.execute("""
         SELECT
             rg.grant_id,
             rg.project_title,
@@ -18,16 +18,15 @@ def stream_grants_to_embed(cur):
              OR ge.is_valid = FALSE
              OR ge.content_hash <> rg.content_hash
           )
-        """
-    )
+        """)
+
 
 def stream_summaries_to_embed(cur):
     """
     Streams summaries from grant_summaries that lack an up-to-date
     embedding in the GrantSummaryEmbeddings table.
     """
-    cur.execute(
-        """
+    cur.execute("""
         SELECT
             gs.grant_id,
             gs.two_sentence_summary,
@@ -41,5 +40,4 @@ def stream_summaries_to_embed(cur):
              OR gse.is_valid = FALSE
              OR gse.content_hash <> MD5(gs.two_sentence_summary)
           )
-        """
-    )
+        """)
