@@ -1,0 +1,81 @@
+#Python
+
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+#Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+#os 
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+#log files
+*.log
+*.pid
+*.out
+
+#data files
+data/*.sqlite
+data/*.csv
+data/*.json
+
+#result files
+results/
+analysis/
+experiments/
+
+#model artifacts
+*.bin
+*.pt
+*.ckpt
+*.safetensors
+
+#tokenizers
+tokenizer.json
+tokenizer_config.json
+vocab.txt
+special_tokens_map.json
+
+
+
+#csv files
+*.csv
+
+#root files
+/*.json
+/*.jsonl
+/*.png
+/*.txt
+/*.py
+/*.zip
+/*.pkl
+/*.dump
+
+# irrelevant folders
+/gpt_summary/*
+
+
+
+# exclude requirements.txt
+!requirements.txt
+
+!/data/grant_categories_binary.csv
+!/core/agency/agencies_updated.csv
+!/core/synthesis_prompts/ActivityCodes.csv
+!/core/activity_codes/2025_code_list.csv
+!/models/rerankers/v4/*
+!/models/rerankers/v5/*
+!/evaluation/search/*.csv
+!/evaluation/search/ground_truth/*.csv
+!/evaluation/categorization/challenge_sets/*.csv
+
