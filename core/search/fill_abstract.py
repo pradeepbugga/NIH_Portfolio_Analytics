@@ -4,11 +4,25 @@
 import pandas as pd
 from core.db.connection import get_db_connection
 
-conn = get_db_connection()
-cur = conn.cursor()
+
+def add_abstracts(df: pd.DataFrame) -> pd.DataFrame:
+
+    """
+    Add abstracts to a DataFrame containing grant IDs by querying the database.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        A DataFrame containing a column named 'grant_id' with grant IDs.
+
+    Returns
+    -------
+    pd.DataFrame
+        The input DataFrame with an additional column named 'abstract' containing the corresponding abstracts.
+    """
+    
 
 
-def add_abstracts(df):
     grant_ids = df["grant_id"].unique().tolist()
 
     conn = get_db_connection()
