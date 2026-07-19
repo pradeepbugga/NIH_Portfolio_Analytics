@@ -6,11 +6,16 @@ from dotenv import load_dotenv
 from core.db.connection import get_db_connection
 from core.llm.prompt_loader import load_prompt
 from core.llm.batch import build_classification_batch_task, split_jsonl
+from core.llm.constants import (
+    CATEGORIES,
+    CLASSIFICATION_MODEL,
+    CLASSIFICATION_REASONING,
+)
+
 
 def main():
 
-
-    load_dotenv()   
+    load_dotenv()
 
     # ------------
     # DEFINE ARGUMENTS
@@ -25,17 +30,8 @@ def main():
     parser.add_argument(
         "--category",
         required=True,
-        choices=[
-            "research_tool",
-            "clinical",
-            "diagnostic",
-            "therapeutic",
-            "research_infrastructure",
-            "observational_epidemiology",
-            "education",
-            "mechanistic"
-        ],
-        help="Classification category (e.g. research_tool)"
+        choices=CATEGORIES,
+        help="Classification category (e.g. research_tool)",
     )
 
     parser.add_argument(
@@ -52,12 +48,7 @@ def main():
 
     prompt = load_prompt(f"classification/{args.category}")
 
-    output_dir = (
-        Path("outputs")
-        / "llm"
-        / "classification"
-        / args.category
-    )
+    output_dir = Path("outputs") / "llm" / "classification" / args.category
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -74,21 +65,18 @@ def main():
         cur=cur,
         output_path=output_path,
         prompt=prompt,
-        model="gpt-5.4-mini",
-        reasoning={"effort": "medium"},
+        model=CLASSIFICATION_MODEL,
+        reasoning=CLASSIFICATION_REASONING,
         fiscal_year=args.fiscal_year,
     )
 
     conn.close()
 
-    parts = split_jsonl(
-        input_path=output_path,
-        output_dir=output_dir / "split"
-    )
+    parts = split_jsonl(input_path=output_path, output_dir=output_dir / "split")
 
     print(stats)
     print(f"Created {len(parts)} split JSONL files in {output_dir / 'split'}")
 
+
 if __name__ == "__main__":
     main()
-

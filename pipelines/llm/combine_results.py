@@ -26,9 +26,7 @@ def main():
     input_paths.extend(sorted(batch_dir.glob("*_recovered.jsonl")))
 
     if not input_paths:
-        raise ValueError(
-            f"No parsed JSONL files found in {batch_dir}"
-        )
+        raise ValueError(f"No parsed JSONL files found in {batch_dir}")
 
     output_path = batch_dir / "combined_results.jsonl"
 
