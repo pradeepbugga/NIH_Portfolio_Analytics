@@ -1,8 +1,15 @@
 from pathlib import Path
 import json
 
-def build_classification_batch_task(grant_id: str, title: str, abstract: str, prompt: str, model: str, reasoning: str = None) -> dict:
 
+def build_classification_batch_task(
+    grant_id: str,
+    title: str,
+    abstract: str,
+    prompt: str,
+    model: str,
+    reasoning: str = None,
+) -> dict:
     """
     Build a batch classification task for the given grant_id, title, and abstract.
     Also ensure the format of the output is a JSON object with "reasoning" and "answer" fields, where "answer" is either "YES" or "NO".
@@ -10,7 +17,7 @@ def build_classification_batch_task(grant_id: str, title: str, abstract: str, pr
     Parameters
     ----------
 
-    grant_id 
+    grant_id
         The grant ID.
     title
         The title of the grant.
@@ -29,17 +36,18 @@ def build_classification_batch_task(grant_id: str, title: str, abstract: str, pr
         A dictionary representing the batch task for the given grant.
     """
 
-
     task = {
         "custom_id": grant_id,
         "method": "POST",
         "url": "/v1/responses",
         "body": {
-            "model": model,            
+            "model": model,
             "reasoning": reasoning,
-            "input":[{"role": "system", "content": prompt}, 
-                {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"}],
-            #"safety_identifier":  "  safety identifier for gpt as some grants will be flagged 
+            "input": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"},
+            ],
+            # "safety_identifier":  "  safety identifier for gpt as some grants will be flagged
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -49,23 +57,26 @@ def build_classification_batch_task(grant_id: str, title: str, abstract: str, pr
                         "type": "object",
                         "properties": {
                             "reasoning": {"type": "string"},
-                            "answer": 
-                                {
-                                "type": "string",
-                                "enum": ["YES", "NO"]
-                                }
-                            },
-                        "required": ["reasoning","answer"],
-                        "additionalProperties": False
-                        }
-                    }
+                            "answer": {"type": "string", "enum": ["YES", "NO"]},
+                        },
+                        "required": ["reasoning", "answer"],
+                        "additionalProperties": False,
+                    },
                 }
-    
-        }
+            },
+        },
     }
     return task
 
-def build_summary_batch_task (grant_id: str, title: str, abstract: str, prompt: str, model: str, reasoning: str = None) -> dict:
+
+def build_summary_batch_task(
+    grant_id: str,
+    title: str,
+    abstract: str,
+    prompt: str,
+    model: str,
+    reasoning: str = None,
+) -> dict:
     """
     Build a batch summarization task for the given grant_id, title, and abstract.
     No specific output format is enforced, allowing for more flexible summarization.
@@ -75,17 +86,27 @@ def build_summary_batch_task (grant_id: str, title: str, abstract: str, prompt: 
         "method": "POST",
         "url": "/v1/responses",
         "body": {
-            "model": model,            
+            "model": model,
             "reasoning": reasoning,
-            "input":[{"role": "system", "content": prompt}, 
-                {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"}]
-            #"safety_identifier":  "  safety identifier for gpt as some grants will be flagged     
-        }
+            "input": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": f"Title: {title}\nAbstract: {abstract}"},
+            ],
+            # "safety_identifier":  "  safety identifier for gpt as some grants will be flagged
+        },
     }
     return task
 
 
-def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: callable, model: str, reasoning: str = None, fiscal_year: int = 2025) -> dict:
+def generate_batch_jsonl(
+    cur,
+    output_path: str | Path,
+    prompt: str,
+    build_task: callable,
+    model: str,
+    reasoning: str = None,
+    fiscal_year: int = 2025,
+) -> dict:
     """
     Generate a batch JSONL file for the given grant_ids and their corresponding titles and abstracts.
 
@@ -105,7 +126,7 @@ def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: 
     reasoning
         Optional reasoning to be included in the task.
     fiscal_year
-        The fiscal year to filter the grants by. Defaults to 2025.  
+        The fiscal year to filter the grants by. Defaults to 2025.
 
     Returns
     -------
@@ -116,7 +137,10 @@ def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: 
     total_fetch = 0
     total_written = 0
 
-    cur.execute("SELECT grant_id, project_title, abstract FROM researchgrants WHERE fiscal_year = %s", (fiscal_year,))
+    cur.execute(
+        "SELECT grant_id, project_title, abstract FROM researchgrants WHERE fiscal_year = %s",
+        (fiscal_year,),
+    )
 
     with open(output_path, "w") as f:
 
@@ -126,7 +150,7 @@ def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: 
 
             if not rows:
                 break
-            
+
             for row in rows:
                 grant_id, title, abstract = row
 
@@ -134,7 +158,7 @@ def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: 
 
                 if abstract is None:
                     continue
-                
+
                 if len(abstract.split()) < 10:
                     continue
 
@@ -146,20 +170,22 @@ def generate_batch_jsonl(cur, output_path: str | Path, prompt: str, build_task: 
     return {
         "total_fetch": total_fetch,
         "total_written": total_written,
-        }
+    }
 
 
-def split_jsonl(input_path: str | Path, output_dir: str | Path, limit: int = 25000) -> list[Path]:
+def split_jsonl(
+    input_path: str | Path, output_dir: str | Path, limit: int = 25000
+) -> list[Path]:
     """
     Split a JSONL file into multiple smaller JSONL files.
 
     Parameters
     ----------
-    input_path 
+    input_path
         Path to the input JSONL file.
-    output_dir 
+    output_dir
         Directory where split files will be written.
-    limit 
+    limit
         Maximum number of records per file. Defaults to the
         current OpenAI Batch API limit (25,000).
 
@@ -204,16 +230,17 @@ def split_jsonl(input_path: str | Path, output_dir: str | Path, limit: int = 250
     out_file.close()
 
     return output_paths
-    
+
+
 def combine_jsonl(input_paths: list[str | Path], output_path: str | Path) -> Path:
     """
     Combine multiple JSONL files into a single JSONL file (useful for merging split files after batch API processing).
 
     Parameters
     ----------
-    input_paths : 
+    input_paths :
         Paths to the input JSONL files.
-    output_path : 
+    output_path :
         Path to the output JSONL file.
 
     Returns

@@ -1,13 +1,14 @@
 import json
 from pathlib import Path
 
+
 def parse_classification_results(batch_results: str) -> list[dict]:
     """
     Parse successful OpenAI Batch API classification results.
 
     Parameters
     ----------
-    batch_results 
+    batch_results
         Raw contents of the Batch API output JSONL file.
 
     Returns
@@ -18,11 +19,7 @@ def parse_classification_results(batch_results: str) -> list[dict]:
 
     parsed_records = []
 
-    results = (
-        json.loads(line)
-        for line in batch_results.splitlines()
-        if line.strip()
-    )
+    results = (json.loads(line) for line in batch_results.splitlines() if line.strip())
 
     for result in results:
 
@@ -30,20 +27,17 @@ def parse_classification_results(batch_results: str) -> list[dict]:
 
         output = result["response"]["body"]["output"]
 
-        message = next(
-            item for item in output
-            if item["type"] == "message"
-        )
+        message = next(item for item in output if item["type"] == "message")
 
-        answer = json.loads(
-            message["content"][0]["text"]
-        )
+        answer = json.loads(message["content"][0]["text"])
 
-        parsed_records.append({
-            "grant_id": grant_id,
-            "reasoning": answer["reasoning"],
-            "answer": answer["answer"],
-        })
+        parsed_records.append(
+            {
+                "grant_id": grant_id,
+                "reasoning": answer["reasoning"],
+                "answer": answer["answer"],
+            }
+        )
 
     return parsed_records
 
@@ -65,11 +59,7 @@ def parse_summary_results(batch_results: str) -> list[dict]:
 
     parsed_records = []
 
-    results = (
-        json.loads(line)
-        for line in batch_results.splitlines()
-        if line.strip()
-    )
+    results = (json.loads(line) for line in batch_results.splitlines() if line.strip())
 
     for result in results:
 
@@ -77,15 +67,14 @@ def parse_summary_results(batch_results: str) -> list[dict]:
 
         output = result["response"]["body"]["output"]
 
-        message = next(
-            item for item in output
-            if item["type"] == "message"
-        )
+        message = next(item for item in output if item["type"] == "message")
 
-        parsed_records.append({
-            "grant_id": grant_id,
-            "summary": message["content"][0]["text"].strip(),
-        })
+        parsed_records.append(
+            {
+                "grant_id": grant_id,
+                "summary": message["content"][0]["text"].strip(),
+            }
+        )
 
     return parsed_records
 
