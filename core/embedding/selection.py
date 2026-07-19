@@ -20,3 +20,26 @@ def stream_grants_to_embed(cur):
           )
         """
     )
+
+def stream_summaries_to_embed(cur):
+    """
+    Streams summaries from grant_summaries that lack an up-to-date
+    embedding in the GrantSummaryEmbeddings table.
+    """
+    cur.execute(
+        """
+        SELECT
+            gs.grant_id,
+            gs.two_sentence_summary,
+            MD5(gs.two_sentence_summary) AS content_hash
+        FROM grant_summaries gs
+        LEFT JOIN GrantSummaryEmbeddings gse
+          ON gs.grant_id = gse.grant_id
+        WHERE gs.two_sentence_summary IS NOT NULL
+          AND (
+                gse.grant_id IS NULL
+             OR gse.is_valid = FALSE
+             OR gse.content_hash <> MD5(gs.two_sentence_summary)
+          )
+        """
+    )
