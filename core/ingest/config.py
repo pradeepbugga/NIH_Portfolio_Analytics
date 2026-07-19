@@ -23,7 +23,7 @@ def ingest_policy(mode: IngestMode) -> dict:
 
     return {
         "allow_future_lookup": mode == IngestMode.HISTORICAL,
-        "allow_manual_input": mode == IngestMode.HISTORICAL,
+        "allow_manual_lookup": mode == IngestMode.HISTORICAL,
         "fail_on_missing_org": False,
         "require_hash": mode == IngestMode.PRODUCTION,}
 
