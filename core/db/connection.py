@@ -1,5 +1,5 @@
 import psycopg2
-from core.config import POSTGRES_CONFIG
+
 
 
 def get_db_connection():
@@ -10,6 +10,8 @@ def get_db_connection():
     Returns:
         psycopg2.extensions.connection: A connection object to the PostgreSQL database.
     """
+
+    from core.config import POSTGRES_CONFIG
 
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     cur = conn.cursor()
