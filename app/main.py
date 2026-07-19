@@ -1,4 +1,4 @@
-#main.py
+# main.py
 
 import asyncio
 from contextlib import asynccontextmanager
@@ -6,7 +6,6 @@ from datetime import datetime
 import json
 import os
 import time
-from typing import List, Dict, Any, Optional
 
 import anyio
 from dotenv import load_dotenv
@@ -14,26 +13,40 @@ from fastapi import FastAPI, Query, Request, HTTPException, APIRouter
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
 
 import pandas as pd
 
 from core.db.connection import get_db_connection
-from core.services.formatting import extract_funding, extract_ontology_distribution, format_output_grants
+from core.services.formatting import (
+    extract_funding,
+    extract_ontology_distribution,
+    format_output_grants,
+)
 
-from app.startup import GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES, GLOBAL_SYNONYM_REGISTRY, application_lifespan
-from core.services.search_services import search
+from app.startup import (
+    GLOBAL_AGENCIES_LIST,
+    GLOBAL_VALID_ACTIVITY_CODES,
+    GLOBAL_SYNONYM_REGISTRY,
+    application_lifespan,
+)
+from core.services.search_service import search
 from core.services.activity_service import get_activity_portfolio
 from core.services.agency_service import get_agency_portfolio
-from core.services.portfolio_service import get_category_distribution, get_grants_by_category, search_portfolio
-from core.services.grant_service import get_grant_abstract
+from core.services.portfolio_service import (
+    get_category_distribution,
+    get_grants_by_category,
+    search_portfolio,
+    SearchRequest,
+)
+from core.services.grant_service import fetch_grant_abstract
 
-from core.search.search_service_prod import hybrid_search_range
+from core.search.hybrid import hybrid_search_range
 from core.search.cache import get_cached_results, save_cached_results
 from core.search.query_embedding import warmup_query_encoder, embed_query
 from core.search.modal_reranker import distributed_rerank_fn
 from core.category.mapping import category_mapping, machine_human_map
 
+import logging
 
 load_dotenv()
 
@@ -45,6 +58,7 @@ app = FastAPI(title="NIH Grant Search API", lifespan=application_lifespan)
 
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
+
 
 # ===============================================================
 # API APPLICATION CORE ENDPOINTS
@@ -58,26 +72,25 @@ def home_page(request: Request):
     ----------
     request : Request
         The FastAPI request object, used to pass context to the template.
-    
+
     Returns
     -------
     TemplateResponse
         A Jinja2 template response rendering the home page with the search bar and filters.
     """
 
-
     return templates.TemplateResponse(
-        "index.html", 
+        "index.html",
         {
-            "request": request, 
+            "request": request,
             "agencies": GLOBAL_AGENCIES_LIST,
-            "valid_activity_codes": GLOBAL_VALID_ACTIVITY_CODES
-        }
+            "valid_activity_codes": GLOBAL_VALID_ACTIVITY_CODES,
+        },
     )
+
 
 @app.get("/portfolio")
 def portfolio_page(request: Request):
-
     """
     Renders the portfolio page (global analysis of NIH grants).
 
@@ -85,44 +98,37 @@ def portfolio_page(request: Request):
     ----------
     request : Request
         The FastAPI request object, used to pass context to the template.
-    
+
     Returns
     -------
     TemplateResponse
         A Jinja2 template response rendering the portfolio page.
     """
 
-    return templates.TemplateResponse(
-        "portfolio.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse("portfolio.html", {"request": request})
+
 
 @app.get("/categories")
 def categories_page(request: Request):
-
     """
     Renders the categories page (look-up table for category definitions).
-    
+
     Parameters
     ----------
     request : Request
-        The FastAPI request object, used to pass context to the template.   
+        The FastAPI request object, used to pass context to the template.
 
     Returns
     -------
     TemplateResponse
         A Jinja2 template response rendering the categories page.
-    
+
     """
-    return templates.TemplateResponse(
-        "categories.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse("categories.html", {"request": request})
 
 
 @app.get("/contact_us")
 def contact_page(request: Request):
-
     """
     Renders the contact us page for user inquiries.
 
@@ -130,22 +136,20 @@ def contact_page(request: Request):
     ----------
     request : Request
         The FastAPI request object, used to pass context to the template.
-    
+
     Returns
     -------
     TemplateResponse
         A Jinja2 template response rendering the contact us page.
     """
 
-    return templates.TemplateResponse(
-        "contact_us.html",
-        {"request": request}
-    )
+    return templates.TemplateResponse("contact_us.html", {"request": request})
+
 
 @app.get("/search")
-async def search(request: Request,
-    query: str = Query(..., description="Search query string")):
-
+async def search(
+    request: Request, query: str = Query(..., description="Search query string")
+):
     """
     Handles the search endpoint, performing a hybrid search over NIH grant documents.
 
@@ -155,7 +159,7 @@ async def search(request: Request,
     request : Request
         The FastAPI request object, used to pass context to the template.
     query : str
-        The search query string provided by the user.   
+        The search query string provided by the user.
 
     Returns
     -------
@@ -163,23 +167,30 @@ async def search(request: Request,
         A Jinja2 template response rendering the search results page with ranked grants and visualizations.
     """
 
-    context = await search(request, query, rerank_fn=distributed_rerank_fn, synonym_registry=GLOBAL_SYNONYM_REGISTRY)
+    try:
+        context = await search(
+            query=query,
+            rerank_fn=distributed_rerank_fn,
+            synonym_registry=GLOBAL_SYNONYM_REGISTRY,
+        )
+    except:
+        raise HTTPException(
+            status_code=500,
+            detail="Search pipeline execution failed.",
+        )
 
     context["request"] = request
 
-    return templates.TemplateResponse(
-        "results.html",
-        context
-    )
+    return templates.TemplateResponse("results.html", context)
 
-   
 
 @app.get("/activity_codes", response_class=HTMLResponse)
 async def activity_codes_multi_search(
-    request: Request, 
-    codes: str = Query(..., description="Comma-separated 3-character NIH Activity codes")
+    request: Request,
+    codes: str = Query(
+        ..., description="Comma-separated 3-character NIH Activity codes"
+    ),
 ):
-
     """
     Handles the activity codes search endpoint, retrieving and aggregating grants based on a list of NIH activity codes.
 
@@ -195,22 +206,30 @@ async def activity_codes_multi_search(
     TemplateResponse
         A Jinja2 template response rendering the search results page with ranked grants and visualizations for the specified activity codes.
     """
-    
-    context = await get_activity_portfolio(codes, code_registry = GLOBAL_VALID_ACTIVITY_CODES)
+
+    try:
+        context = await get_activity_portfolio(
+            codes, code_registry=GLOBAL_VALID_ACTIVITY_CODES
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Database lookup error.",
+        )
 
     context["request"] = request
 
-    return templates.TemplateResponse(
-        "results.html",
-        context
-    )
-
-
+    return templates.TemplateResponse("results.html", context)
 
 
 @app.get("/agency/{agency_code}", response_class=HTMLResponse)
 async def agency_portal(request: Request, agency_code: str):
-
     """
     Handles the agency portal endpoint, retrieving and aggregating grants based on a specific NIH agency code.
 
@@ -228,20 +247,25 @@ async def agency_portal(request: Request, agency_code: str):
         A Jinja2 template response rendering the search results page with ranked grants and visualizations for the specified agency.
     """
 
-    context = await get_agency_portfolio(agency_code, code_registry = GLOBAL_AGENCIES_LIST)
+    try:
+        context = await get_agency_portfolio(
+            agency_code, code_registry=GLOBAL_AGENCIES_LIST
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Database lookup error.",
+        )
 
     context["request"] = request
 
-    return templates.TemplateResponse(
-        "results.html",
-        context
-    )
-
+    return templates.TemplateResponse("results.html", context)
 
 
 @app.get("/api/portfolio/categories")
-async def portfolio_categories(year: int = Query(..., description="Target fiscal year for categorization analysis")):
-    
+async def portfolio_categories(
+    year: int = Query(..., description="Target fiscal year for categorization analysis")
+):
     """
     API endpoint to retrieve the funding distribution across abstract categories for a specific fiscal year.
 
@@ -249,7 +273,7 @@ async def portfolio_categories(year: int = Query(..., description="Target fiscal
     ----------
     year : int
         The fiscal year for which to retrieve the category distribution.
-    
+
     Returns
     -------
     dict
@@ -267,19 +291,20 @@ async def portfolio_categories(year: int = Query(..., description="Target fiscal
 @app.get("/api/portfolio/grants")
 async def portfolio_grants(
     year: int = Query(..., description="Target fiscal year for grant retrieval"),
-    category: str = Query(..., description="Target abstract category for grant retrieval")
+    category: str = Query(
+        ..., description="Target abstract category for grant retrieval"
+    ),
 ):
-
     """
     API endpoint to retrieve grants for a specific fiscal year and abstract category.
-    
+
     Parameters
     ----------
     year : int
         The fiscal year for which to retrieve grants.
     category : str
         The abstract category for which to retrieve grants. Must be one of the valid categories defined in VALID_CATEGORY_COLUMNS.
-    
+
     Returns
     -------
     dict
@@ -301,26 +326,29 @@ async def portfolio_grants(
         If the provided category is not in the list of valid categories defined in VALID_CATEGORY_COLUMNS.
     """
 
-    context = await get_grants_by_category(year, category)
+    try:
+
+        context = await get_grants_by_category(year, category)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Database lookup error.",
+        )
 
     return context
 
 
-
-class SearchRequest(BaseModel):
-    year: str
-    category: Optional[str] = None
-    query: str
-    existing_ids: List[str] # Validated as a native array of strings
-    query_history_count: int = 1  # use this to track queries to then route to either semantic or hybrid search
- 
-
 @app.post("/api/portfolio/grants/search")
-async def portfolio_grants_search(payload: SearchRequest)-> dict:
-
+async def portfolio_grants_search(payload: SearchRequest) -> dict:
     """
     API endpoint to perform a semantic/keyword search filter over NIH grants based on a query string, fiscal year, and optional abstract category.
-    We note that this is not the initial semantic search of the entire NIH corpus, 
+    We note that this is not the initial semantic search of the entire NIH corpus,
     but rather a search filter over a pre-filtered set of grants (e.g., by year and category).
 
     Parameters
@@ -357,9 +385,8 @@ async def portfolio_grants_search(payload: SearchRequest)-> dict:
 
     """
 
-
     try:
-        return await portfolio_service.search_portfolio(
+        return await search_portfolio(
             payload=payload,
             rerank_fn=rerank_fn,
         )
@@ -379,8 +406,7 @@ async def portfolio_grants_search(payload: SearchRequest)-> dict:
 
 
 @app.get("/api/grant/{grant_id}/abstract")
-async def get_grant_abstract(grant_id: str)-> dict:
-
+async def get_grant_abstract(grant_id: str) -> dict:
     """
     API endpoint to retrieve the abstract for a specific grant ID.
 
@@ -394,7 +420,7 @@ async def get_grant_abstract(grant_id: str)-> dict:
     dict
         A dictionary containing the following key:
         - ``abstract``: The abstract text of the grant. If the grant is not found, raises a 404 HTTPException.
-    
+
     Raises
     ------
     HTTPException
@@ -402,7 +428,7 @@ async def get_grant_abstract(grant_id: str)-> dict:
     """
 
     try:
-        return await grant_service.get_grant_abstract(grant_id)
+        return await fetch_grant_abstract(grant_id)
 
     except ValueError:
         raise HTTPException(
@@ -416,5 +442,3 @@ async def get_grant_abstract(grant_id: str)-> dict:
             status_code=500,
             detail="Database lookup error.",
         )
-
-    
