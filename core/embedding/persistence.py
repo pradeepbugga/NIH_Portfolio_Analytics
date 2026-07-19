@@ -1,6 +1,7 @@
-#this script contains functions for persisting grant embeddings to the database
+# this script contains functions for persisting grant embeddings to the database
 
-#this function inserts or updates a grant embedding in the database
+
+# this function inserts or updates a grant embedding in the database
 def upsert_embedding(cur, grant_id, content_hash, cfg, vector):
     cur.execute(
         """
@@ -28,13 +29,13 @@ def upsert_embedding(cur, grant_id, content_hash, cfg, vector):
             cfg.normalization,
             cfg.embedding_version,
             vector.tolist(),
-        )
+        ),
     )
 
-#this function counts the number of grants that need to be embedded
+
+# this function counts the number of grants that need to be embedded
 def count_grants_to_embed(cur) -> int:
-    cur.execute(
-        """
+    cur.execute("""
         SELECT COUNT(*)
         FROM ResearchGrants rg
         LEFT JOIN GrantEmbeddings ge
@@ -47,8 +48,7 @@ def count_grants_to_embed(cur) -> int:
              OR ge.is_valid = FALSE
              OR ge.content_hash <> rg.content_hash
           )
-        """
-    )
+        """)
     return cur.fetchone()[0]
 
 
@@ -81,15 +81,15 @@ def upsert_summary_embedding(cur, grant_id, content_hash, cfg, vector):
             cfg.normalization,
             cfg.embedding_version,
             vector.tolist(),
-        )
+        ),
     )
+
 
 def count_summaries_to_embed(cur) -> int:
     """
     Counts remaining summaries left to process.
     """
-    cur.execute(
-        """
+    cur.execute("""
         SELECT COUNT(*)
         FROM grant_summaries gs
         LEFT JOIN GrantSummaryEmbeddings gse
@@ -100,6 +100,5 @@ def count_summaries_to_embed(cur) -> int:
              OR gse.is_valid = FALSE
              OR gse.content_hash <> MD5(gs.two_sentence_summary)
           )
-        """
-    )
+        """)
     return cur.fetchone()[0]
