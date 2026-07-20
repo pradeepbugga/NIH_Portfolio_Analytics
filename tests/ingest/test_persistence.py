@@ -16,7 +16,6 @@ from core.ingest.persistence import (
     insert_ingest_run,
     update_ingest_run_status,
     mark_ingest_run_failed,
-    update_ingest_run_status,
     record_error,
     update_grant_embeddings,
 )
