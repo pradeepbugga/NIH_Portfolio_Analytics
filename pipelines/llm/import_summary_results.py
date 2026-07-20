@@ -5,8 +5,6 @@ from pathlib import Path
 from core.db.connection import get_db_connection
 from core.llm.constants import SUMMARY_MODEL, SUMMARY_REASONING
 
-SUMMARY_MODEL = "gpt-5.4-nano, medium effort reasoning"
-
 model_effort = SUMMARY_REASONING.get("effort", "N/A")
 
 db_model_description = f"{SUMMARY_MODEL} {model_effort} effort reasoning"
