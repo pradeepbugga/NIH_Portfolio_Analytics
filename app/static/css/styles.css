@@ -46,8 +46,9 @@ body.landing {
 
 .logo {
     font-family: "primer", serif;
-    font-size: 64px;
-    margin-bottom: 10%;
+    font-size: clamp(2.8rem, 6vw, 4rem);
+    margin-bottom: clamp(2rem, 6vh, 5rem);
+    line-height: 1.05;
 }
 
 /* Container for the logo and form */
@@ -57,9 +58,13 @@ body.landing {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     width: min(90vw, 1100px);
-    transform: translateY(-10%);
+    margin: 0 auto;
+    padding:
+        clamp(2rem, 5vh, 5rem) 0;
+    box-sizing: border-box;
+    transform: none;
 }
 
 /* The form itself acts as the search bar wrapper */
