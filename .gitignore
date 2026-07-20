@@ -61,9 +61,31 @@ special_tokens_map.json
 /*.pkl
 /*.dump
 
-# irrelevant folders
+# irrelevant folders and files
 /gpt_summary/*
-
+/pipelines/analyze*.py
+/pipelines/evaluate*.py
+/pipelines/find*.py
+/pipelines/fine*.py
+/pipelines/fix*.py
+/pipelines/full*.py
+/pipelines/gpt*.py
+/pipelines/manual*.py
+/pipelines/update*.py
+/core/agency/*
+/core/category/*
+/core/cluster/*
+/core/filtering/*
+/core/organization/*
+/core/summarize_portfolio/*
+/core/update_db/*
+/core/synthesis_prompts/*
+/dep_parse/*
+/distill/*
+/final*/*
+/gpt*/*
+/hard*/*
+/hierarchical/*
 
 
 # exclude requirements.txt
