@@ -3,7 +3,6 @@
 # this is important as the limit of tokens for pubmedbert is 512
 
 from core.db.connection import get_db_connection
-import numpy as np
 import pandas as pd
 from transformers import AutoTokenizer
 
