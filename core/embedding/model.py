@@ -2,7 +2,6 @@
 # this script contains functions for loading a sentence transformer model and generating embeddings for a batch of texts
 
 from sentence_transformers import SentenceTransformer
-import numpy as np
 
 
 def load_model(model_name: str, device: str) -> SentenceTransformer:
