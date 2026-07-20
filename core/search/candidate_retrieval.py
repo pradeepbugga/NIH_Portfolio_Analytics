@@ -3,10 +3,10 @@
 
 
 def retrieve_candidates_topk(cur, query_vec, top_k=200):
-    
+
     # Convert numpy array → Python list
     query_vec = query_vec.tolist()
-    
+
     cur.execute(
         """
         SELECT
@@ -17,20 +17,21 @@ def retrieve_candidates_topk(cur, query_vec, top_k=200):
         ORDER BY ge.embedding <=> %s::vector
         LIMIT %s
         """,
-        (query_vec, query_vec, top_k)
+        (query_vec, query_vec, top_k),
     )
     return cur.fetchall()
 
-#we set max results at 500K to ensure we get a sufficient number of candidates for high recall
+
+# we set max results at 500K to ensure we get a sufficient number of candidates for high recall
 def retrieve_candidates_range(
-    cur, 
-    query_vec_list: list, 
-    similarity_threshold: float, 
-    query_text: str = None, 
-    search_mode: str = "semantic", 
+    cur,
+    query_vec_list: list,
+    similarity_threshold: float,
+    query_text: str = None,
+    search_mode: str = "semantic",
     synonyms: list = None,
     fiscal_years: list = None,
-    max_results: int = 500000
+    max_results: int = 500000,
 ):
     """
     Retrieve candidate grants using either purely semantic or hybrid search.
@@ -38,7 +39,7 @@ def retrieve_candidates_range(
     # --- 1. SEMANTIC TRACK ---
     if fiscal_years:
 
-         cur.execute(
+        cur.execute(
             """
             SELECT ge.grant_id, 1 - d AS similarity
             FROM (
@@ -77,10 +78,10 @@ def retrieve_candidates_range(
             ORDER BY d
             LIMIT %s
             """,
-            (query_vec_list, 1 - similarity_threshold, max_results)
+            (query_vec_list, 1 - similarity_threshold, max_results),
         )
     semantic_results = cur.fetchall()
-    
+
     # Return early if purely semantic or if no text was provided
     if search_mode == "semantic" or not query_text:
         return semantic_results
@@ -131,33 +132,36 @@ def retrieve_candidates_range(
     LIMIT %s
     """
 
-    params.extend([
-        query_text,
-        synonym_list,
-        synonym_list,
-        max_results,
-    ])
+    params.extend(
+        [
+            query_text,
+            synonym_list,
+            synonym_list,
+            max_results,
+        ]
+    )
 
     cur.execute(keyword_sql, params)
     keyword_results = cur.fetchall()
 
     # --- 3. MERGE & DEDUPLICATE ---
     candidate_map = {grant_id: sim for grant_id, sim in semantic_results}
-    
+
     for (grant_id,) in keyword_results:
         if grant_id not in candidate_map:
-            # Baseline similarity for keyword-only matches. 
+            # Baseline similarity for keyword-only matches.
             # The Modal Cross-Encoder will compute the final true rank score anyway!
-            candidate_map[grant_id] = 0.0  
+            candidate_map[grant_id] = 0.0
 
     return list(candidate_map.items())
+
 
 def retrieve_candidates_range_portfolio(
     cur,
     query_vec_list,
     similarity_threshold,
     max_results=500000,
-    allowed_grant_ids=None
+    allowed_grant_ids=None,
 ):
 
     # -----------------------------------------
@@ -187,7 +191,7 @@ def retrieve_candidates_range_portfolio(
                 allowed_grant_ids,
                 1 - similarity_threshold,
                 max_results,
-            )
+            ),
         )
 
     # -----------------------------------------
@@ -214,7 +218,7 @@ def retrieve_candidates_range_portfolio(
                 query_vec_list,
                 1 - similarity_threshold,
                 max_results,
-            )
+            ),
         )
 
     return cur.fetchall()
