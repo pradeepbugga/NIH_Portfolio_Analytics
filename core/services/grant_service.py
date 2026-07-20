@@ -2,22 +2,20 @@ import anyio
 from core.db.connection import get_db_connection
 
 
-async def fetch_grant_abstract(grant_id: str)-> dict:
-
+async def fetch_grant_abstract(grant_id: str) -> dict:
     """
     Fetches the abstract for a given grant ID from the database.
-    
+
     Parameters:
     ----------
     grant_id : str
         The unique identifier for the grant whose abstract is to be fetched.
-    
+
     Returns:
     -------
     dict
         A dictionary containing the abstract of the grant. If the grant is not found, raises a ValueError.
     """
-
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
@@ -42,12 +40,9 @@ async def fetch_grant_abstract(grant_id: str)-> dict:
         if row is None:
             raise ValueError("Grant not found.")
 
-        return {
-            "abstract": row[0] or "No abstract available for this record."
-        }
+        return {"abstract": row[0] or "No abstract available for this record."}
 
     finally:
 
         await anyio.to_thread.run_sync(cur.close)
         await anyio.to_thread.run_sync(conn.close)
-

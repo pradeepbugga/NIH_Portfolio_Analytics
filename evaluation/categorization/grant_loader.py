@@ -1,4 +1,3 @@
-
 def load_grant_texts(cur, grant_ids):
     """
     Load grant texts from the database for the given grant IDs.

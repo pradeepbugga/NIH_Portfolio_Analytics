@@ -22,10 +22,9 @@ def test_run_embedding_job_no_grants(
     mock_upsert,
     mock_tqdm,
 ):
-
-    """ First we will test the case where there are no grants to embed, 
-    and verify that the embedding job runs without errors and does not attempt to embed anything. """ 
-
+    """First we will test the case where there are no grants to embed,
+    and verify that the embedding job runs without errors and does not attempt to embed anything.
+    """
 
     # Fake database connections
     read_conn = Mock()
@@ -87,10 +86,8 @@ def test_run_embedding_job_partial_batch(
     mock_upsert,
     mock_tqdm,
 ):
-
-    """ Next we will test the case where there are some grants to embed, but the total number is not a multiple of the batch size. 
-    This will verify that the embedding job correctly handles trailing batches. """
-
+    """Next we will test the case where there are some grants to embed, but the total number is not a multiple of the batch size.
+    This will verify that the embedding job correctly handles trailing batches."""
 
     read_conn = Mock()
     write_conn = Mock()
@@ -104,14 +101,16 @@ def test_run_embedding_job_partial_batch(
 
     # One grant only
     read_cur.__iter__ = Mock(
-        return_value=iter([
-            (
-                "1R01CA123456-01",
-                "Title",
-                "Abstract",
-                "hash123",
-            )
-        ])
+        return_value=iter(
+            [
+                (
+                    "1R01CA123456-01",
+                    "Title",
+                    "Abstract",
+                    "hash123",
+                )
+            ]
+        )
     )
 
     write_cur = Mock()
@@ -132,9 +131,7 @@ def test_run_embedding_job_partial_batch(
     mock_load_model.return_value = mock_model
 
     mock_embed_batch.return_value = np.array(
-        [
-            [1.0, 2.0, 3.0]
-        ],
+        [[1.0, 2.0, 3.0]],
         dtype=np.float32,
     )
 
@@ -173,8 +170,7 @@ def test_run_embedding_job_full_batch(
     mock_upsert,
     mock_tqdm,
 ):
-
-    """ Next we will test the case where there are exactly as many grants to embed as the batch size.""" 
+    """Next we will test the case where there are exactly as many grants to embed as the batch size."""
 
     read_conn = Mock()
     write_conn = Mock()
@@ -188,20 +184,22 @@ def test_run_embedding_job_full_batch(
 
     # Two grants
     read_cur.__iter__ = Mock(
-        return_value=iter([
-            (
-                "1R01CA123456-01",
-                "Title",
-                "Abstract",
-                "hash123",
-            ),
-            (
-                "1R01CA123457-01",
-                "Title2",
-                "Abstract2",
-                "hash124",
-            )
-        ])
+        return_value=iter(
+            [
+                (
+                    "1R01CA123456-01",
+                    "Title",
+                    "Abstract",
+                    "hash123",
+                ),
+                (
+                    "1R01CA123457-01",
+                    "Title2",
+                    "Abstract2",
+                    "hash124",
+                ),
+            ]
+        )
     )
 
     write_cur = Mock()
@@ -222,11 +220,7 @@ def test_run_embedding_job_full_batch(
     mock_load_model.return_value = mock_model
 
     mock_embed_batch.return_value = np.array(
-        [
-            [1.0, 2.0, 3.0], 
-            [4.0, 5.0, 6.0]
-        ],
-        
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
         dtype=np.float32,
     )
 
@@ -246,7 +240,7 @@ def test_run_embedding_job_full_batch(
 
     mock_embed_batch.assert_called_once_with(
         mock_model,
-        ["Title Abstract", "Title2 Abstract2"], 
+        ["Title Abstract", "Title2 Abstract2"],
     )
 
     assert mock_upsert.call_count == 2
@@ -261,6 +255,7 @@ def test_run_embedding_job_full_batch(
     assert calls[0].args[2] == "hash123"
     assert calls[1].args[1] == "1R01CA123457-01"
     assert calls[1].args[2] == "hash124"
+
 
 @patch("core.embedding.embedding_job.tqdm")
 @patch("core.embedding.embedding_job.upsert_embedding")
@@ -278,9 +273,9 @@ def test_run_embedding_job_multiple_batches(
     mock_upsert,
     mock_tqdm,
 ):
-
-    """ Next we will test the case where there are two batches worth of grants to embed, 
-    and verify that the embedding job correctly processes both batches and commits after each batch. """
+    """Next we will test the case where there are two batches worth of grants to embed,
+    and verify that the embedding job correctly processes both batches and commits after each batch.
+    """
 
     read_conn = Mock()
     write_conn = Mock()
@@ -294,32 +289,34 @@ def test_run_embedding_job_multiple_batches(
 
     # Two grants
     read_cur.__iter__ = Mock(
-        return_value=iter([
-            (
-                "1R01CA123456-01",
-                "Title",
-                "Abstract",
-                "hash123",
-            ),
-            (
-                "1R01CA123457-01",
-                "Title2",
-                "Abstract2",
-                "hash124",
-            ), 
-            (
-                "1R01CA123458-01",
-                "Title3",
-                "Abstract3",
-                "hash125",
-            ), 
-            (
-                "1R01CA123459-01",
-                "Title4",
-                "Abstract4",
-                "hash126",
-            )   
-        ])
+        return_value=iter(
+            [
+                (
+                    "1R01CA123456-01",
+                    "Title",
+                    "Abstract",
+                    "hash123",
+                ),
+                (
+                    "1R01CA123457-01",
+                    "Title2",
+                    "Abstract2",
+                    "hash124",
+                ),
+                (
+                    "1R01CA123458-01",
+                    "Title3",
+                    "Abstract3",
+                    "hash125",
+                ),
+                (
+                    "1R01CA123459-01",
+                    "Title4",
+                    "Abstract4",
+                    "hash126",
+                ),
+            ]
+        )
     )
 
     write_cur = Mock()
@@ -340,11 +337,7 @@ def test_run_embedding_job_multiple_batches(
     mock_load_model.return_value = mock_model
 
     mock_embed_batch.return_value = np.array(
-        [
-            [1.0, 2.0, 3.0], 
-            [4.0, 5.0, 6.0]
-        ],
-        
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
         dtype=np.float32,
     )
 
@@ -369,8 +362,7 @@ def test_run_embedding_job_multiple_batches(
 
     assert calls[0].args[1] == ["Title Abstract", "Title2 Abstract2"]
 
-    assert calls[1].args[1] == ["Title3 Abstract3", "Title4 Abstract4"] 
-
+    assert calls[1].args[1] == ["Title3 Abstract3", "Title4 Abstract4"]
 
 
 @patch("core.embedding.embedding_job.tqdm")
@@ -389,8 +381,7 @@ def test_run_embedding_job_closes_resources_on_exception(
     mock_upsert,
     mock_tqdm,
 ):
-
-    """ Finally we will test that if an exception occurs during the embedding job, all database connections and cursors are properly closed. """
+    """Finally we will test that if an exception occurs during the embedding job, all database connections and cursors are properly closed."""
 
     read_conn = Mock()
     write_conn = Mock()
@@ -402,14 +393,16 @@ def test_run_embedding_job_closes_resources_on_exception(
 
     read_cur = Mock()
     read_cur.__iter__ = Mock(
-        return_value=iter([
-            (
-                "id1",
-                "Title",
-                "Abstract",
-                "hash1",
-            )
-        ])
+        return_value=iter(
+            [
+                (
+                    "id1",
+                    "Title",
+                    "Abstract",
+                    "hash1",
+                )
+            ]
+        )
     )
 
     write_cur = Mock()
@@ -446,11 +439,3 @@ def test_run_embedding_job_closes_resources_on_exception(
     write_conn.close.assert_called_once()
 
     mock_tqdm.return_value.close.assert_called_once()
-
-    
-
-
-
-
-
-    

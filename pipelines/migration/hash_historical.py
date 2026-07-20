@@ -12,7 +12,7 @@ updates the record with the generated hash.
 
 # connect to the PostgreSQL database
 conn = get_db_connection()
-read_cur = conn.cursor(name ="read_cursor", withhold=True)
+read_cur = conn.cursor(name="read_cursor", withhold=True)
 
 
 # loop through each grant record in SQL db in batches, generate hash, and update the record
@@ -38,7 +38,7 @@ while True:
             "title": title or "",
             "abstract": abstract or "",
             "phr": phr or "",
-            "award": float(award) if award is not None else 0.0
+            "award": float(award) if award is not None else 0.0,
         }
 
         payload_str = json.dumps(payload, sort_keys=True)
@@ -51,7 +51,7 @@ while True:
                 record_updated_at = NOW()
             WHERE grant_id = %s
             """,
-            (content_hash, grant_id)
+            (content_hash, grant_id),
         )
         updated += 1
 

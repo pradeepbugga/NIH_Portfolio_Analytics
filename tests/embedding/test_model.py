@@ -2,6 +2,7 @@ from unittest.mock import patch, Mock
 import numpy as np
 from core.embedding.model import load_model, embed_batch
 
+
 @patch("core.embedding.model.SentenceTransformer")
 def test_load_model(mock_sentence_transformer):
 

@@ -3,8 +3,8 @@ import numpy as np
 
 from core.embedding.persistence import upsert_embedding, count_grants_to_embed
 
-def test_upsert_embedding():
 
+def test_upsert_embedding():
     """
     Create a mock db cursor and test that upsert_embedding executes the expected SQL query to insert or update an embedding.
     """
@@ -44,8 +44,8 @@ def test_upsert_embedding():
         [1.0, 2.0, 3.0],
     )
 
-def test_count_grants_to_embed():
 
+def test_count_grants_to_embed():
     """
     Create a mock db cursor and test that count_grants_to_embed executes the expected SQL query to count grants needing embedding.
     """

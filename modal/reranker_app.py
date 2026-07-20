@@ -2,7 +2,7 @@
 # this script uses Modal AI GPU for accelerated inference
 
 from sentence_transformers import CrossEncoder
-import torch 
+import torch
 import modal
 import threading
 import subprocess
@@ -10,31 +10,21 @@ import time
 
 app = modal.App("nih-reranker")
 
-image = (
-    modal.Image.debian_slim()
-    .pip_install(
-        "torch",
-        "sentence-transformers",
-        "transformers",
-        "numpy",
-        "polars",
-        "pyarrow"
-    )
+image = modal.Image.debian_slim().pip_install(
+    "torch", "sentence-transformers", "transformers", "numpy", "polars", "pyarrow"
 )
 
 volume = modal.Volume.from_name("reranker-models")
 
+
 @app.cls(
     gpu="A10G",
     image=image,
-    volumes={
-        "/model":volume
-    },    
+    volumes={"/model": volume},
     timeout=300,
     max_containers=10,
-    min_containers=0
+    min_containers=0,
 )
-
 class Reranker:
     model_path = "/model/v5"
 
@@ -47,7 +37,7 @@ class Reranker:
                     [
                         "nvidia-smi",
                         "--query-gpu=utilization.gpu,memory.used,memory.total",
-                        "--format=csv,noheader"
+                        "--format=csv,noheader",
                     ],
                     text=True,
                 )
@@ -57,37 +47,35 @@ class Reranker:
 
             time.sleep(1)
 
-
     @modal.enter()
     def load_resources(self):
         import os
         import polars as pl
-        
+
         # 🟢 Track container identity
         self.container_id = os.environ.get("MODAL_TASK_ID", "local")
         print(f"🔥 CLOUD CONTAINER INITIALIZING: {self.container_id}")
-        
+
         print("Loading CrossEncoder model directly into warm VRAM...")
         self.model = CrossEncoder(self.model_path, device="cuda")
         self.model.model.half()
-            
+
         print(f"[{self.container_id}] Pre-loading text warehouse...")
         try:
             df = pl.read_parquet(self.parquet_path, columns=["grant_id", "text"])
             self.text_lookup = dict(zip(df["grant_id"], df["text"]))
-            print(f"[{self.container_id}] Container ready. Loaded {len(self.text_lookup)} keys.")
+            print(
+                f"[{self.container_id}] Container ready. Loaded {len(self.text_lookup)} keys."
+            )
         except Exception as e:
             print(f"Error loading Parquet file: {e}")
             self.text_lookup = {}
 
-    @modal.method()    
+    @modal.method()
     def warmup(self):
         dummy_text = next(iter(self.text_lookup.values()))
 
-        inputs = [
-            ("warmup query", dummy_text)
-            for _ in range(512)
-        ]
+        inputs = [("warmup query", dummy_text) for _ in range(512)]
 
         with torch.no_grad(), torch.amp.autocast("cuda"):
             self.model.predict(
@@ -112,11 +100,7 @@ class Reranker:
         print(f"👉 Sample incoming IDs: {grant_ids[:5]}")
 
         received_time = time.perf_counter()
-        print(
-            f"⏱️ Receive/logging time: "
-            f"{received_time - request_start:.4f}s"
-        )
-
+        print(f"⏱️ Receive/logging time: " f"{received_time - request_start:.4f}s")
 
         # -----------------------------
         # Text lookup
@@ -125,47 +109,30 @@ class Reranker:
 
         docs = [
             self.text_lookup.get(
-                str(gid).strip().upper(),
-                "Missing abstract text data."
+                str(gid).strip().upper(), "Missing abstract text data."
             )
             for gid in grant_ids
         ]
 
-        missing_count = sum(
-            1 for doc in docs
-            if doc == "Missing abstract text data."
-        )
+        missing_count = sum(1 for doc in docs if doc == "Missing abstract text data.")
 
         lookup_end = time.perf_counter()
 
-        print(
-            f"📚 Text lookup time: "
-            f"{lookup_end - lookup_start:.4f}s"
-        )
+        print(f"📚 Text lookup time: " f"{lookup_end - lookup_start:.4f}s")
 
         if missing_count > 0:
-            print(
-                f"⚠️ Missing {missing_count}/{len(grant_ids)} IDs"
-            )
-
+            print(f"⚠️ Missing {missing_count}/{len(grant_ids)} IDs")
 
         # -----------------------------
         # Input construction
         # -----------------------------
         input_start = time.perf_counter()
 
-        inputs = [
-            (query, doc)
-            for doc in docs
-        ]
+        inputs = [(query, doc) for doc in docs]
 
         input_end = time.perf_counter()
 
-        print(
-            f"🔨 Input construction time: "
-            f"{input_end - input_start:.4f}s"
-        )
-
+        print(f"🔨 Input construction time: " f"{input_end - input_start:.4f}s")
 
         # -----------------------------
         # GPU inference
@@ -179,23 +146,16 @@ class Reranker:
                 batch_size=batch_size,
                 show_progress_bar=False,
                 convert_to_numpy=True,
-                max_length=256
+                max_length=256,
             )
 
         inference_end = time.perf_counter()
 
         inference_time = inference_end - inference_start
 
-        print(
-            f"🚀 Model inference time: "
-            f"{inference_time:.4f}s"
-        )
+        print(f"🚀 Model inference time: " f"{inference_time:.4f}s")
 
-        print(
-            f"⚡ Throughput: "
-            f"{len(inputs)/inference_time:.1f} pairs/sec"
-        )
-
+        print(f"⚡ Throughput: " f"{len(inputs)/inference_time:.1f} pairs/sec")
 
         # -----------------------------
         # Output conversion
@@ -209,21 +169,14 @@ class Reranker:
 
         convert_end = time.perf_counter()
 
-        print(
-            f"📤 Score conversion time: "
-            f"{convert_end - convert_start:.4f}s"
-        )
-
+        print(f"📤 Score conversion time: " f"{convert_end - convert_start:.4f}s")
 
         # -----------------------------
         # Total
         # -----------------------------
         total_time = time.perf_counter() - request_start
 
-        print(
-            f"🏁 TOTAL rerank_batch time: "
-            f"{total_time:.4f}s"
-        )
+        print(f"🏁 TOTAL rerank_batch time: " f"{total_time:.4f}s")
 
         print(
             f"📊 Breakdown: "
@@ -235,9 +188,8 @@ class Reranker:
 
         return scores
 
-@app.function(
-    image=image
-)
+
+@app.function(image=image)
 def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
     print("🔥 ENTERED DISTRIBUTED RERANK")
@@ -251,7 +203,7 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
     t0 = time.perf_counter()
 
     chunks = [
-        all_grant_ids[i:i+chunk_size]
+        all_grant_ids[i : i + chunk_size]
         for i in range(0, len(all_grant_ids), chunk_size)
     ]
 
@@ -260,23 +212,16 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
     print(f"Launching {len(chunks)} workers")
     print(f"Chunking time: {chunk_time:.3f} sec")
 
-
     reranker = Reranker()
 
     queries = [query] * len(chunks)
-
 
     # ------------------------
     # GPU execution
     # ------------------------
     rerank_start = time.perf_counter()
 
-    results = reranker.rerank_batch.map(
-        queries,
-        chunks,
-        [512] * len(chunks)
-    )
-
+    results = reranker.rerank_batch.map(queries, chunks, [512] * len(chunks))
 
     scores = []
 
@@ -293,11 +238,9 @@ def distributed_rerank(query, all_grant_ids, chunk_size=8000):
 
         scores.extend(chunk_scores)
 
-
     rerank_time = time.perf_counter() - rerank_start
 
     print(f"Reranking time: {rerank_time:.3f} sec")
-
 
     # ------------------------
     # Total

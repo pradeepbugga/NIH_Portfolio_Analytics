@@ -1,9 +1,9 @@
 from core.llm.batch import (
-    build_classification_batch_task, 
+    build_classification_batch_task,
     build_summary_batch_task,
     generate_batch_jsonl,
     split_jsonl,
-    combine_jsonl
+    combine_jsonl,
 )
 
 from unittest.mock import Mock
@@ -16,7 +16,6 @@ from pathlib import Path
 
 
 def test_build_classification_batch_task_structure():
-
     """
     Test that build_classification_batch_task returns a dictionary with the expected structure and content based on the input parameters.
     """
@@ -38,7 +37,6 @@ def test_build_classification_batch_task_structure():
 
 
 def test_build_classification_batch_task_body():
-
     """
     Test that the body of the task returned by build_classification_batch_task contains the expected model, reasoning, and input structure.
     """
@@ -64,12 +62,10 @@ def test_build_classification_batch_task_body():
 
     assert body["input"][1]["role"] == "user"
 
-    assert body["input"][1]["content"] == (
-        "Title: Title\nAbstract: Abstract"
-    )
+    assert body["input"][1]["content"] == ("Title: Title\nAbstract: Abstract")
+
 
 def test_build_classification_batch_task_schema():
-
     """
     Test the JSON schema to ensure it has the expected structure and constraints for the classification output.
     """
@@ -98,8 +94,8 @@ def test_build_classification_batch_task_schema():
         "NO",
     ]
 
-def test_build_classification_batch_task_without_reasoning():
 
+def test_build_classification_batch_task_without_reasoning():
     """
     Test that build_classification_batch_task can be called without providing reasoning and that the resulting task has a body with "reasoning" set to None.
     """
@@ -137,6 +133,7 @@ def test_build_summary_batch_task_structure():
 
     assert task["url"] == "/v1/responses"
 
+
 def test_build_summary_batch_task_body():
 
     task = build_summary_batch_task(
@@ -156,9 +153,8 @@ def test_build_summary_batch_task_body():
 
     assert body["input"][0]["content"] == "Prompt"
 
-    assert body["input"][1]["content"] == (
-        "Title: Title\nAbstract: Abstract"
-    )
+    assert body["input"][1]["content"] == ("Title: Title\nAbstract: Abstract")
+
 
 def test_build_summary_batch_task_has_no_json_schema():
 
@@ -173,7 +169,7 @@ def test_build_summary_batch_task_has_no_json_schema():
     body = task["body"]
 
     assert "text" not in body
-    
+
 
 def test_build_summary_batch_task_without_reasoning():
 
@@ -192,12 +188,11 @@ def test_build_summary_batch_task_without_reasoning():
 # Tests generate_batch_jsonl function
 # --------------------------------------------------------------------------
 
+
 def test_generate_batch_jsonl(tmp_path):
-
-
     """
-    Happy path - Test that generate_batch_jsonl correctly fetches grant data from the database cursor, 
-    applies the length filter, builds tasks using the provided build_task function, 
+    Happy path - Test that generate_batch_jsonl correctly fetches grant data from the database cursor,
+    applies the length filter, builds tasks using the provided build_task function,
     and writes the expected number of tasks to the output JSONL file.
     """
     cur = Mock()
@@ -284,6 +279,7 @@ def test_generate_batch_jsonl_skips_missing_abstract(tmp_path):
 
     assert output_file.read_text() == ""
 
+
 def test_generate_batch_jsonl_skips_short_abstract(tmp_path):
 
     cur = Mock()
@@ -320,9 +316,11 @@ def test_generate_batch_jsonl_skips_short_abstract(tmp_path):
 
     assert output_file.read_text() == ""
 
+
 # ---------------------------------------------------------------------------
-# Tests split_jsonl function 
+# Tests split_jsonl function
 # ---------------------------------------------------------------------------
+
 
 def test_split_jsonl(tmp_path):
 
@@ -354,9 +352,11 @@ def test_split_jsonl(tmp_path):
 
     assert counts == [2, 2, 1]
 
+
 # ----------------------------------------------------------------------------
-# Tests combine_jsonl.py 
+# Tests combine_jsonl.py
 # ----------------------------------------------------------------------------
+
 
 def test_combine_jsonl_removes_duplicates(tmp_path):
 

@@ -7,7 +7,7 @@ from core.constants import ONTOLOGY_LABELS
 
 
 async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> dict:
-    
+
     target_code = agency_code.upper()
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
@@ -15,8 +15,8 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
 
     def run_agency_filtering():
 
-        try: 
-            # STEP 1: HISTORICAL DATA FOR CHARTS 
+        try:
+            # STEP 1: HISTORICAL DATA FOR CHARTS
             timeline_query = """
                 SELECT fiscal_year, SUM(total_award_amount)
                 FROM ResearchGrants
@@ -31,7 +31,7 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
             funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
 
             # STEP 2: CATEGORY DISTRIBUTION AGGREGATION (Ontology Labels)
-            
+
             ontology_query = """
                 SELECT               
                     COALESCE(SUM(CASE WHEN gl.mechanistic = 1 THEN rg.total_award_amount ELSE 0 END), 0),
@@ -49,10 +49,12 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
             cur.execute(ontology_query, (target_code,))
             onto_row = cur.fetchone()
 
-            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+            ontology_values = (
+                [float(val) for val in onto_row] if onto_row else [0.0] * 8
+            )
 
             # STEP 3: TABLE REVIEWS (2025 Viewport Only) - Fetch all grants for the agency in 2025
-            
+
             table_query = """
                 SELECT
                     rg.grant_id,
@@ -83,28 +85,30 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
             """
             cur.execute(table_query, (target_code,))
             rows = cur.fetchall()
-           
+
             grants = []
             for row in rows:
-                grants.append({
-                    "grant_id": row[0],
-                    "title": row[1],
-                    "organization": row[2] if row[2] else "Unknown Institution",
-                    "pi": row[3],
-                    "amount": float(row[4]) if row[4] else 0.0,
-                    "agency_ic": row[5],
-                    "fiscal_year": int(row[6]) if row[6] else 2025,                
-                    "mechanistic": row[7],
-                    "therapeutic": row[8],
-                    "diagnostic": row[9],
-                    "research_tool": row[10],
-                    "clinical": row[11],
-                    "infrastructure": row[12],
-                    "education": row[13],
-                    "obs_ep": row[14],
-                    "activity_code": row[15],
-                    "summary": row[16]
-                })
+                grants.append(
+                    {
+                        "grant_id": row[0],
+                        "title": row[1],
+                        "organization": row[2] if row[2] else "Unknown Institution",
+                        "pi": row[3],
+                        "amount": float(row[4]) if row[4] else 0.0,
+                        "agency_ic": row[5],
+                        "fiscal_year": int(row[6]) if row[6] else 2025,
+                        "mechanistic": row[7],
+                        "therapeutic": row[8],
+                        "diagnostic": row[9],
+                        "research_tool": row[10],
+                        "clinical": row[11],
+                        "infrastructure": row[12],
+                        "education": row[13],
+                        "obs_ep": row[14],
+                        "activity_code": row[15],
+                        "summary": row[16],
+                    }
+                )
 
             return years, funding, ontology_values, grants
 
@@ -112,23 +116,22 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
             cur.close()
             conn.close()
 
-    years, funding, ontology_values, grants = await anyio.to_thread.run_sync(run_agency_filtering)
-    
+    years, funding, ontology_values, grants = await anyio.to_thread.run_sync(
+        run_agency_filtering
+    )
 
     display_title = f"Agency Portfolio: {target_code}"
-    
+
     for agency in code_registry:
         if agency.get("funding_code") == target_code:
             display_title = agency.get("abbreviation", display_title)
             break
 
-
     return {
-            "query": display_title,
-            "years": years,
-            "funding": funding,
-            "results": grants, 
-            "ontology_labels": ONTOLOGY_LABELS, 
-            "ontology_values": ontology_values
-        }
-    
+        "query": display_title,
+        "years": years,
+        "funding": funding,
+        "results": grants,
+        "ontology_labels": ONTOLOGY_LABELS,
+        "ontology_values": ontology_values,
+    }

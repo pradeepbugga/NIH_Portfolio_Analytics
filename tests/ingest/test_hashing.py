@@ -1,11 +1,9 @@
-
 from core.ingest.hashing import compute_content_hash, fetch_existing_hash
 from unittest.mock import Mock
 
+
 def test_compute_content_hash_deterministic():
-
-
-    """ Tests that compute_content_hash returns the same hash for the same content. """
+    """Tests that compute_content_hash returns the same hash for the same content."""
 
     result = {
         "project_title": "Title",
@@ -19,9 +17,9 @@ def test_compute_content_hash_deterministic():
 
     assert hash1 == hash2
 
-def test_compute_content_hash_changes_when_content_changes():
 
-    """ Tests that compute_content_hash returns different hashes when the content changes. """
+def test_compute_content_hash_changes_when_content_changes():
+    """Tests that compute_content_hash returns different hashes when the content changes."""
 
     result1 = {
         "project_title": "Title",
@@ -37,14 +35,11 @@ def test_compute_content_hash_changes_when_content_changes():
         "award_amount": 100000,
     }
 
-    assert (
-        compute_content_hash(result1)
-        != compute_content_hash(result2)
-    )
+    assert compute_content_hash(result1) != compute_content_hash(result2)
+
 
 def test_compute_content_hash_missing_fields():
-
-    """ Tests that compute_content_hash handles missing fields gracefully by treating them as empty or zero values. """
+    """Tests that compute_content_hash handles missing fields gracefully by treating them as empty or zero values."""
 
     result = {}
 
@@ -54,9 +49,9 @@ def test_compute_content_hash_missing_fields():
 
     assert len(content_hash) == 64
 
-def test_fetch_existing_hash_found():
 
-    """ Tests that fetch_existing_hash correctly retrieves the existing hash and version when the grant exists in the database. """
+def test_fetch_existing_hash_found():
+    """Tests that fetch_existing_hash correctly retrieves the existing hash and version when the grant exists in the database."""
 
     cur = Mock()
 
@@ -82,9 +77,9 @@ def test_fetch_existing_hash_found():
         4,
     )
 
-def test_fetch_existing_hash_without_subproject():
 
-    """ Tests that fetch_existing_hash correctly constructs the grant ID when subproject_id is missing. """
+def test_fetch_existing_hash_without_subproject():
+    """Tests that fetch_existing_hash correctly constructs the grant ID when subproject_id is missing."""
 
     cur = Mock()
 
@@ -101,12 +96,10 @@ def test_fetch_existing_hash_without_subproject():
     assert grant_id == "1R01CA123456-01"
 
     assert row is None
-    
+
 
 def test_fetch_existing_hash_queries_expected_grant_id():
-    
-    """ Tests that fetch_existing_hash executes the expected SQL query with the correct grant ID. """
-
+    """Tests that fetch_existing_hash executes the expected SQL query with the correct grant ID."""
 
     cur = Mock()
 
@@ -126,6 +119,4 @@ def test_fetch_existing_hash_queries_expected_grant_id():
 
     assert "ResearchGrants" in sql
 
-    assert params == (
-        "1R01CA123456-02",
-    )
+    assert params == ("1R01CA123456-02",)
