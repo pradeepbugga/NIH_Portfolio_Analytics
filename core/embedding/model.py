@@ -1,6 +1,3 @@
-# model.py
-# this script contains functions for loading a sentence transformer model and generating embeddings for a batch of texts
-
 from sentence_transformers import SentenceTransformer
 
 
