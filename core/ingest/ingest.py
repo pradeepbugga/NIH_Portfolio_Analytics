@@ -1,11 +1,8 @@
 # ingest.py
 # this script ingests NIH grant data for a given fiscal year, normalizes it, and stores it in a database
 
-import json
 import time
-from core.ingest.normalize import normalize_project_num
 from core.ingest.reporter_client import (
-    API_URL,
     PAGE_LIMIT,
     SLEEP_SECONDS,
     AGENCIES,
@@ -57,7 +54,7 @@ def ingest_year(
                 try:
                     data = fetch_projects(payload)
                     break
-                except requests.RequestException as e:
+                except requests.RequestException:
                     if attempt == MAX_RETRIES:
                         raise RuntimeError(
                             f"NIH API unavailable after {MAX_RETRIES} retries "

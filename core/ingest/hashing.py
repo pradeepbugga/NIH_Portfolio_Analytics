@@ -1,4 +1,5 @@
-import hashlib, json
+import hashlib
+import json
 
 
 def compute_content_hash(result: dict) -> str:
