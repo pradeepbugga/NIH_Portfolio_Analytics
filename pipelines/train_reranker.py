@@ -5,7 +5,6 @@ from sklearn.model_selection import train_test_split
 from core.search.fill_abstract import add_abstracts
 from sentence_transformers.cross_encoder.evaluation import (
     CrossEncoderCorrelationEvaluator,
-    CrossEncoderRerankingEvaluator,
 )
 
 MODEL_VERSION_NUMBER = "v5"

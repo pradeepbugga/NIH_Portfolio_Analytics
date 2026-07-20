@@ -1,9 +1,9 @@
 # this script runs the NIH grant data ingestion pipeline for the specified fiscal years
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
-from core.db.connection import get_db_connection, DB_PATH
+from core.db.connection import get_db_connection
 from core.ingest.ingest import ingest_year
 from core.ingest.persistence import (
     insert_ingest_run,
@@ -24,7 +24,6 @@ import os
 from core.ingest.config import (
     IngestMode,
     ingest_policy,
-    current_fiscal_year,
     years_to_ingest,
 )
 import traceback
