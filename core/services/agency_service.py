@@ -1,12 +1,21 @@
 import anyio
-from core.db.connection import get_db_connection
 
+import time
+import logging
+
+from core.db.connection import get_db_connection
 from core.constants import ONTOLOGY_LABELS
+
+logger = logging.getLogger(__name__)
 
 
 async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> dict:
 
     target_code = agency_code.upper()
+
+    logger.info("Retrieving portfolio for agency code: %s", target_code)
+
+    start = time.perf_counter()
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
@@ -114,9 +123,16 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
             cur.close()
             conn.close()
 
-    years, funding, ontology_values, grants = await anyio.to_thread.run_sync(
-        run_agency_filtering
-    )
+    try:
+        years, funding, ontology_values, grants = await anyio.to_thread.run_sync(
+            run_agency_filtering
+        )
+
+    except Exception:
+        logger.exception(
+            "Failed to retrieve agency portfolio for code: %s", target_code
+        )
+        raise
 
     display_title = f"Agency Portfolio: {target_code}"
 
@@ -124,6 +140,13 @@ async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> d
         if agency.get("funding_code") == target_code:
             display_title = agency.get("abbreviation", display_title)
             break
+
+    logger.info(
+        "Retrieved %d grants for agency code: %s in %.2f seconds",
+        len(grants),
+        target_code,
+        time.perf_counter() - start,
+    )
 
     return {
         "query": display_title,

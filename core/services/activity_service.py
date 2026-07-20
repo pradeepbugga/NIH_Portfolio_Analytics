@@ -1,7 +1,12 @@
 import anyio
-from core.db.connection import get_db_connection
 
+import logging
+import time
+
+from core.db.connection import get_db_connection
 from core.constants import ONTOLOGY_LABELS
+
+logger = logging.getLogger(__name__)
 
 
 async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) -> dict:
@@ -28,9 +33,13 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
         - ``ontology_values``: a list of total funding amounts corresponding to each ontology category.
     """
 
+    start = time.perf_counter()
+
     target_codes = [c.strip().upper() for c in codes if c.strip()]
     if not target_codes or len(target_codes) > 5:
         raise ValueError("Must provide between 1 and 5 activity codes.")
+
+    logger.info("Retrieving portfolio for activity codes: %s", ", ".join(target_codes))
 
     tuple_codes = tuple(target_codes)
 
@@ -143,10 +152,20 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
         )
 
     except Exception as e:
-        print(f"❌ Error in activity_codes route: {e}")
+        logger.exception(
+            "Failed to retrieve activity portfolio for codes: %s",
+            ", ".join(target_codes),
+        )
         raise
 
     display_title = f"Activity Codes: {', '.join(target_codes)}"
+
+    logger.info(
+        "Retrieved %d grants for activity codes: %s in %.2f seconds",
+        len(grants),
+        ", ".join(target_codes),
+        time.perf_counter() - start,
+    )
 
     return {
         "query": display_title,
