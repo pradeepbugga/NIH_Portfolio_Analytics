@@ -157,7 +157,7 @@ def insert_organization(cur, org: dict) -> int:
     )
     row = cur.fetchone()
     if not row:
-        raise ValueError(f"Failed to insert or find organization")
+        raise ValueError(f"Failed to insert or find organization for {orgname}, {orgcity}, {orgstate}, {orgcountry}")
     return row[0]
 
 
@@ -182,10 +182,7 @@ def insert_research_grant(
     projenddate = result.get("project_end_date")
     budgstartdate = result.get("budget_start")
     budgenddate = result.get("budget_end")
-    contactpiname = result.get(
-        "contact_pi_name"
-    )  # this will be last name comma first name middle initial w/without a period
-
+    
     cur.execute(
         """
                 INSERT INTO ResearchGrants(grant_id, fiscal_year, project_num, subproject_id,core_project_num,
