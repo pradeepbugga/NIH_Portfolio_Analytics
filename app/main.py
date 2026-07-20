@@ -1,27 +1,10 @@
-# main.py
-
-import asyncio
-from contextlib import asynccontextmanager
-from datetime import datetime
-import json
-import os
-import time
-
-import anyio
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Request, HTTPException, APIRouter
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
-import pandas as pd
-
-from core.db.connection import get_db_connection
-from core.services.formatting import (
-    extract_funding,
-    extract_ontology_distribution,
-    format_output_grants,
-)
+import logging
 
 from app.startup import (
     GLOBAL_AGENCIES_LIST,
@@ -29,7 +12,7 @@ from app.startup import (
     GLOBAL_SYNONYM_REGISTRY,
     application_lifespan,
 )
-from core.services.search_service import search
+from core.services.search_service import search as search_service
 from core.services.activity_service import get_activity_portfolio
 from core.services.agency_service import get_agency_portfolio
 from core.services.portfolio_service import (
@@ -40,13 +23,8 @@ from core.services.portfolio_service import (
 )
 from core.services.grant_service import fetch_grant_abstract
 
-from core.search.hybrid import hybrid_search_range
-from core.search.cache import get_cached_results, save_cached_results
-from core.search.query_embedding import warmup_query_encoder, embed_query
-from core.search.modal_reranker import distributed_rerank_fn
-from core.category.mapping import category_mapping, machine_human_map
+from core.search.modal_reranker import distributed_rerank_fn, rerank_fn
 
-import logging
 
 load_dotenv()
 
@@ -55,6 +33,8 @@ load_dotenv()
 # FRAMEWORK INITIALIZATION AND ROUTER SETUP
 # ===============================================================
 app = FastAPI(title="NIH Grant Search API", lifespan=application_lifespan)
+
+logger = logging.getLogger(__name__)
 
 app.mount("/static", StaticFiles(directory="./app/static"), name="static")
 templates = Jinja2Templates(directory="./app/templates")
@@ -168,12 +148,12 @@ async def search(
     """
 
     try:
-        context = await search(
+        context = await search_service(
             query=query,
             rerank_fn=distributed_rerank_fn,
             synonym_registry=GLOBAL_SYNONYM_REGISTRY,
         )
-    except:
+    except Exception:
         raise HTTPException(
             status_code=500,
             detail="Search pipeline execution failed.",
@@ -217,7 +197,7 @@ async def activity_codes_multi_search(
             status_code=400,
             detail=str(e),
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
             detail="Database lookup error.",
@@ -397,7 +377,7 @@ async def portfolio_grants_search(payload: SearchRequest) -> dict:
             detail=str(e),
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Portfolio search failed")
         raise HTTPException(
             status_code=500,
