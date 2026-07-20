@@ -7,15 +7,16 @@ from core.search.fill_abstract import add_abstracts
 
 @patch("core.search.fill_abstract.get_db_connection")
 def test_add_abstracts(mock_get_db_connection):
+    """Happy path - test that add_abstracts correctly fetches abstracts for the given grant IDs and adds them to the DataFrame."""
 
-    """ Happy path - test that add_abstracts correctly fetches abstracts for the given grant IDs and adds them to the DataFrame. """
-
-    df = pd.DataFrame({
-        "grant_id": [
-            "id1",
-            "id2",
-        ]
-    })
+    df = pd.DataFrame(
+        {
+            "grant_id": [
+                "id1",
+                "id2",
+            ]
+        }
+    )
 
     conn = MagicMock()
     cur = MagicMock()
@@ -37,18 +38,20 @@ def test_add_abstracts(mock_get_db_connection):
 
     conn.close.assert_called_once()
 
+
 @patch("core.search.fill_abstract.get_db_connection")
 def test_add_abstracts_missing_grant(mock_get_db_connection):
+    """Tests that add_abstracts handles missing abstracts gracefully by leaving NaN values
+    in the abstract column for grant IDs that are not found in the database."""
 
-    """ Tests that add_abstracts handles missing abstracts gracefully by leaving NaN values
-     in the abstract column for grant IDs that are not found in the database. """ 
-
-    df = pd.DataFrame({
-        "grant_id": [
-            "id1",
-            "id2",
-        ]
-    })
+    df = pd.DataFrame(
+        {
+            "grant_id": [
+                "id1",
+                "id2",
+            ]
+        }
+    )
 
     conn = MagicMock()
     cur = MagicMock()
@@ -70,15 +73,16 @@ def test_add_abstracts_missing_grant(mock_get_db_connection):
 
 @patch("core.search.fill_abstract.get_db_connection")
 def test_add_abstracts_queries_expected_ids(mock_get_db_connection):
+    """Tests correct SQL parameters - that add_abstracts queries the database with the expected list of unique grant IDs from the DataFrame."""
 
-    """ Tests correct SQL parameters - that add_abstracts queries the database with the expected list of unique grant IDs from the DataFrame. """
-
-    df = pd.DataFrame({
-        "grant_id": [
-            "id1",
-            "id2",
-        ]
-    })
+    df = pd.DataFrame(
+        {
+            "grant_id": [
+                "id1",
+                "id2",
+            ]
+        }
+    )
 
     conn = MagicMock()
     cur = MagicMock()
@@ -97,25 +101,25 @@ def test_add_abstracts_queries_expected_ids(mock_get_db_connection):
 
     assert "ResearchGrants" in sql
 
-    assert params == (
-        ["id1", "id2"],
-    )
+    assert params == (["id1", "id2"],)
 
     conn.close.assert_called_once()
 
+
 @patch("core.search.fill_abstract.get_db_connection")
 def test_add_abstracts_uses_unique_grant_ids(mock_get_db_connection):
+    """Tests duplicate grant IDs - that add_abstracts correctly extracts the unique grant IDs
+    from the DataFrame and queries the database with the deduplicated list."""
 
-    """ Tests duplicate grant IDs - that add_abstracts correctly extracts the unique grant IDs 
-    from the DataFrame and queries the database with the deduplicated list. """
-
-    df = pd.DataFrame({
-        "grant_id": [
-            "id1",
-            "id1",
-            "id2",
-        ]
-    })
+    df = pd.DataFrame(
+        {
+            "grant_id": [
+                "id1",
+                "id1",
+                "id2",
+            ]
+        }
+    )
 
     conn = MagicMock()
     cur = MagicMock()
@@ -132,20 +136,16 @@ def test_add_abstracts_uses_unique_grant_ids(mock_get_db_connection):
 
     params = cur.execute.call_args[0][1]
 
-    assert params == (
-        ["id1", "id2"],
-    )
+    assert params == (["id1", "id2"],)
 
     conn.close.assert_called_once()
 
+
 @patch("core.search.fill_abstract.get_db_connection")
 def test_add_abstracts_closes_connection_on_exception(mock_get_db_connection):
+    """Testing resource cleanup - that add_abstracts properly closes the database connection even if an exception occurs during query execution."""
 
-    """ Testing resource cleanup - that add_abstracts properly closes the database connection even if an exception occurs during query execution. """
-
-    df = pd.DataFrame({
-        "grant_id": ["id1"]
-    })
+    df = pd.DataFrame({"grant_id": ["id1"]})
 
     conn = MagicMock()
     cur = MagicMock()

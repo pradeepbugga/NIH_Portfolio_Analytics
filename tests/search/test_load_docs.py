@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 from core.search.load_docs import load_grant_texts
 
+
 def make_row(
     grant_id="4R00AA029754-03",
     title="Pathological AMPA receptor adaptations governing dependence-escalated alcohol self-administration",
@@ -10,9 +11,9 @@ def make_row(
     return (
         grant_id,
         title,
-        None,                      # subproject_id
+        None,  # subproject_id
         abstract,
-        "R00AA029754",             # core_project_num
+        "R00AA029754",  # core_project_num
         2025,
         249000,
         "PROJECT NARRATIVE",
@@ -37,11 +38,12 @@ def make_row(
         0,
         0,
         0,
-        "This study tests whether..."
+        "This study tests whether...",
     )
-def test_load_grant_texts_empty():
 
-    """ Tests empty input to load_grant_texts and verifies that it returns an empty list without executing any SQL queries. """
+
+def test_load_grant_texts_empty():
+    """Tests empty input to load_grant_texts and verifies that it returns an empty list without executing any SQL queries."""
 
     cur = Mock()
 
@@ -53,19 +55,18 @@ def test_load_grant_texts_empty():
 
 
 def test_load_grant_texts():
-
-    """ Tests happy path of load_grant_texts with a single grant_id and verifies that it 
-    executes the expected SQL query and returns the correct document structure. """
+    """Tests happy path of load_grant_texts with a single grant_id and verifies that it
+    executes the expected SQL query and returns the correct document structure."""
 
     cur = Mock()
 
     cur.fetchall.return_value = [
-    make_row(
-        grant_id="id1",
-        title="Grant Title",
-        abstract="Grant abstract.",
-    )
-]
+        make_row(
+            grant_id="id1",
+            title="Grant Title",
+            abstract="Grant abstract.",
+        )
+    ]
 
     docs = load_grant_texts(
         cur,
@@ -94,9 +95,9 @@ def test_load_grant_texts():
 
     assert doc["text"] == "Grant Title Grant abstract."
 
-def test_load_grant_texts_preserves_order():
 
-    """ Tests that load_grant_texts preserves the order of grant_ids in the output documents, and that the expected SQL query is executed. """
+def test_load_grant_texts_preserves_order():
+    """Tests that load_grant_texts preserves the order of grant_ids in the output documents, and that the expected SQL query is executed."""
 
     cur = Mock()
 
@@ -127,10 +128,8 @@ def test_load_grant_texts_preserves_order():
     assert docs[1]["grant_id"] == "id2"
 
 
-
 def test_load_grant_texts_skips_missing_grants():
-
-    """ Tests if missing grant is skipped in load_grant_texts and that the expected SQL query is executed. """
+    """Tests if missing grant is skipped in load_grant_texts and that the expected SQL query is executed."""
 
     cur = Mock()
 
@@ -155,19 +154,17 @@ def test_load_grant_texts_skips_missing_grants():
 
 
 def test_load_grant_texts_handles_null_title_and_abstract():
-
-
-    """ Tests that load_grant_texts correctly handles null title and abstract by replacing them with empty strings, 
-    and that the expected SQL query is executed. """
+    """Tests that load_grant_texts correctly handles null title and abstract by replacing them with empty strings,
+    and that the expected SQL query is executed."""
     cur = Mock()
 
     cur.fetchall.return_value = [
-    make_row(
-        grant_id="id1",
-        title=None,
-        abstract=None,
-    )
-]
+        make_row(
+            grant_id="id1",
+            title=None,
+            abstract=None,
+        )
+    ]
     docs = load_grant_texts(
         cur,
         ["id1"],

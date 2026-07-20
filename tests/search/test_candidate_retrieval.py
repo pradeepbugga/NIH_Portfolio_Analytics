@@ -4,17 +4,16 @@ import numpy as np
 from core.search.candidate_retrieval import (
     retrieve_candidates_topk,
     retrieve_candidates_range,
-    retrieve_candidates_range_portfolio)
-
+    retrieve_candidates_range_portfolio,
+)
 
 # ----------------------------------------------------------------
 # TESTS for retrieve_candidates_topk function
 # ----------------------------------------------------------------
 
-def test_retrieve_candidates_topk():
 
-    """ Verify that retrieve_candidates_topk executes the expected SQL query and returns the correct results. """
-    
+def test_retrieve_candidates_topk():
+    """Verify that retrieve_candidates_topk executes the expected SQL query and returns the correct results."""
 
     cur = Mock()
 
@@ -46,14 +45,14 @@ def test_retrieve_candidates_topk():
         ("id2", 0.91),
     ]
 
+
 # ----------------------------------------------------------------
 # TESTS for retrieve_candidates_range function
 # ----------------------------------------------------------------
 
+
 def test_retrieve_candidates_range_semantic():
-
-    """ Verifies early return of retrieve_candidates_range when search_mode is 'semantic' and that the expected SQL query is executed. """
-
+    """Verifies early return of retrieve_candidates_range when search_mode is 'semantic' and that the expected SQL query is executed."""
 
     cur = Mock()
 
@@ -81,9 +80,9 @@ def test_retrieve_candidates_range_semantic():
 
     assert results == semantic_results
 
-def test_retrieve_candidates_range_semantic_with_fiscal_year():
 
-    """ Verifies that retrieve_candidates_range correctly incorporates fiscal year filtering into the SQL query when search_mode is 'semantic'. """
+def test_retrieve_candidates_range_semantic_with_fiscal_year():
+    """Verifies that retrieve_candidates_range correctly incorporates fiscal year filtering into the SQL query when search_mode is 'semantic'."""
 
     cur = Mock()
 
@@ -108,20 +107,18 @@ def test_retrieve_candidates_range_semantic_with_fiscal_year():
 
     assert params[1] == [2025]
 
-def test_retrieve_candidates_range_hybrid_merge():
 
-    """ Verifies that retrieve_candidates_range correctly merges semantic and keyword search results when search_mode is 'hybrid'. """
+def test_retrieve_candidates_range_hybrid_merge():
+    """Verifies that retrieve_candidates_range correctly merges semantic and keyword search results when search_mode is 'hybrid'."""
 
     cur = Mock()
 
     cur.fetchall.side_effect = [
-
         # semantic search
         [
             ("id1", 0.95),
             ("id2", 0.90),
         ],
-
         # keyword search
         [
             ("id2",),
@@ -140,20 +137,23 @@ def test_retrieve_candidates_range_hybrid_merge():
 
     assert cur.execute.call_count == 2
 
-    assert sorted(results) == sorted([
-        ("id1", 0.95),
-        ("id2", 0.90),
-        ("id3", 0.0),
-    ])
+    assert sorted(results) == sorted(
+        [
+            ("id1", 0.95),
+            ("id2", 0.90),
+            ("id3", 0.0),
+        ]
+    )
+
 
 # ----------------------------------------------------------------
 # TESTS for retrieve_candidates_range_portfolio function
 # ----------------------------------------------------------------
 
-def test_retrieve_candidates_range_portfolio_constrained():
 
-    """ Tests ontology-constrained candidate retrieval meaning that only grants with IDs in the allowed_grant_ids list are returned, 
-    and that the expected SQL query is executed. """
+def test_retrieve_candidates_range_portfolio_constrained():
+    """Tests ontology-constrained candidate retrieval meaning that only grants with IDs in the allowed_grant_ids list are returned,
+    and that the expected SQL query is executed."""
 
     cur = Mock()
 
@@ -190,10 +190,10 @@ def test_retrieve_candidates_range_portfolio_constrained():
         ("id2", 0.87),
     ]
 
-def test_retrieve_candidates_range_portfolio_global():
 
-    """ Tests global candidate retrieval meaning that grants are retrieved from the entire portfolio without filtering by allowed_grant_ids,
-    and that the expected SQL query is executed. """
+def test_retrieve_candidates_range_portfolio_global():
+    """Tests global candidate retrieval meaning that grants are retrieved from the entire portfolio without filtering by allowed_grant_ids,
+    and that the expected SQL query is executed."""
 
     cur = Mock()
 
