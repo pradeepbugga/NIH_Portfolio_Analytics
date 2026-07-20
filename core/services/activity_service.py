@@ -5,9 +5,8 @@ from core.constants import ONTOLOGY_LABELS
 
 
 async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) -> dict:
-    
     """
-    Retrieves and aggregates grant data for the specified activity codes, 
+    Retrieves and aggregates grant data for the specified activity codes,
     including historical funding trends, ontology distribution, and detailed grant information.
 
     Parameters
@@ -16,7 +15,7 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
         A list of activity codes to filter the grants by. Must contain between 1 and 5 codes.
     code_registry : list[dict]
         A list of dictionaries containing valid activity codes and their associated metadata.
-    
+
     Returns
     -------
     dict
@@ -28,21 +27,20 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
         - ``ontology_labels``: a list of ontology category labels.
         - ``ontology_values``: a list of total funding amounts corresponding to each ontology category.
     """
-    
+
     target_codes = [c.strip().upper() for c in codes if c.strip()]
     if not target_codes or len(target_codes) > 5:
         raise ValueError("Must provide between 1 and 5 activity codes.")
-    
+
     tuple_codes = tuple(target_codes)
 
     conn = await anyio.to_thread.run(get_db_connection)
     cur = conn.cursor()
-    
 
-    def run_database_operations():       
+    def run_database_operations():
 
         try:
-            
+
             # STEP 1: HISTORICAL DATA FOR CHARTS
 
             # Strictly check against the 3-character activity code substring
@@ -55,7 +53,7 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
             """
             cur.execute(timeline_query, (tuple_codes,))
             timeline_rows = cur.fetchall()
-            
+
             years = [row[0] for row in timeline_rows]
             funding = [float(row[1]) if row[1] else 0.0 for row in timeline_rows]
 
@@ -76,9 +74,10 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
             """
             cur.execute(ontology_query, (tuple_codes,))
             onto_row = cur.fetchone()
-            
-            
-            ontology_values = [float(val) for val in onto_row] if onto_row else [0.0] * 8
+
+            ontology_values = (
+                [float(val) for val in onto_row] if onto_row else [0.0] * 8
+            )
 
             # STEP 3: TABLE REVIEWS (2025 Viewport Only)
             table_query = """
@@ -104,18 +103,33 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
             """
             cur.execute(table_query, (tuple_codes,))
             rows = cur.fetchall()
-            
+
             grants = []
             for row in rows:
                 grant_id = row[0]
                 activity_code = grant_id[1:4] if len(grant_id) > 4 else "N/A"
 
-                grants.append({
-                    "grant_id": grant_id, "title": row[1], "organization": row[2] if row[2] else "Unknown Institution",
-                    "pi": row[3], "amount": float(row[4]) if row[4] else 0.0, "agency_ic": row[5], "fiscal_year": int(row[6]) if row[6] else 2025,                
-                    "mechanistic": row[7], "therapeutic": row[8], "diagnostic": row[9], "research_tool": row[10],
-                    "clinical": row[11], "infrastructure": row[12], "education": row[13], "obs_ep": row[14], "summary": row[15], "activity_code": activity_code
-                })
+                grants.append(
+                    {
+                        "grant_id": grant_id,
+                        "title": row[1],
+                        "organization": row[2] if row[2] else "Unknown Institution",
+                        "pi": row[3],
+                        "amount": float(row[4]) if row[4] else 0.0,
+                        "agency_ic": row[5],
+                        "fiscal_year": int(row[6]) if row[6] else 2025,
+                        "mechanistic": row[7],
+                        "therapeutic": row[8],
+                        "diagnostic": row[9],
+                        "research_tool": row[10],
+                        "clinical": row[11],
+                        "infrastructure": row[12],
+                        "education": row[13],
+                        "obs_ep": row[14],
+                        "summary": row[15],
+                        "activity_code": activity_code,
+                    }
+                )
 
             return years, funding, ontology_values, grants
 
@@ -124,20 +138,21 @@ async def get_activity_portfolio(codes: list[str], code_registry: list[dict]) ->
             conn.close()
 
     try:
-        years, funding, ontology_values, grants = await anyio.to_thread.run(run_database_operations)
+        years, funding, ontology_values, grants = await anyio.to_thread.run(
+            run_database_operations
+        )
 
     except Exception as e:
         print(f"❌ Error in activity_codes route: {e}")
         raise
 
     display_title = f"Activity Codes: {', '.join(target_codes)}"
-            
-    return         {
-            "query": display_title,
-            "years": years,
-            "funding": funding,
-            "results": grants,
-            "ontology_labels": ONTOLOGY_LABELS,
-            "ontology_values": ontology_values
-        }
-    
+
+    return {
+        "query": display_title,
+        "years": years,
+        "funding": funding,
+        "results": grants,
+        "ontology_labels": ONTOLOGY_LABELS,
+        "ontology_values": ontology_values,
+    }

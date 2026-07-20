@@ -1,8 +1,8 @@
-
 import pytest
 from unittest.mock import Mock, patch
 import requests
 from core.ingest.ingest import ingest_year, DataQualityError
+
 
 def make_response(
     total=1,
@@ -38,8 +38,7 @@ def test_ingest_year(
     mock_tqdm,
     mock_sleep,
 ):
-
-    """ Tests that ingest_year correctly executes the full pipeline and returns the expected results. """
+    """Tests that ingest_year correctly executes the full pipeline and returns the expected results."""
 
     conn = Mock()
     cur = Mock()
@@ -75,6 +74,7 @@ def test_ingest_year(
 
     pbar.close.assert_called_once()
 
+
 @patch("core.ingest.ingest.backoff")
 @patch("core.ingest.ingest.time.sleep")
 @patch("core.ingest.ingest.tqdm")
@@ -90,8 +90,7 @@ def test_ingest_year_retry_success(
     mock_sleep,
     mock_backoff,
 ):
-
-    """ Tests that ingest_year correctly retries fetching projects on failure and succeeds on a subsequent attempt. """
+    """Tests that ingest_year correctly retries fetching projects on failure and succeeds on a subsequent attempt."""
 
     conn = Mock()
     cur = Mock()
@@ -120,6 +119,7 @@ def test_ingest_year_retry_success(
 
     mock_sleep.assert_called()
 
+
 @patch("core.ingest.ingest.MAX_RETRIES", 2)
 @patch("core.ingest.ingest.time.sleep")
 @patch("core.ingest.ingest.backoff")
@@ -132,8 +132,7 @@ def test_ingest_year_retry_exhausted(
     mock_backoff,
     mock_sleep,
 ):
-
-    """ Tests that ingest_year correctly retries fetching projects on failure and raises an error after exhausting all retries. """
+    """Tests that ingest_year correctly retries fetching projects on failure and raises an error after exhausting all retries."""
 
     conn = Mock()
     cur = Mock()
@@ -154,6 +153,7 @@ def test_ingest_year_retry_exhausted(
 
     assert mock_fetch_projects.call_count == 3
 
+
 @patch("core.ingest.ingest.record_error")
 @patch("core.ingest.ingest.time.sleep")
 @patch("core.ingest.ingest.tqdm")
@@ -169,8 +169,7 @@ def test_ingest_year_data_quality_error(
     mock_sleep,
     mock_record_error,
 ):
-
-    """Tests that ingest_year correctly handles a DataQualityError raised during result processing by recording the error and rolling back the transaction. """
+    """Tests that ingest_year correctly handles a DataQualityError raised during result processing by recording the error and rolling back the transaction."""
 
     conn = Mock()
     cur = Mock()
@@ -181,9 +180,7 @@ def test_ingest_year_data_quality_error(
 
     mock_fetch_projects.return_value = make_response()
 
-    mock_process_result.side_effect = DataQualityError(
-        "bad record"
-    )
+    mock_process_result.side_effect = DataQualityError("bad record")
 
     pbar = Mock()
     mock_tqdm.return_value = pbar
@@ -204,6 +201,7 @@ def test_ingest_year_data_quality_error(
 
     assert metrics["num_errors"] == 1
 
+
 @patch("core.ingest.ingest.PAGE_LIMIT", 1)
 @patch("core.ingest.ingest.time.sleep")
 @patch("core.ingest.ingest.tqdm")
@@ -218,8 +216,7 @@ def test_ingest_year_pagination(
     mock_tqdm,
     mock_sleep,
 ):
-
-    """ Tests that ingest_year correctly handles pagination by fetching multiple pages of results and processing them. """
+    """Tests that ingest_year correctly handles pagination by fetching multiple pages of results and processing them."""
 
     conn = Mock()
     cur = Mock()

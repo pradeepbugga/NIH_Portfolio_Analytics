@@ -1,16 +1,31 @@
 import anyio
-from core.db import get_db_connection
+from core.db.connection import get_db_connection
 from core.constants import ONTOLOGY_LABELS
 from core.search.constants import VALID_CATEGORY_COLUMNS
 
-from core.search.modal_reranker import rerank_fn
+from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range_portfolio
 from core.search.load_docs import load_grant_texts
 from core.search.combine import combine_and_sort_semantic_filter
+from core.services.formatting import format_output_grants
+
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+
+class SearchRequest(BaseModel):
+    year: int
+    category: Optional[str] = None
+    query: str
+    existing_ids: List[str] = Field(
+        default_factory=list
+    )  # Validated as a native array of strings
+    query_history_count: int = (
+        1  # use this to track queries to then route to either semantic or hybrid search
+    )
 
 
 async def get_category_distribution(year: int) -> dict:
-
     """
     Retrieves the total funding distribution across predefined ontology categories for a given fiscal year.
     FYI this does not show any grants, just the total funding distribution across the 8 abstract categories.
@@ -19,23 +34,22 @@ async def get_category_distribution(year: int) -> dict:
     ----------
     year : int
         The fiscal year for which to retrieve the funding distribution.
-    
+
     Returns
     -------
     dict
         A dictionary mapping each ontology category label to its corresponding total funding amount for the specified fiscal year.
     """
-    
 
-    conn  = await anyio.to_thread.run_sync(get_db_connection)
+    conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
 
-    try: 
+    try:
 
         def fetch_category_distribution():
-            
 
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT
 
                     SUM(CASE WHEN gl.mechanistic = 1
@@ -68,25 +82,25 @@ async def get_category_distribution(year: int) -> dict:
                     ON gl.grant_id = rg.grant_id
 
                 WHERE rg.fiscal_year = %s
-            """, (year,))
+            """,
+                (year,),
+            )
 
             row = cur.fetchone()
             if not row:
-                return [0]*8
+                return [0] * 8
             return [val or 0 for val in row]
 
         values = await anyio.to_thread.run_sync(fetch_category_distribution)
-    
+
         return dict(zip(ONTOLOGY_LABELS, values))
 
     finally:
         await anyio.to_thread.run_sync(cur.close)
         await anyio.to_thread.run_sync(conn.close)
 
-async def get_grants_by_category(
-    year: int = Query(..., description="Target fiscal year for grant retrieval"),
-    category: str = Query(..., description="Abstract category for grant retrieval")) -> dict:
 
+async def get_grants_by_category(year: int, category: str) -> dict:
     """
     Retrieves grants for a specific fiscal year and abstract category, returning detailed grant information.
 
@@ -112,26 +126,25 @@ async def get_grants_by_category(
             - ``agency_ic``: The agency or institute code associated with the grant.
             - ``activity_code``: The activity code associated with the grant.
             - ``summary``: A two-sentence summary of the grant project.
-    
+
     Raises
     ------
     ValueError
         If the provided category is not in the list of valid categories defined in VALID_CATEGORY_COLUMNS.
     """
 
-
     if category not in VALID_CATEGORY_COLUMNS:
         raise ValueError(f"Invalid category '{category}'")
-    
+
     column = category  # Use the category directly as the column name
 
-    conn = await anyio.to_thread.run_sync(get_db_connection) 
+    conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
 
     try:
 
         def fetch_grants_by_category():
-        
+
             query = f"""
                 SELECT
                     rg.grant_id,
@@ -158,34 +171,30 @@ async def get_grants_by_category(
 
             grants = []
             for row in rows:
-                grants.append({
-                    "grant_id": row[0],
-                    "title": row[1],
-                    "organization": row[2],
-                    "pi": row[3],
-                    "funding": row[4],
-                    "agency_ic": row[5],
-                    "activity_code": row[6],
-                    "summary": row[7]
-                })
+                grants.append(
+                    {
+                        "grant_id": row[0],
+                        "title": row[1],
+                        "organization": row[2],
+                        "pi": row[3],
+                        "funding": row[4],
+                        "agency_ic": row[5],
+                        "activity_code": row[6],
+                        "summary": row[7],
+                    }
+                )
             return grants
 
         grants = await anyio.to_thread.run_sync(fetch_grants_by_category)
 
-        return {
-            "category": category,
-            "year": year,
-            "grants": grants
-        }
+        return {"category": category, "year": year, "grants": grants}
 
     finally:
         await anyio.to_thread.run_sync(cur.close)
         await anyio.to_thread.run_sync(conn.close)
 
 
-
-async def search_portfolio(payload: SearchRequest)-> dict:
-
+async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
     """
     Perform a search over the portfolio of grants based on the provided search request payload.
     The grants will either route to a semantic search or a keyword search depending on the query history count.
@@ -194,6 +203,8 @@ async def search_portfolio(payload: SearchRequest)-> dict:
     ----------
     payload : SearchRequest
         The search request payload containing the query, year, category, and any existing IDs.
+    rerank_fn : callable
+        A function to rerank the candidate grant documents based on the search query.
 
     Returns
     -------
@@ -201,58 +212,61 @@ async def search_portfolio(payload: SearchRequest)-> dict:
         A dictionary containing the search results, including the query, category, year, and a list of grants that match the search criteria.
     """
 
-
-
     if payload.category not in VALID_CATEGORY_COLUMNS:
         raise ValueError(f"Invalid category '{payload.category}'")
 
     column = payload.category  # Use the category directly as the column name
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
-    cur = await anyio.to_thread.run_sync(conn.cursor)
+    cur = conn.cursor()
 
-    candidate_ids = await anyio.to_thread.run_sync(_determine_candidate_ids, payload, cur, column)
+    try:
 
-    if not candidate_ids:
+        candidate_ids = await anyio.to_thread.run_sync(
+            _determine_candidate_ids, payload, cur, column
+        )
+
+        if not candidate_ids:
+            return {
+                "query": payload.query,
+                "category": payload.category,
+                "year": payload.year,
+                "grants": [],
+            }
+
+        is_nested_search = payload.query_history_count > 1
+
+        if is_nested_search:
+
+            docs = await anyio.to_thread.run_sync(
+                _run_subset_keyword_search, payload, cur, candidate_ids
+            )
+
+        else:
+            docs = await anyio.to_thread.run_sync(
+                _run_subset_semantic_search, payload, cur, candidate_ids
+            )
+
+        formatted_grants = await _rerank_and_format(payload.query, docs, rerank_fn)
+
         return {
             "query": payload.query,
             "category": payload.category,
             "year": payload.year,
-            "grants": []
+            "grants": formatted_grants,
         }
-
-    is_nested_subearch = payload.query_history_count > 1
-
-    if is_nested_search:
-
-        docs = await anyio.to_thread.run_sync(_run_subset_keyword_search, payload, cur, candidate_ids)
-
-    else: 
-        docs = await anyio.to_thread.run_sync(_run_subset_semantic_search, payload, cur, candidate_ids)
-
-    formatted_grants = await _rerank_and_format(payload.query, docs)
-
-    return {
-        "query": payload.query,
-        "category": payload.category,
-        "year": payload.year,
-        "grants": formatted_grants
-    }   
+    finally:
+        await anyio.to_thread.run_sync(cur.close)
+        await anyio.to_thread.run_sync(conn.close)
 
 
-
-
-
-
-
-
-
-def _determine_candidate_ids(payload: SearchRequest, cur: any, column: str = None)-> list[str]:
-
+def _determine_candidate_ids(
+    payload: SearchRequest, cur, column: str = None
+) -> list[str]:
     """
     Determine the pool of candidate grant IDs based on the search payload.
     This is useful for only looking a the grants active in the frontend search.
-    
+
     Parameters
     ----------
 
@@ -262,7 +276,7 @@ def _determine_candidate_ids(payload: SearchRequest, cur: any, column: str = Non
         The database cursor for executing SQL queries.
     column : str, optional
         The column name corresponding to the category, if provided. Defaults to None.
-    
+
     Returns
     -------
     list
@@ -270,44 +284,45 @@ def _determine_candidate_ids(payload: SearchRequest, cur: any, column: str = Non
 
     """
 
-            # Determine pool of grants to search
-        if payload.existing_ids:
-            return [str(x).strip() for x in payload.existing_ids if x]
-        if column: 
-            sql = f"""
-                SELECT rg.grant_id
-                FROM ResearchGrants rg
-                JOIN grant_labels gl ON rg.grant_id = gl.grant_id
-                WHERE rg.fiscal_year = %s AND gl.{column} = 1
-            """
-            cur.execute(sql, (int(payload.year),))
-        else: 
-            sql = """
-                SELECT grant_id
-                FROM ResearchGrants
-                WHERE fiscal_year = %s
-            """
-            cur.execute(sql, (int(payload.year),))
-        
-        return [row[0] for row in cur.fetchall()]
-    
+    # Determine pool of grants to search
+    if payload.existing_ids:
+        return [str(x).strip() for x in payload.existing_ids if x]
+    if column:
+        sql = f"""
+            SELECT rg.grant_id
+            FROM ResearchGrants rg
+            JOIN grant_labels gl ON rg.grant_id = gl.grant_id
+            WHERE rg.fiscal_year = %s AND gl.{column} = 1
+        """
+        cur.execute(sql, (int(payload.year),))
+    else:
+        sql = """
+            SELECT grant_id
+            FROM ResearchGrants
+            WHERE fiscal_year = %s
+        """
+        cur.execute(sql, (int(payload.year),))
 
-async def _run_subset_keyword_search(cur, query: str, allowed_grant_ids: list[str])-> list[dict]:
+    return [row[0] for row in cur.fetchall()]
 
+
+async def _run_subset_keyword_search(
+    payload: SearchRequest, cur, allowed_grant_ids: list[str]
+):
     """
     Perform a keyword search over a predefined set of grants based on the provided query.
     This retrieves candidates using a substring filter and treats them as perfect lexical matches.
     This is useful once semantic search has already filtered the topic and a subsequent semnantic search would not be appropriate.
-    (i.e. when we filter for multiple sclerosis then search for "antibody" we want keyword search 
+    (i.e. when we filter for multiple sclerosis then search for "antibody" we want keyword search
     not grants semantically related to "antibody" that are not about multiple sclerosis)
 
     Parameters
     ----------
-    cur : any
+    payload : SearchRequest
+        The search request payload containing the query and other relevant information.
+    cur
         The database cursor for executing SQL queries.
-    query : str
-        The search query string for substring matching.
-    allowed_grant_ids : list[str]
+      allowed_grant_ids : list[str]
         A list of grant IDs that are allowed for the search, serving as a filter.
 
     Returns
@@ -318,7 +333,7 @@ async def _run_subset_keyword_search(cur, query: str, allowed_grant_ids: list[st
 
     def retrieve():
 
-        keyword = f"%{query.strip()}%"
+        keyword = f"%{payload.query.strip()}%"
 
         cur.execute(
             """
@@ -358,22 +373,23 @@ async def _run_subset_keyword_search(cur, query: str, allowed_grant_ids: list[st
     return await anyio.to_thread.run_sync(retrieve)
 
 
-async def _run_subset_semantic_search( cur, query: str, allowed_grant_ids: list[str]):
-
+async def _run_subset_semantic_search(
+    payload: SearchRequest, cur, allowed_grant_ids: list[str]
+):
     """
     Perform a semantic search over a predefined set of grants based on the provided query.
     This retrieves candidates but does not perform any additional filtering or reranking.
 
     Parameters
     ----------
-    cur : any
+    payload : SearchRequest
+        The search request payload containing the query and other relevant information.
+    cur
         The database cursor for executing SQL queries.
-    query : str
-        The search query string for semantic embedding and retrieval.
     allowed_grant_ids : list[str]
         A list of grant IDs that are allowed for the search, serving as a filter.
 
-    Returns     
+    Returns
     -------
     list
         A list of documents (grants) that match the semantic search criteria, each with its associated vector similarity score.
@@ -381,7 +397,7 @@ async def _run_subset_semantic_search( cur, query: str, allowed_grant_ids: list[
 
     query_vec = await anyio.to_thread.run_sync(
         embed_query,
-        query,
+        payload.query,
     )
     query_vec_list = query_vec.tolist()
 
@@ -394,10 +410,7 @@ async def _run_subset_semantic_search( cur, query: str, allowed_grant_ids: list[
             allowed_grant_ids=allowed_grant_ids,
         )
 
-        vector_sim_map = {
-            grant_id: similarity
-            for grant_id, similarity in candidates
-        }
+        vector_sim_map = {grant_id: similarity for grant_id, similarity in candidates}
 
         grant_ids = list(vector_sim_map.keys())
 
@@ -419,8 +432,7 @@ async def _run_subset_semantic_search( cur, query: str, allowed_grant_ids: list[
     return docs
 
 
-async def _rerank_and_format(query: str, docs: list[dict]) -> list[dict]:
-
+async def _rerank_and_format(query: str, docs: list[dict], rerank_fn) -> list[dict]:
     """
     Rerank candidate grant documents and format them for frontend display.
 
@@ -455,9 +467,3 @@ async def _rerank_and_format(query: str, docs: list[dict]) -> list[dict]:
         return format_output_grants(ranked)
 
     return await anyio.to_thread.run_sync(finalize)
-
-
-
-
-
-

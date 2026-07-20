@@ -4,9 +4,8 @@ from core.llm.prompt_loader import load_prompt
 
 
 def test_load_prompt(tmp_path):
-
-    """ 
-    Test that load_prompt correctly loads a prompt from the prompts directory.     """
+    """
+    Test that load_prompt correctly loads a prompt from the prompts directory."""
 
     prompt_dir = tmp_path / "prompts"
     prompt_dir.mkdir()
@@ -20,9 +19,9 @@ def test_load_prompt(tmp_path):
 
     assert prompt == "Summarize this grant."
 
-def test_load_prompt_missing_file(tmp_path):
 
-    """ 
+def test_load_prompt_missing_file(tmp_path):
+    """
     Test that load_prompt raises a FileNotFoundError when the specified prompt file does not exist.
     """
 

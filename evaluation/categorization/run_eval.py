@@ -12,7 +12,6 @@ load_dotenv()
 category = "research_tool"
 
 
-
 benchmark = pd.read_csv(f"./evaluation/categorization/challenge_sets/{category}.csv")
 prompt_path = f"./core/llm/prompts/{category}.txt"
 
@@ -28,10 +27,12 @@ conn.close()
 
 predictions = []
 
-for _, row in tqdm(benchmark.iterrows(), total=len(benchmark), desc="Classifying grants"):
+for _, row in tqdm(
+    benchmark.iterrows(), total=len(benchmark), desc="Classifying grants"
+):
     grant_id = row["grant_id"]
     expected = row["label"]
-    
+
     doc = docs[grant_id]
 
     title = doc["title"]
@@ -47,21 +48,20 @@ for _, row in tqdm(benchmark.iterrows(), total=len(benchmark), desc="Classifying
         print(f"Unexpected answer for grant {grant_id}: {result['answer']}")
         predicted = None
 
-    predictions.append({
+    predictions.append(
+        {
+            "grant_id": grant_id,
+            "expected": expected,
+            "predicted": predicted,
+            "reasoning": result["reasoning"],
+        }
+    )
 
-        "grant_id": grant_id,
-
-        "expected": expected,
-
-        "predicted": predicted,
-
-        "reasoning": result["reasoning"]
-
-    })
-    
 predictions_df = pd.DataFrame(predictions)
 
-predictions_df.to_csv(f"./evaluation/categorization/reports/{category}_predictions.csv", index=False)
+predictions_df.to_csv(
+    f"./evaluation/categorization/reports/{category}_predictions.csv", index=False
+)
 
 metrics = compute_metrics(predictions_df)
 
@@ -76,6 +76,3 @@ metrics["false_negative"].to_csv(
     f"./evaluation/categorization/reports/{category}_false_negative.csv",
     index=False,
 )
-
-
-
