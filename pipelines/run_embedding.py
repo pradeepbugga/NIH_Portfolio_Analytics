@@ -8,18 +8,31 @@ from core.embedding.config import EmbeddingConfig
 
 
 def main() -> None:
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Generate embeddings from AI summaries instead of title/abstract.",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
-    summary_cfg = EmbeddingConfig(
-        text_recipe="AI_summary",
-        batch_size=64,  # You can tweak this if memory usage differs for summaries
-    )
-
+  
     try:
-        run_summary_embedding_job(summary_cfg)
+        if args.summary:
+            cfg = EmbeddingConfig(
+                text_recipe="AI_summary",
+                batch_size=64,  # You can tweak this if memory usage differs for summaries
+            )
+            run_summary_embedding_job(summary_cfg)
+        else:
+            cfg = EmbeddingConfig()
+            run_embedding_job(cfg)
     except Exception:
         logging.exception("Embedding job failed.")
         sys.exit(1)
