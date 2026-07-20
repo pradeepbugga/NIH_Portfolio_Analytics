@@ -35,7 +35,7 @@ async def application_lifespan(app: FastAPI):
 
     # map and load agency data
     csv_path = os.path.abspath(
-        os.path.join(script_dir, "..", "core", "agency", "agencies_updated.csv")
+        os.path.join(script_dir, "..", "data", "agencies_list.csv")
     )
     if os.path.exists(csv_path):
         try:
@@ -49,7 +49,7 @@ async def application_lifespan(app: FastAPI):
 
     # map and load activity code data
     activity_csv_path = os.path.abspath(
-        os.path.join(script_dir, "..", "core", "activity_codes", "2025_code_list.csv")
+        os.path.join(script_dir, "..", "data", "activity_code_list.csv")
     )
     if os.path.exists(activity_csv_path):
         try:
@@ -67,7 +67,7 @@ async def application_lifespan(app: FastAPI):
 
     # map and load synonym registry for query expansion
     synonym_json_path = os.path.abspath(
-        os.path.join(script_dir, "..", "core", "search", "rcdc_synonyms.json")
+        os.path.join(script_dir, "..", "data", "rcdc_synonyms.json")
     )
     if os.path.exists(synonym_json_path):
         try:
