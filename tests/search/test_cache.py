@@ -7,11 +7,13 @@ from core.search.cache import (
     save_cached_results,
 )
 
+
 def test_json_serial_datetime():
 
     dt = datetime(2025, 7, 1, 12, 30, 0)
 
     assert json_serial(dt) == "2025-07-01T12:30:00"
+
 
 def test_json_serial_date():
 
@@ -24,6 +26,7 @@ def test_json_serial_invalid_type():
 
     with pytest.raises(TypeError):
         json_serial(123)
+
 
 def test_get_cached_results_hit():
 
@@ -45,6 +48,7 @@ def test_get_cached_results_hit():
 
     assert results == expected
 
+
 def test_get_cached_results_miss():
 
     cur = Mock()
@@ -57,6 +61,7 @@ def test_get_cached_results_miss():
     )
 
     assert results is None
+
 
 def test_save_cached_results():
 

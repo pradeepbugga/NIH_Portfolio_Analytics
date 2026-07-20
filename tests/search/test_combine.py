@@ -1,4 +1,3 @@
-
 import pytest
 from core.search.combine import combine_and_sort, combine_and_sort_semantic_filter
 
@@ -22,23 +21,18 @@ def make_doc(
         "phr": "PHR",
         "agency_ic": "HG",
         "activity_code": "R01",
-
         "project_start_date": "2025-01-01",
         "project_end_date": "2028-12-31",
         "budget_start_date": "2025-01-01",
         "budget_end_date": "2025-12-31",
-
         "org_name": "Harvard",
         "org_city": "Boston",
         "org_state": "MA",
         "org_country": "USA",
-
         "pi_first_name": "John",
         "pi_middle_name": None,
         "pi_last_name": "Smith",
-
         "vector_similarity": vector_similarity,
-
         "mechanistic": 1,
         "therapeutic": 0,
         "diagnostic": 0,
@@ -47,15 +41,14 @@ def make_doc(
         "infrastructure": 0,
         "education": 0,
         "obs_ep": 0,
-
         "summary": "Summary",
     }
 
 
 def test_combine_and_sort():
-
-    """ Happy Path -> Tests that one document + one score leads to one result with the expected fields and values.
-    Fields are copied correctly, score becomes a float, and vector similarity is preserved"""
+    """Happy Path -> Tests that one document + one score leads to one result with the expected fields and values.
+    Fields are copied correctly, score becomes a float, and vector similarity is preserved
+    """
 
     docs = [
         make_doc(
@@ -91,9 +84,9 @@ def test_combine_and_sort():
 
     assert result["summary"] == "Summary"
 
-def test_combine_and_sort_filters_low_scores():
 
-    """ Tests that documents with scores below the rerank_score_threshold are filtered out and do not appear in the results. """
+def test_combine_and_sort_filters_low_scores():
+    """Tests that documents with scores below the rerank_score_threshold are filtered out and do not appear in the results."""
 
     docs = [
         make_doc(grant_id="id1"),
@@ -117,10 +110,9 @@ def test_combine_and_sort_filters_low_scores():
 
     assert results[0]["score"] == 0.5
 
+
 def test_combine_and_sort_excludes_threshold_value():
-
-
-    """ Tests that documents with scores equal to the rerank_score_threshold are filtered out and do not appear in the results. """
+    """Tests that documents with scores equal to the rerank_score_threshold are filtered out and do not appear in the results."""
 
     docs = [
         make_doc(grant_id="id1"),
@@ -136,9 +128,9 @@ def test_combine_and_sort_excludes_threshold_value():
 
     assert results == []
 
-def test_combine_and_sort_orders_by_score():
 
-    """ Tests that results are sorted in descending order by score. """
+def test_combine_and_sort_orders_by_score():
+    """Tests that results are sorted in descending order by score."""
 
     docs = [
         make_doc(grant_id="id1"),
@@ -172,9 +164,9 @@ def test_combine_and_sort_orders_by_score():
         0.25,
     ]
 
-def test_combine_and_sort_default_vector_similarity():
 
-    """ Tests that if a document is missing the vector_similarity field, it is set to 0.0 in the results rather than throwing an error. """
+def test_combine_and_sort_default_vector_similarity():
+    """Tests that if a document is missing the vector_similarity field, it is set to 0.0 in the results rather than throwing an error."""
 
     doc = make_doc()
 
@@ -190,9 +182,9 @@ def test_combine_and_sort_default_vector_similarity():
 
     assert results[0]["vector_similarity"] == 0.0
 
-def test_combine_and_sort_requires_equal_lengths():
 
-    """ Tests that an error is raised if the docs and scores lists have different lengths. """
+def test_combine_and_sort_requires_equal_lengths():
+    """Tests that an error is raised if the docs and scores lists have different lengths."""
 
     docs = [
         make_doc(),
@@ -208,10 +200,11 @@ def test_combine_and_sort_requires_equal_lengths():
             rerank_score_threshold=-2.0,
         )
 
-def test_combine_and_sort_semantic_filter():
 
-    """ Tests that combine_and_sort_semantic_filter correctly filters out documents 
-    with non-positive scores and sorts the remaining documents by score in descending order. """
+def test_combine_and_sort_semantic_filter():
+    """Tests that combine_and_sort_semantic_filter correctly filters out documents
+    with non-positive scores and sorts the remaining documents by score in descending order.
+    """
 
     docs = [
         make_doc(grant_id="id1"),
