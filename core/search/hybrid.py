@@ -1,6 +1,5 @@
 import time
 import anyio
-import pandas as pd
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
