@@ -1,4 +1,3 @@
-import json
 import numpy as np
 
 from unittest.mock import Mock, patch, ANY

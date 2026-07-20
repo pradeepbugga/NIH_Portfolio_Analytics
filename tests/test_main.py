@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
-from core.services.portfolio_service import SearchRequest
 
 client = TestClient(app)
 

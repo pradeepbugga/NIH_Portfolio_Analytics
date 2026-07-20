@@ -8,7 +8,6 @@ from core.llm.batch import (
 
 from unittest.mock import Mock
 import json
-from pathlib import Path
 
 # --------------------------------------------------------------------------
 # TESTS build_classification_batch_task function

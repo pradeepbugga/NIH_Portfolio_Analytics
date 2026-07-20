@@ -4,7 +4,6 @@ from core.ingest.reporter_client import (
     fetch_projects,
     build_payload,
     PAGE_LIMIT,
-    AGENCIES,
 )
 
 
