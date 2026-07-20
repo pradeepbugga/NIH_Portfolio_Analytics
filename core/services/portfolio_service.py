@@ -1,4 +1,7 @@
 import anyio
+
+import logging
+
 from core.db.connection import get_db_connection
 from core.constants import ONTOLOGY_LABELS
 from core.search.constants import VALID_CATEGORY_COLUMNS
@@ -11,6 +14,8 @@ from core.services.formatting import format_output_grants
 
 from pydantic import BaseModel, Field
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class SearchRequest(BaseModel):
@@ -133,6 +138,8 @@ async def get_grants_by_category(year: int, category: str) -> dict:
         If the provided category is not in the list of valid categories defined in VALID_CATEGORY_COLUMNS.
     """
 
+    logger.info("Retrieving grants for year %d and category '%s'", year, category)
+
     if category not in VALID_CATEGORY_COLUMNS:
         raise ValueError(f"Invalid category '{category}'")
 
@@ -187,6 +194,8 @@ async def get_grants_by_category(year: int, category: str) -> dict:
 
         grants = await anyio.to_thread.run_sync(fetch_grants_by_category)
 
+        logger.info("Retrieved %d grants.", len(grants))
+
         return {"category": category, "year": year, "grants": grants}
 
     finally:
@@ -212,6 +221,13 @@ async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
         A dictionary containing the search results, including the query, category, year, and a list of grants that match the search criteria.
     """
 
+    logger.info(
+        "Portfolio search started: query='%s', category='%s', year=%d",
+        payload.query,
+        payload.category,
+        payload.year,
+    )
+
     if payload.category not in VALID_CATEGORY_COLUMNS:
         raise ValueError(f"Invalid category '{payload.category}'")
 
@@ -226,6 +242,8 @@ async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
             _determine_candidate_ids, payload, cur, column
         )
 
+        logger.info("Candidate pool contains %d grants.", len(candidate_ids))
+
         if not candidate_ids:
             return {
                 "query": payload.query,
@@ -238,16 +256,27 @@ async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
 
         if is_nested_search:
 
+            logger.info("Performing keyword search for query: '%s'", payload.query)
+
             docs = await anyio.to_thread.run_sync(
                 _run_subset_keyword_search, payload, cur, candidate_ids
             )
 
+            logger.info("Retrieved %d candidate documents.", len(docs))
+
         else:
+
+            logger.info("Performing semantic search for query: '%s'", payload.query)
+
             docs = await anyio.to_thread.run_sync(
                 _run_subset_semantic_search, payload, cur, candidate_ids
             )
 
+            logger.info("Retrieved %d candidate documents.", len(docs))
+
         formatted_grants = await _rerank_and_format(payload.query, docs, rerank_fn)
+
+        logger.info("Returning %d ranked grants.", len(formatted_grants))
 
         return {
             "query": payload.query,
@@ -255,6 +284,13 @@ async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
             "year": payload.year,
             "grants": formatted_grants,
         }
+
+    except Exception:
+        logger.exception(
+            "Error occurred during portfolio search for query: '%s'", payload.query
+        )
+        raise
+
     finally:
         await anyio.to_thread.run_sync(cur.close)
         await anyio.to_thread.run_sync(conn.close)
@@ -368,6 +404,8 @@ async def _run_subset_keyword_search(
         for doc in docs:
             doc["vector_similarity"] = 1.0
 
+        logger.info("Keyword search matched %d grants.", len(docs))
+
         return docs
 
     return await anyio.to_thread.run_sync(retrieve)
@@ -429,6 +467,11 @@ async def _run_subset_semantic_search(
 
     docs = await anyio.to_thread.run_sync(retrieve)
 
+    logger.info(
+        "Semantic retrieval returned %d candidates.",
+        len(docs),
+    )
+
     return docs
 
 
@@ -466,4 +509,8 @@ async def _rerank_and_format(query: str, docs: list[dict], rerank_fn) -> list[di
 
         return format_output_grants(ranked)
 
-    return await anyio.to_thread.run_sync(finalize)
+    results = await anyio.to_thread.run_sync(finalize)
+
+    logger.info("Reranked and formatted %d grants.", len(results))
+
+    return results

@@ -3,6 +3,7 @@ import os
 import json
 
 from fastapi import FastAPI
+import logging
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ GLOBAL_AGENCIES_LIST = []
 GLOBAL_VALID_ACTIVITY_CODES = []
 GLOBAL_SYNONYM_REGISTRY = {}
 
+logger = logging.getLogger(__name__)
 
 # ================================================================
 # STARTUP LIFESPAN MANAGEMENT (runs exactly once on server boot)
@@ -25,11 +27,17 @@ async def application_lifespan(app: FastAPI):
     This also includes loading synonym mappings for query expansion.
     """
     global GLOBAL_AGENCIES_LIST, GLOBAL_VALID_ACTIVITY_CODES, GLOBAL_SYNONYM_REGISTRY
-    print("Running global application warmups...")
-
+    logger.info("Starting application initialization...")
+ 
     # 1. Warmup the local query encoder (PubmedBERT) to avoid cold-start latency on first query
-    warmup_query_encoder()
-
+    try:
+        logger.info("Warming up query encoder...")
+        warmup_query_encoder()
+        logger.info("Query encoder warmup complete. Proceeding to load static reference datasets...")
+    except Exception:
+        logger.exception("Failed to warmup query encoder.")
+        raise
+    
     # 2. Pre-cache reference dataset csv metrics to prevent repeated disk reads on every request
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,9 +51,9 @@ async def application_lifespan(app: FastAPI):
             GLOBAL_AGENCIES_LIST = df.sort_values(by="agency_ic").to_dict(
                 orient="records"
             )
-            print(f"✅ Cached {len(GLOBAL_AGENCIES_LIST)} agency mapping matrices.")
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing agency CSV: {e}")
+            logger.info(f"Loaded {len(GLOBAL_AGENCIES_LIST)} agency records.")
+        except Exception:
+            logger.exception(f"❌ Failed to load agency reference data")
 
     # map and load activity code data
     activity_csv_path = os.path.abspath(
@@ -55,15 +63,14 @@ async def application_lifespan(app: FastAPI):
         try:
             df_activity = pd.read_csv(activity_csv_path)
             GLOBAL_VALID_ACTIVITY_CODES = (
-                df_activity["Activity_Code"].str.upper().tolist()
-            )
-            print(
-                f"✅ Cached {len(GLOBAL_VALID_ACTIVITY_CODES)} valid global structural activity codes."
-            )
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing activity codes CSV: {e}")
+                df_activity["Ac
+                
 
-    print("Warmups complete. Application is ready to serve requests.")
+            logger.info(
+                f"✅ Loaded {len(GLOBAL_VALID_ACTIVITY_CODES)} activity codes."
+            )
+        except Exception:
+            logger.exception(f"❌ Failed to load activity code reference data")
 
     # map and load synonym registry for query expansion
     synonym_json_path = os.path.abspath(
@@ -73,13 +80,15 @@ async def application_lifespan(app: FastAPI):
         try:
             with open(synonym_json_path, "r") as f:
                 GLOBAL_SYNONYM_REGISTRY = json.load(f)
-            print(
-                f"✅ Cached {len(GLOBAL_SYNONYM_REGISTRY)} domain synonym expansion targets into memory."
+            logger.info(
+                f"✅ Loaded {len(GLOBAL_SYNONYM_REGISTRY)} query synonyms."
             )
-        except Exception as e:
-            print(f"❌ ERROR reading/parsing synonym JSON: {e}")
+        except Exception:
+            logger.exception(f"❌ Failed to load query synonyms.")
             GLOBAL_SYNONYM_REGISTRY = {}
     else:
-        print(f"⚠️ Warning: Synonym map not found at {synonym_json_path}")
+        logger.warning("⚠️ Synonym registry not found: %s", synonym_json_path)
+
+    logger.info("Application initialization complete.")
 
     yield

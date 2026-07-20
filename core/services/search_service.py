@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 
 import anyio
+import time
+
+import logging
 
 from core.db.connection import get_db_connection
 from core.search.cache import get_cached_results, save_cached_results
@@ -11,6 +14,8 @@ from core.services.formatting import (
     extract_ontology_distribution,
     format_output_grants,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_query(q: str) -> str:
@@ -26,28 +31,40 @@ def save_debug_json(path: str, formatted_records: list[dict]):
 
 async def search(query: str, rerank_fn, synonym_registry: dict) -> dict:
 
+    start_time = time.perf_counter()
+
     query = normalize_query(query)
+
+    logger.info("Starting search for query: '%s'", query)
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
 
-    debug_path = Path("outputs") / "debug" / "processed_results.json"
+    # debug_path = Path("outputs") / "debug" / "processed_results.json"
 
     try:
         cached_results = await anyio.to_thread.run_sync(get_cached_results, cur, query)
 
         if cached_results:
-            print(f"Cache hit for query '{query}'")
+            logger.info("Cache hit for query '%s'", query)
             results = cached_results
 
         else:
-            print(f"Cache miss for query '{query}'")
+            logger.info("Cache miss for query '%s'", query)
             results = await hybrid_search_range(
                 query, cur, rerank_fn=rerank_fn, synonym_registry=synonym_registry
             )
 
+            logger.info(
+                "Hybrid search returned %d results for query '%s'",
+                len(results["records"]),
+                query,
+            )
+
             await anyio.to_thread.run_sync(save_cached_results, cur, query, results)
             await anyio.to_thread.run_sync(conn.commit)
+
+            logger.info("Results cached for query '%s'", query)
 
         years, funding = extract_funding(results)
         ontology_labels, ontology_values = extract_ontology_distribution(results)
@@ -56,7 +73,14 @@ async def search(query: str, rerank_fn, synonym_registry: dict) -> dict:
             format_output_grants, results["records"]
         )
 
-        await anyio.to_thread.run_sync(save_debug_json, debug_path, formatted_records)
+        logger.info(
+            "Search complete: %d results processed for query '%s' in %.2f seconds",
+            len(formatted_records),
+            query,
+            time.perf_counter() - start_time,
+        )
+
+        # await anyio.to_thread.run_sync(save_debug_json, debug_path, formatted_records)
 
         return {
             "query": query,
@@ -66,6 +90,10 @@ async def search(query: str, rerank_fn, synonym_registry: dict) -> dict:
             "ontology_labels": ontology_labels,
             "ontology_values": ontology_values,
         }
+
+    except Exception:
+        logger.exception("Error during search for query '%s'", query)
+        raise
 
     finally:
         await anyio.to_thread.run_sync(cur.close)

@@ -154,6 +154,7 @@ async def search(
             synonym_registry=GLOBAL_SYNONYM_REGISTRY,
         )
     except Exception:
+        logger.exception("Search request failed")
         raise HTTPException(
             status_code=500,
             detail="Search pipeline execution failed.",
@@ -193,11 +194,13 @@ async def activity_codes_multi_search(
         )
 
     except ValueError as e:
+        logger.exception("Invalid activity code(s) provided")
         raise HTTPException(
             status_code=400,
             detail=str(e),
         )
     except Exception:
+        logger.exception("Activity code search failed")
         raise HTTPException(
             status_code=500,
             detail="Database lookup error.",
@@ -232,6 +235,7 @@ async def agency_portal(request: Request, agency_code: str):
             agency_code, code_registry=GLOBAL_AGENCIES_LIST
         )
     except Exception:
+        logger.exception("Agency search failed")
         raise HTTPException(
             status_code=500,
             detail="Database lookup error.",
@@ -263,7 +267,14 @@ async def portfolio_categories(
         - ``ontology_values``: A list of total funding amounts corresponding to each ontology category.
     """
 
-    context = await get_category_distribution(year)
+    try:
+        context = await get_category_distribution(year)
+    except Exception:
+        logger.exception("Category distribution request failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Database lookup error.",
+        )
 
     return context
 
@@ -311,11 +322,13 @@ async def portfolio_grants(
         context = await get_grants_by_category(year, category)
 
     except ValueError as e:
+        logger.exception("Invalid category provided")
         raise HTTPException(
             status_code=400,
             detail=str(e),
         )
     except Exception:
+        logger.exception("Grant retrieval by category failed")
         raise HTTPException(
             status_code=500,
             detail="Database lookup error.",
@@ -372,6 +385,7 @@ async def portfolio_grants_search(payload: SearchRequest) -> dict:
         )
 
     except ValueError as e:
+        logger.exception("Invalid category provided")
         raise HTTPException(
             status_code=400,
             detail=str(e),
@@ -411,6 +425,7 @@ async def get_grant_abstract(grant_id: str) -> dict:
         return await fetch_grant_abstract(grant_id)
 
     except ValueError:
+        logger.exception("Grant not found for ID: %s", grant_id)
         raise HTTPException(
             status_code=404,
             detail="Grant not found.",

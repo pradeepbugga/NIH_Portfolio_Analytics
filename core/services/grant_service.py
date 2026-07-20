@@ -1,6 +1,9 @@
 import anyio
+import logging
+
 from core.db.connection import get_db_connection
 
+logger = logging.getLogger(__name__)
 
 async def fetch_grant_abstract(grant_id: str) -> dict:
     """
@@ -16,7 +19,7 @@ async def fetch_grant_abstract(grant_id: str) -> dict:
     dict
         A dictionary containing the abstract of the grant. If the grant is not found, raises a ValueError.
     """
-
+    
     conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
 
@@ -35,12 +38,21 @@ async def fetch_grant_abstract(grant_id: str) -> dict:
 
             return cur.fetchone()
 
-        row = await anyio.to_thread.run_sync(fetch)
+        try:
 
-        if row is None:
-            raise ValueError("Grant not found.")
+            row = await anyio.to_thread.run_sync(fetch)
 
-        return {"abstract": row[0] or "No abstract available for this record."}
+            if row is None:
+                raise ValueError("Grant not found.")
+
+            return {"abstract": row[0] or "No abstract available for this record."}
+
+        except ValueError:
+            raise
+
+        except Exception:
+            logger.exception("Error fetching abstract for grant ID: %s", grant_id)
+            raise
 
     finally:
 
