@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
 
+import logging
+
 from dotenv import load_dotenv
 
 from core.db.connection import get_db_connection
@@ -12,10 +14,16 @@ from core.llm.constants import (
     CLASSIFICATION_REASONING,
 )
 
+logger = logging.getLogger(__name__)
 
 def main():
 
     load_dotenv()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
 
     # ------------
     # DEFINE ARGUMENTS
@@ -42,11 +50,15 @@ def main():
 
     args = parser.parse_args()
 
+    logger.info("Generating classification batch: category=%s, fiscal_year=%d", args.category, args.fiscal_year)
+
     # ------------
     # DEFINE PROMPT AND OUTPUT PATHS
     # ------------
 
     prompt = load_prompt(f"classification/{args.category}")
+
+    logger.info("Loaded prompt for category: %s", args.category)
 
     output_dir = Path("outputs") / "llm" / "classification" / args.category
 
@@ -58,24 +70,47 @@ def main():
     # FETCH DATA FROM DATABASE AND WRITE TO JSONL
     # -----------
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    try:
 
-    stats = build_classification_batch_task(
-        cur=cur,
-        output_path=output_path,
-        prompt=prompt,
-        model=CLASSIFICATION_MODEL,
-        reasoning=CLASSIFICATION_REASONING,
-        fiscal_year=args.fiscal_year,
-    )
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-    conn.close()
+        logger.info("Connected to PostgreSQL database.")
 
-    parts = split_jsonl(input_path=output_path, output_dir=output_dir / "split")
 
-    print(stats)
-    print(f"Created {len(parts)} split JSONL files in {output_dir / 'split'}")
+        logger.info("Building OpenAI batch tasks...")
+
+        stats = build_classification_batch_task(
+            cur=cur,
+            output_path=output_path,
+            prompt=prompt,
+            model=CLASSIFICATION_MODEL,
+            reasoning=CLASSIFICATION_REASONING,
+            fiscal_year=args.fiscal_year,
+        )
+
+        logger.info("Batch task generation complete.")
+
+        conn.close()
+
+        logger.info("Splitting JSONL file into smaller parts...")
+
+        parts = split_jsonl(input_path=output_path, output_dir=output_dir / "split")
+
+        logger.info("Split JSONL file into %d parts.", len(parts))
+
+        logger.info("Batch statistics: %s", stats)
+        logger.info(
+        "Classification batch generation complete. Output written to %s",
+        output_dir,
+        )
+    except Exception:
+        logger.exception("Error during classification batch generation.")
+        raise
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 
 if __name__ == "__main__":
