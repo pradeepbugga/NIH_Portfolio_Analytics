@@ -1,6 +1,4 @@
-import time
 import anyio
-from fastapi import HTTPException
 from core.db.connection import get_db_connection
 
 from core.constants import ONTOLOGY_LABELS
