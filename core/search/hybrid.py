@@ -8,16 +8,17 @@ from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
 from core.utils.query_expansion import expand_query_for_fts
 
+
 async def hybrid_search_range(
     query: str,
-    cur,rerank_fn,
+    cur,
+    rerank_fn,
     similarity_threshold: float = 0.20,
     search_mode: str = "hybrid",
     synonym_registry: dict = None,
     fiscal_years=None,
-    rerank_score_threshold: float = -2.0
-    
-    ):
+    rerank_score_threshold: float = -2.0,
+):
     """
     Perform semantic search over NIH grant documents within a similarity range.
 
@@ -36,7 +37,7 @@ async def hybrid_search_range(
         Minimum vector similarity score required for a grant to be considered as
         a candidate during retrieval. Defaults to 0.25.
     search_mode : str
-        The search mode to use for candidate retrieval. Can be either "semantic" for purely semantic search or 
+        The search mode to use for candidate retrieval. Can be either "semantic" for purely semantic search or
         "hybrid" for a combination of semantic and keyword search. Defaults to "hybrid".
     synonym_registry : dict
         A dictionary mapping query terms to their synonyms for query expansion. If None, no synonyms will be used. Defaults to None.
@@ -58,7 +59,7 @@ async def hybrid_search_range(
     """
 
     t0 = time.perf_counter()
-   
+
     query_vec = embed_query(query)
     query_vec_list = query_vec.tolist()
 
@@ -70,15 +71,15 @@ async def hybrid_search_range(
     # 2) Retrieve candidates via pgvector
     t1 = time.perf_counter()
     candidates = await anyio.to_thread.run_sync(
-        retrieve_candidates_range, 
-        cur, 
-        query_vec_list, 
+        retrieve_candidates_range,
+        cur,
+        query_vec_list,
         similarity_threshold,
-        base_query,       # Pass clean string text parameter
+        base_query,  # Pass clean string text parameter
         search_mode,
-        query_synonyms,   # 👈 Pass clean Python list parameter ([])
-        fiscal_years,       # Pass fiscal_years parameter (None or list)
-        500000            # max_results explicitly filled positionally
+        query_synonyms,  # 👈 Pass clean Python list parameter ([])
+        fiscal_years,  # Pass fiscal_years parameter (None or list)
+        500000,  # max_results explicitly filled positionally
     )
     print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
 
@@ -88,7 +89,7 @@ async def hybrid_search_range(
             "model_version": "v1",
             "projects": [],
             "records": [],
-            "candidates": []  # Include empty candidates for debugging
+            "candidates": [],  # Include empty candidates for debugging
         }
 
     print(f"Retrieved {len(candidates)} candidates.")
@@ -102,46 +103,38 @@ async def hybrid_search_range(
     # 3) Rerank with cross-encoder (Passing ONLY IDs over the internet!) 🚀
     print("Sending IDs to Modal for remote Cross-Encoder scoring...")
     t2 = time.perf_counter()
-    
+
     # Use updated async/batch setup
     scores = await rerank_fn.remote.aio(query, grant_ids)
-    
+
     print(f"Candidates reranked on remote GPU in {time.perf_counter() - t2:.4f}s")
 
     # ⚠️ SAFETY ALIGNMENT: Match grant_ids exactly to what Modal actually scored
     if len(grant_ids) != len(scores):
-        print(f"⚠️ Mismatch: {len(grant_ids)} grant_ids sent, but {len(scores)} scores returned")
-        return {
-            "query": query,
-            "model_version": "v1",
-            "projects": [],
-            "records": []
-        }
+        print(
+            f"⚠️ Mismatch: {len(grant_ids)} grant_ids sent, but {len(scores)} scores returned"
+        )
+        return {"query": query, "model_version": "v1", "projects": [], "records": []}
 
     # 4) Hydrate Document Metadata locally *ONLY FOR SUCCESSFUL MATCHES*
     print("Loading document metadata/titles for scored records...")
     t3 = time.perf_counter()
-    
+
     # Pull data out of Postgres locally to render your frontend cards
     docs = await anyio.to_thread.run_sync(load_grant_texts, cur, grant_ids)
-        
+
     print(f"Document metadata loaded in {time.perf_counter() - t3:.4f}s")
     if not docs:
-        return {
-            "query": query,
-            "model_version": "v1",
-            "projects": [],
-            "records": []
-        }
+        return {"query": query, "model_version": "v1", "projects": [], "records": []}
 
     # Inject vector distance profiles into our database docs array
     for d in docs:
         d["vector_similarity"] = vector_sim_map.get(d["grant_id"], 0.0)
-            
+
     # 5) Combine scores + Sort + Deduplicate
     t4 = time.perf_counter()
     print("Combining, sorting, and deduplicating final results...")
-    
+
     ranked = combine_and_sort(docs, scores, rerank_score_threshold)
     deduped = dedupe_by_core_project(ranked)
 
@@ -153,5 +146,5 @@ async def hybrid_search_range(
         "model_version": "v1",
         "projects": deduped,
         "records": ranked,
-        "candidates": candidates  # Include raw candidates for debugging
+        "candidates": candidates,  # Include raw candidates for debugging
     }

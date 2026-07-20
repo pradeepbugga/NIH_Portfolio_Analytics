@@ -1,9 +1,7 @@
 import psycopg2
 
 
-
 def get_db_connection():
-
     """
     Get a connection to the PostgreSQL database using psycopg2.
 
@@ -18,6 +16,5 @@ def get_db_connection():
 
     cur.execute("SET work_mem = '64MB';")
     cur.close()
-    
-    return conn
 
+    return conn

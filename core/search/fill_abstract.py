@@ -1,12 +1,11 @@
 # this script fills in missing abstracts for labels CSV
-# this is specifcally used with train_reranker 
+# this is specifcally used with train_reranker
 
 import pandas as pd
 from core.db.connection import get_db_connection
 
 
 def add_abstracts(df: pd.DataFrame) -> pd.DataFrame:
-
     """
     Add abstracts to a DataFrame containing grant IDs by querying the database.
 
@@ -20,8 +19,6 @@ def add_abstracts(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         The input DataFrame with an additional column named 'abstract' containing the corresponding abstracts.
     """
-    
-
 
     grant_ids = df["grant_id"].unique().tolist()
 
@@ -37,14 +34,14 @@ def add_abstracts(df: pd.DataFrame) -> pd.DataFrame:
                 FROM ResearchGrants
                 WHERE grant_id = ANY(%s)
                 """,
-                (grant_ids,)
+                (grant_ids,),
             )
 
             rows = cur.fetchall()
 
     finally:
         conn.close()
-        
+
     abstract_map = {grant_id: abstract for grant_id, abstract in rows}
     df["abstract"] = df["grant_id"].map(abstract_map)
 

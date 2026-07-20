@@ -2,19 +2,19 @@
 import json
 from datetime import date, datetime
 
+
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    raise TypeError("Type %s not serializable" % type(obj))
+
 
 def get_cached_results(cur, query):
-    cur.execute(
-        "SELECT results FROM cached_searches WHERE query = %s",
-        (query,)
-    )
+    cur.execute("SELECT results FROM cached_searches WHERE query = %s", (query,))
     row = cur.fetchone()
     return row[0] if row else None
+
 
 def save_cached_results(cur, query, results):
     version = results.get("model_version", "v1")
@@ -34,5 +34,5 @@ def save_cached_results(cur, query, results):
             version,
             json.dumps(results, default=json_serial),
             len(results.get("projects", [])),
-        )
+        ),
     )

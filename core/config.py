@@ -1,9 +1,8 @@
-#config.py
-
 import os
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
+
 
 def require_env(name: str) -> str:
     value = os.getenv(name)

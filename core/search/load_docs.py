@@ -3,8 +3,9 @@
 
 # we make sure to retrieve all SQL fields
 
+
 def load_grant_texts(cur, grant_ids):
-   
+
     if not grant_ids:
         return []
 
@@ -52,7 +53,7 @@ def load_grant_texts(cur, grant_ids):
         LEFT JOIN grant_labels gl on rg.grant_id = gl.grant_id
         WHERE rg.grant_id = ANY(%s)
         """,
-        (grant_ids,)
+        (grant_ids,),
     )
 
     rows = cur.fetchall()
@@ -63,45 +64,75 @@ def load_grant_texts(cur, grant_ids):
         if gid not in row_map:
             continue
 
-        (_, title, subproject_id, abstract, core, fy, amount, phr, agency_ic, activity_code,
-        project_start_date, project_end_date, budget_start_date, budget_end_date, 
-        org_name, org_city, org_state, org_country, pi_first_name, pi_middle_name, 
-        pi_last_name, mechanistic, diagnostic, therapeutic, research_tool, clinical, infrastructure, education, obs_ep, summary_text) = row_map[gid]
+        (
+            _,
+            title,
+            subproject_id,
+            abstract,
+            core,
+            fy,
+            amount,
+            phr,
+            agency_ic,
+            activity_code,
+            project_start_date,
+            project_end_date,
+            budget_start_date,
+            budget_end_date,
+            org_name,
+            org_city,
+            org_state,
+            org_country,
+            pi_first_name,
+            pi_middle_name,
+            pi_last_name,
+            mechanistic,
+            diagnostic,
+            therapeutic,
+            research_tool,
+            clinical,
+            infrastructure,
+            education,
+            obs_ep,
+            summary_text,
+        ) = row_map[gid]
 
         doc_text = f"{(title or '').strip()} {(abstract or '').strip()}"
 
-        docs.append({
-            "grant_id": gid,
-            "title": title,
-            "subproject_id": subproject_id,
-            "abstract": abstract,
-            "phr": phr,
-            "agency_ic": agency_ic,
-            "activity_code": activity_code,
-            "project_start_date": project_start_date,
-            "project_end_date": project_end_date,
-            "budget_start_date": budget_start_date,
-            "budget_end_date": budget_end_date,
-            "org_name": org_name,
-            "org_city": org_city,
-            "org_state": org_state,
-            "org_country": org_country,
-            "pi_first_name": pi_first_name,
-            "pi_middle_name": pi_middle_name,
-            "pi_last_name": pi_last_name,
-            "core_project_num": core,
-            "fiscal_year": fy,
-            "amount": amount,
-            "text": doc_text,
-            "mechanistic": mechanistic,
-            "diagnostic": diagnostic,
-            "therapeutic": therapeutic,
-            "research_tool": research_tool,
-            "clinical": clinical,
-            "infrastructure": infrastructure,
-            "education": education,
-            "obs_ep": obs_ep,
-            "summary": summary_text
-        })
+        docs.append(
+            {
+                "grant_id": gid,
+                "title": title,
+                "subproject_id": subproject_id,
+                "abstract": abstract,
+                "phr": phr,
+                "agency_ic": agency_ic,
+                "activity_code": activity_code,
+                "project_start_date": project_start_date,
+                "project_end_date": project_end_date,
+                "budget_start_date": budget_start_date,
+                "budget_end_date": budget_end_date,
+                "org_name": org_name,
+                "org_city": org_city,
+                "org_state": org_state,
+                "org_country": org_country,
+                "pi_first_name": pi_first_name,
+                "pi_middle_name": pi_middle_name,
+                "pi_last_name": pi_last_name,
+                "core_project_num": core,
+                "fiscal_year": fy,
+                "amount": amount,
+                "text": doc_text,
+                "mechanistic": mechanistic,
+                "diagnostic": diagnostic,
+                "therapeutic": therapeutic,
+                "research_tool": research_tool,
+                "clinical": clinical,
+                "infrastructure": infrastructure,
+                "education": education,
+                "obs_ep": obs_ep,
+                "summary": summary_text,
+            }
+        )
 
     return docs
