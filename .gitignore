@@ -91,10 +91,9 @@ special_tokens_map.json
 # exclude requirements.txt
 !requirements.txt
 
-!/data/grant_categories_binary.csv
-!/core/agency/agencies_updated.csv
-!/core/synthesis_prompts/ActivityCodes.csv
-!/core/activity_codes/2025_code_list.csv
+!/data/activity_code_list.csv
+!/data/agencies_list.csv
+!/data/rcdc_synonyms.json
 !/models/rerankers/v4/*
 !/models/rerankers/v5/*
 !/evaluation/search/*.csv
