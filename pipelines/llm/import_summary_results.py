@@ -2,6 +2,10 @@ import argparse
 import json
 from pathlib import Path
 
+import logging
+
+from core.logging_config import configure_logging
+
 from core.db.connection import get_db_connection
 from core.llm.constants import SUMMARY_MODEL, SUMMARY_REASONING
 
@@ -9,8 +13,16 @@ model_effort = SUMMARY_REASONING.get("effort", "N/A")
 
 db_model_description = f"{SUMMARY_MODEL} {model_effort} effort reasoning"
 
+logger = logging.getLogger(__name__)
+
 
 def main():
+    """
+    This script imports summary results from JSONL files into the grant_summaries table in the SQL database.
+    Each JSONL file should contain records with grant_id and summary fields.
+    """
+
+    configure_logging()
 
     parser = argparse.ArgumentParser()
 
@@ -23,74 +35,93 @@ def main():
 
     args = parser.parse_args()
 
-    summary_dir = args.summary_dir
+    conn = None
 
-    parsed_files = sorted(summary_dir.glob("*_parsed.jsonl"))
+    try:
 
-    if not parsed_files:
-        raise ValueError(f"No parsed summary files found in {summary_dir}")
+        summary_dir = args.summary_dir
 
-    rows = []
+        logger.info("Importing summary results from %s", summary_dir)
 
-    for path in parsed_files:
+        parsed_files = sorted(summary_dir.glob("*_parsed.jsonl"))
 
-        print(f"Loading {path.name}")
+        if not parsed_files:
+            raise ValueError(f"No parsed summary files found in {summary_dir}")
 
-        with path.open() as f:
+        rows = []
 
-            for line in f:
+        for path in parsed_files:
 
-                record = json.loads(line)
+            logger.info("Loading %s", path.name)
 
-                rows.append(
-                    (record["grant_id"], record["summary"], db_model_description)
-                )
+            with path.open() as f:
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+                for line in f:
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS grant_summaries (
+                    record = json.loads(line)
 
-        grant_id TEXT PRIMARY KEY,
+                    rows.append(
+                        (record["grant_id"], record["summary"], db_model_description)
+                    )
 
-        two_sentence_summary TEXT NOT NULL,
+        logger.info("Loaded %d summaries from %d files.", len(rows), len(parsed_files))
 
-        summary_llm_model TEXT NOT NULL,
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS grant_summaries (
 
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            grant_id TEXT PRIMARY KEY,
 
-    );
-    """)
+            two_sentence_summary TEXT NOT NULL,
 
-    cur.executemany(
-        """
-        INSERT INTO grant_summaries (
+            summary_llm_model TEXT NOT NULL,
 
-            grant_id,
-            two_sentence_summary,
-            summary_llm_model
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+        );
+        """)
+
+        logger.info("Inserting summaries into PostgreSQL database.")
+
+        cur.executemany(
+            """
+            INSERT INTO grant_summaries (
+
+                grant_id,
+                two_sentence_summary,
+                summary_llm_model
+
+            )
+            VALUES (%s, %s, %s)
+
+            ON CONFLICT (grant_id)
+
+            DO UPDATE SET
+
+                two_sentence_summary = EXCLUDED.two_sentence_summary,
+                summary_llm_model = EXCLUDED.summary_llm_model,
+                updated_at = CURRENT_TIMESTAMP;
+            """,
+            rows,
         )
-        VALUES (%s, %s, %s)
 
-        ON CONFLICT (grant_id)
+        conn.commit()
 
-        DO UPDATE SET
+        logger.info("Database commit successful.")
 
-            two_sentence_summary = EXCLUDED.two_sentence_summary,
-            summary_llm_model = EXCLUDED.summary_llm_model,
-            updated_at = CURRENT_TIMESTAMP;
-        """,
-        rows,
-    )
+        logger.info("Inserted %d summaries into the database.", len(rows))
 
-    conn.commit()
-    conn.close()
-
-    print(f"Imported {len(rows)} summaries.")
+    except Exception:
+        logger.exception("Error during summary results import.")
+        raise
+    finally:
+        if conn is not None:
+            conn.close()
+            logger.info("Database connection closed.")
 
 
 if __name__ == "__main__":

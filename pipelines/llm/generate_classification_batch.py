@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 
 import logging
+from core.logging_config import configure_logging
 
 from dotenv import load_dotenv
 
@@ -16,14 +17,11 @@ from core.llm.constants import (
 
 logger = logging.getLogger(__name__)
 
+
 def main():
+    configure_logging()
 
     load_dotenv()
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
 
     # ------------
     # DEFINE ARGUMENTS
@@ -50,7 +48,11 @@ def main():
 
     args = parser.parse_args()
 
-    logger.info("Generating classification batch: category=%s, fiscal_year=%d", args.category, args.fiscal_year)
+    logger.info(
+        "Generating classification batch: category=%s, fiscal_year=%d",
+        args.category,
+        args.fiscal_year,
+    )
 
     # ------------
     # DEFINE PROMPT AND OUTPUT PATHS
@@ -77,7 +79,6 @@ def main():
 
         logger.info("Connected to PostgreSQL database.")
 
-
         logger.info("Building OpenAI batch tasks...")
 
         stats = build_classification_batch_task(
@@ -101,8 +102,8 @@ def main():
 
         logger.info("Batch statistics: %s", stats)
         logger.info(
-        "Classification batch generation complete. Output written to %s",
-        output_dir,
+            "Classification batch generation complete. Output written to %s",
+            output_dir,
         )
     except Exception:
         logger.exception("Error during classification batch generation.")

@@ -3,6 +3,8 @@ from pathlib import Path
 
 import logging
 
+from core.logging_config import configure_logging
+
 from dotenv import load_dotenv
 
 from core.db.connection import get_db_connection
@@ -10,20 +12,18 @@ from core.llm.prompt_loader import load_prompt
 from core.llm.batch import build_summary_batch_task, split_jsonl
 from core.llm.constants import (
     SUMMARY_MODEL,
-    SUMMARY_REASONING,)
+    SUMMARY_REASONING,
+)
 
 logger = logging.getLogger(__name__)
 
+
 def main():
+    configure_logging()
 
     load_dotenv()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-     # ------------
+    # ------------
     # DEFINE ARGUMENTS
     # ------------
 
@@ -66,10 +66,9 @@ def main():
 
         logger.info("Connected to PostgreSQL database.")
 
-
         logger.info("Building OpenAI batch tasks...")
 
-        stats = build_classification_batch_task(
+        stats = build_summary_batch_task(
             cur=cur,
             output_path=output_path,
             prompt=prompt,
@@ -90,8 +89,8 @@ def main():
 
         logger.info("Batch statistics: %s", stats)
         logger.info(
-        "Classification batch generation complete. Output written to %s",
-        output_dir,
+            "Classification batch generation complete. Output written to %s",
+            output_dir,
         )
     except Exception:
         logger.exception("Error during summarization batch generation.")
