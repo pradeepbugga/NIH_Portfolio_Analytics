@@ -3,6 +3,9 @@
 import json
 from datetime import datetime, timezone
 
+import logging
+from core.logging_config import configure_logging
+
 from core.db.connection import get_db_connection
 from core.ingest.ingest import ingest_year
 from core.ingest.persistence import (
@@ -26,7 +29,8 @@ from core.ingest.config import (
     ingest_policy,
     years_to_ingest,
 )
-import traceback
+
+logger = logging.getLogger(__name__)
 
 CACHE_PATH = "./data/org_fix_cache.json"
 
@@ -51,14 +55,19 @@ def save_cache(cache):
         json.dump(cache, f, indent=2)
 
 
-if __name__ == "__main__":
+def main():
+    configure_logging()
+
+    logger.info("Starting NIH grant data ingestion pipeline (mode=%s)", INGEST_MODE)
 
     conn = get_db_connection()
 
     org_cache = load_cache()
 
+    logger.info("Loaded organization fix cache with %d entries.", len(org_cache))
+
     ingest_id = f"nih_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
-    print(ingest_id)
+    logger.info("Starting ingest run with ID: %s", ingest_id)
 
     metrics = {"num_inserted": 0, "num_updated": 0, "num_skipped": 0, "num_errors": 0}
 
@@ -72,20 +81,37 @@ if __name__ == "__main__":
     create_ingest_errors_table(cur)
     conn.commit()
 
+    logger.info("Database schema verified.")
+
     try:
         insert_ingest_run(cur, ingest_id)
-        print("Ingest run record created.")
+        logger.info("Ingest run record created.")
+
         for year in years:
+            logger.info("Starting ingestion for fiscal year: %d", year)
+
             ingest_year(year, conn, cur, org_cache, ingest_id, POLICY, metrics)
+
+            logger.info("Completed ingestion for fiscal year: %d", year)
+
             save_cache(org_cache)
 
         update_ingest_run_status(cur, ingest_id, metrics)
 
+        logger.info(
+            "Ingest metrics: inserted=%d updated=%d skipped=%d errors=%d",
+            metrics["num_inserted"],
+            metrics["num_updated"],
+            metrics["num_skipped"],
+            metrics["num_errors"],
+        )
+
         conn.commit()
-        print("Ingest completed successfully.")
+        logger.info("Ingest run completed successfully.")
+
     except Exception as e:
-        print("Ingest failed:", e)
-        traceback.print_exc()
+
+        logger.exception("Ingest failed.")
         conn.rollback()
         mark_ingest_run_failed(cur, ingest_id, error_message=str(e))
         conn.commit()
@@ -94,3 +120,7 @@ if __name__ == "__main__":
     finally:
         cur.close()
         conn.close()
+
+
+if __name__ == "__main__":
+    main()
