@@ -9,12 +9,8 @@ from core.logging_config import configure_logging
 
 configure_logging()
 
-from app.startup import (
-    GLOBAL_AGENCIES_LIST,
-    GLOBAL_VALID_ACTIVITY_CODES,
-    GLOBAL_SYNONYM_REGISTRY,
-    application_lifespan,
-)
+import app.startup as startup
+
 from core.services.search_service import search as search_service
 from core.services.activity_service import get_activity_portfolio
 from core.services.agency_service import get_agency_portfolio
@@ -34,7 +30,7 @@ load_dotenv()
 # ===============================================================
 # FRAMEWORK INITIALIZATION AND ROUTER SETUP
 # ===============================================================
-app = FastAPI(title="NIH Grant Search API", lifespan=application_lifespan)
+app = FastAPI(title="NIH Grant Search API", lifespan=startup.application_lifespan)
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +61,8 @@ def home_page(request: Request):
         "index.html",
         {
             "request": request,
-            "agencies": GLOBAL_AGENCIES_LIST,
-            "valid_activity_codes": GLOBAL_VALID_ACTIVITY_CODES,
+            "agencies": startup.GLOBAL_AGENCIES_LIST,
+            "valid_activity_codes": startup.GLOBAL_VALID_ACTIVITY_CODES,
         },
     )
 
@@ -153,7 +149,7 @@ async def search(
         context = await search_service(
             query=query,
             rerank_fn=distributed_rerank_fn,
-            synonym_registry=GLOBAL_SYNONYM_REGISTRY,
+            synonym_registry=startup.GLOBAL_SYNONYM_REGISTRY,
         )
     except Exception:
         logger.exception("Search request failed")
