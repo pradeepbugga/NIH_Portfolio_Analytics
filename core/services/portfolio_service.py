@@ -504,7 +504,7 @@ async def _rerank_and_format(query: str, docs: list[dict], rerank_fn) -> list[di
     )
 
     for doc, score in pairs[:20]:
-        print(score, doc["grant_id"], doc["project_title"])
+        print(score, doc["grant_id"], doc["title"])
 
     def finalize():
 
