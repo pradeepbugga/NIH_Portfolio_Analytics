@@ -342,7 +342,7 @@ def _determine_candidate_ids(
     return [row[0] for row in cur.fetchall()]
 
 
-async def _run_subset_keyword_search(
+def _run_subset_keyword_search(
     payload: SearchRequest, cur, allowed_grant_ids: list[str]
 ):
     """
@@ -408,10 +408,10 @@ async def _run_subset_keyword_search(
 
         return docs
 
-    return await anyio.to_thread.run_sync(retrieve)
+    return retrieve()
 
 
-async def _run_subset_semantic_search(
+def _run_subset_semantic_search(
     payload: SearchRequest, cur, allowed_grant_ids: list[str]
 ):
     """
@@ -433,10 +433,7 @@ async def _run_subset_semantic_search(
         A list of documents (grants) that match the semantic search criteria, each with its associated vector similarity score.
     """
 
-    query_vec = await anyio.to_thread.run_sync(
-        embed_query,
-        payload.query,
-    )
+    query_vec = embed_query(payload.query)
     query_vec_list = query_vec.tolist()
 
     def retrieve():
@@ -465,7 +462,7 @@ async def _run_subset_semantic_search(
 
         return docs
 
-    docs = await anyio.to_thread.run_sync(retrieve)
+    docs = retrieve()
 
     logger.info(
         "Semantic retrieval returned %d candidates.",
