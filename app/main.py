@@ -5,6 +5,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
 import logging
+from core.logging_config import configure_logging
+
+configure_logging()
 
 from app.startup import (
     GLOBAL_AGENCIES_LIST,
@@ -24,7 +27,6 @@ from core.services.portfolio_service import (
 from core.services.grant_service import fetch_grant_abstract
 
 from core.search.modal_reranker import distributed_rerank_fn, rerank_fn
-
 
 load_dotenv()
 
