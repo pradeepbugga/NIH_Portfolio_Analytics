@@ -441,7 +441,7 @@ def _run_subset_semantic_search(
         candidates = retrieve_candidates_range_portfolio(
             cur,
             query_vec_list=query_vec_list,
-            similarity_threshold=0.25,
+            similarity_threshold=0.10,
             allowed_grant_ids=allowed_grant_ids,
         )
 
