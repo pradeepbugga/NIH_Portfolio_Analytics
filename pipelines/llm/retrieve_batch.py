@@ -2,6 +2,10 @@ from pathlib import Path
 import argparse
 import json
 
+import logging
+
+from core.logging_config import configure_logging
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -11,6 +15,8 @@ from core.llm.parser import (
     write_jsonl,
 )
 
+logger = logging.getLogger(__name__)
+
 PARSERS = {
     "classification": parse_classification_results,
     "summary": parse_summary_results,
@@ -18,6 +24,7 @@ PARSERS = {
 
 
 def main():
+    configure_logging()
 
     load_dotenv()
 
@@ -32,100 +39,127 @@ def main():
 
     args = parser.parse_args()
 
-    batch_dir = args.batch_dir
+    try:
 
-    # -------------------------
-    # DETERMINE PARSER
-    # -------------------------
+        batch_dir = args.batch_dir
 
-    parser_fn = None
+        logger.info("Processing batch results from %s", batch_dir)
 
-    path_parts = {part.lower() for part in batch_dir.parts}
+        # -------------------------
+        # DETERMINE PARSER
+        # -------------------------
 
-    for task, fn in PARSERS.items():
-        if task in path_parts:
-            parser_fn = fn
-            break
+        parser_fn = None
 
-    if parser_fn is None:
-        raise ValueError(f"Could not determine parser from directory: {batch_dir}")
+        path_parts = {part.lower() for part in batch_dir.parts}
 
-    # -------------------------
-    # LOAD MANIFEST
-    # -------------------------
+        task_name = None
 
-    manifest_path = batch_dir / "batch_manifest.json"
+        for task, fn in PARSERS.items():
+            if task in path_parts:
+                task_name = task
+                parser_fn = fn
+                break
 
-    with open(manifest_path, "r") as f:
-        manifest = json.load(f)
+        if parser_fn is None:
+            raise ValueError(f"Could not determine parser from directory: {batch_dir}")
 
-    client = OpenAI()
+        logger.info("Using %s parser.", task_name)
 
-    # -------------------------
-    # DOWNLOAD AND PARSE BATCH RESULTS
-    # -------------------------
+        # -------------------------
+        # LOAD MANIFEST
+        # -------------------------
 
-    for entry in manifest:
+        manifest_path = batch_dir / "batch_manifest.json"
 
-        batch = client.batches.retrieve(entry["batch_id"])
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
 
-        print(f"{entry['file']}: {batch.status}")
+        logger.info("Loaded manifest with %d batch jobs", len(manifest))
 
-        if batch.status == "completed":
+        client = OpenAI()
 
-            # -------------------------
-            # Download successful output
-            # -------------------------
+        # -------------------------
+        # DOWNLOAD AND PARSE BATCH RESULTS
+        # -------------------------
 
-            output = client.files.content(batch.output_file_id)
+        for entry in manifest:
 
-            content = output.content.decode("utf-8")
+            logger.info("Checking batch %s", entry["batch_id"])
 
-            stem = Path(entry["file"]).stem
+            batch = client.batches.retrieve(entry["batch_id"])
 
-            raw_path = batch_dir / f"{stem}_raw.jsonl"
+            logger.info(
+                "%s status: %s",
+                entry["file"],
+                batch.status,
+            )
 
-            with open(raw_path, "w") as f:
-                f.write(content)
+            if batch.status == "completed":
 
-            # -------------------------
-            # Parse output
-            # -------------------------
+                # -------------------------
+                # Download successful output
+                # -------------------------
 
-            parsed = parser_fn(content)
+                output = client.files.content(batch.output_file_id)
 
-            parsed_path = batch_dir / f"{stem}_parsed.jsonl"
+                content = output.content.decode("utf-8")
 
-            write_jsonl(parsed_path, parsed)
+                stem = Path(entry["file"]).stem
 
-            # -------------------------
-            # Download error file
-            # -------------------------
+                raw_path = batch_dir / f"{stem}_raw.jsonl"
 
-            if batch.error_file_id:
+                with open(raw_path, "w") as f:
+                    f.write(content)
 
-                errors = client.files.content(batch.error_file_id)
+                logger.info("Downloaded results for %s", entry["file"])
 
-                error_path = batch_dir / f"{stem}_errors.jsonl"
+                # -------------------------
+                # Parse output
+                # -------------------------
 
-                with open(error_path, "wb") as f:
-                    f.write(errors.content)
+                parsed = parser_fn(content)
 
-            print(f"Finished {entry['file']}")
+                parsed_path = batch_dir / f"{stem}_parsed.jsonl"
 
-        elif batch.status == "failed":
-            print(f"{entry['file']} failed.")
+                write_jsonl(parsed_path, parsed)
 
-        elif batch.status == "cancelled":
-            print(f"{entry['file']} was cancelled.")
+                logger.info("Parsed %d responses for %s", len(parsed), entry["file"])
 
-        elif batch.status == "expired":
-            print(f"{entry['file']} expired.")
+                # -------------------------
+                # Download error file
+                # -------------------------
 
-        else:
-            print(f"{entry['file']} still {batch.status}")
+                if batch.error_file_id:
 
-    print("Done.")
+                    errors = client.files.content(batch.error_file_id)
+
+                    error_path = batch_dir / f"{stem}_errors.jsonl"
+
+                    with open(error_path, "wb") as f:
+                        f.write(errors.content)
+
+                    logger.warning("Downloaded error file for %s", entry["file"])
+
+                print(f"Finished {entry['file']}")
+
+            elif batch.status == "failed":
+                logger.error("%s failed.", entry["file"])
+
+            elif batch.status == "cancelled":
+                logger.warning("%s was cancelled.", entry["file"])
+
+            elif batch.status == "expired":
+                logger.warning("%s expired.", entry["file"])
+
+            else:
+                logger.info("%s still %s", entry["file"], batch.status)
+
+        logger.info("Batch retrieval complete")
+
+    except Exception:
+        logger.exception("Error during batch retrieval.")
+        raise
 
 
 if __name__ == "__main__":
