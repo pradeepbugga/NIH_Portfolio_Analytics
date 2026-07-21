@@ -188,7 +188,7 @@ async def activity_codes_multi_search(
 
     try:
         context = await get_activity_portfolio(
-            codes, code_registry=GLOBAL_VALID_ACTIVITY_CODES
+            codes, code_registry=startup.GLOBAL_VALID_ACTIVITY_CODES
         )
 
     except ValueError as e:
@@ -230,7 +230,7 @@ async def agency_portal(request: Request, agency_code: str):
 
     try:
         context = await get_agency_portfolio(
-            agency_code, code_registry=GLOBAL_AGENCIES_LIST
+            agency_code, code_registry=startup.GLOBAL_AGENCIES_LIST
         )
     except Exception:
         logger.exception("Agency search failed")
