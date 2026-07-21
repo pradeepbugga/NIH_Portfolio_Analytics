@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore NIH Portfolio</title>
+    <link rel="icon" type="image/x-icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%2216%22 height=%2216%22><path d=%22M12.56 14.43q0 .67-.41.67a.78.78 0 0 1-.56-.42L4.27 3.48v10.95q0 .56-.5.56t-.5-.56V3.11q0-.72.38-.72a.77.77 0 0 1 .56.42l7.26 11.23V3.11q0-.56.53-.56c.53 0 .56.24.56.56z%22 fill=%22%230f172a%22/></svg>">
+    <link rel="stylesheet" href="/static/css/styles_v12.css?v=1.0.4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
+</head>
+
+<body class="portfolio-page">
+
+    <div class="portfolio-top-header">
+        <div class="header-content">
+
+            <div class="logo">
+                <a href="/" style="text-decoration: none; color: inherit;">The NIH Audit</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="portfolio-header-layout">
+
+        <div class="portfolio-header-left">
+
+            <div class="portfolio-title">
+                explore NIH portfolio
+            </div>
+
+            <div class="subtitle-container">
+
+                <div class="portfolio-subtitle">
+                    Navigate NIH funding across convenient categories.
+                </div>
+                <a href="/categories" class="category-link">
+                    See category definitions
+                </a>
+            </div>
+
+
+        </div>
+
+        <div class="year-selector-container">
+
+            <label class="year-selector-label">
+                Fiscal Year
+            </label>
+
+            <select class="year-selector">
+                {% for year in range(2025, 1984, -1) %}
+                <option value="{{ year }}" {% if year !=2025 %}disabled{% endif %} {% if year==2025 %}selected{% endif
+                    %}>
+                    {{ year }}
+                </option>
+                {% endfor %}
+            </select>
+
+        </div>
+
+
+    </div>
+    <script src="https://cdn.plot.ly/plotly-3.5.1.min.js" charset="utf-8"></script>
+
+    <div class="portfolio-container">
+        <div class="portfolio-split-layout">
+
+            <div class="portfolio-left-pane">
+
+                <div id="portfolio-funding-stat-container">
+                    <div id="portfolio-funding-amount"></div>
+                    <div class="portfolio-funding-caption">2025 Funding</div>
+                </div>
+
+            </div>
+
+            <div class="portfolio-right-pane">
+                <div class="mobile-chart-hint" style="color:rgb(133, 33, 33)"> Tap any bar to explore specific grants!
+                </div>
+                <div id="chart-skeleton"
+                    style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; border-radius: 12px; align-items: center; justify-content: center; font-family: 'Inter', sans-serif; color: #64748b;">
+                    <div style="text-align: center;">
+                        <div class="spinner-small" style="margin: 0 auto 12px auto;"></div>
+                        <strong>Assembling Funding Analysis...</strong>
+                    </div>
+
+                </div>
+                <div id="categoryChart" class="plot-container"></div>
+
+            </div>
+
+        </div>
+    </div>
+    <div class="dna-divider-container">
+        <div class="dna-strand">
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+            <div class="base-pair"></div>
+        </div>
+    </div>
+
+    <div id="grant-results-container">
+
+        <div id="grant-results-title"></div>
+        <div id="grant-results-header">
+
+
+            <div id="grant-results-filters"></div>
+
+            <div id="filter-stats-container" style="margin-bottom: 15px; font-family: 'Inter', sans-serif;">
+                <span id="filter-count"></span>
+                <span id="filter-total-funding"></span>
+            </div>
+
+        </div>
+        <div id="grant-search-container">
+            <form id="grant-search-form" class="grant-search-wrapper">
+                <input type="text" id="grant-search-input" placeholder="Filter within results...">
+                <button type="submit" class="grant-filter-button">
+                    <i data-lucide="beaker"></i>
+                </button>
+            </form>
+        </div>
+
+        <div id="loading-message" class="loading-status-card" style="display: none;">
+            <div class="spinner-small"></div>
+            <div class="status-text">
+                <strong>Processing Search...</strong>
+                <span>(this may take a moment).</span>
+            </div>
+        </div>
+
+        <div id="grant-results-layout">
+            <div id="grant-results-left-panel">
+
+                <div id="pagination-controls">
+                    <button id="prev-btn" class="nav-btn">← Previous</button>
+                    <span id="page-info">Page 1 of X</span>
+                    <button id="next-btn" class="nav-btn">Next →</button>
+                </div>
+                <div id="grant-results-list"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    </div>
+    <script>
+
+        let activeCategory = null;
+        let allGrants = [];
+        let currentPage = 1;
+        const itemsPerPage = 100;
+        let activeYear = 2025;
+        let currentFilters = {
+            year: "2025",
+            category: "",
+            queries: []
+        };
+        let dataHistory = [];
+        const categoryMap = {
+
+            "Mechanistic / Basic Science": "mechanistic",
+
+            "Therapeutic": "therapeutic",
+
+            "Diagnostic": "diagnostic",
+
+            "Research Tool": "research_tool",
+
+            "Clinical / Health Systems": "clinical",
+
+            "Research Infrastructure": "infrastructure",
+
+            "Education / Training": "education",
+
+            "Observational Epidemiology": "obs_ep"
+        };
+
+        /* Function to load the category distribution chart on page load */
+        /* Function to load the category distribution chart on page load */
+        async function loadCategoryChart(year = 2025) {
+            const chartDiv = document.getElementById("categoryChart");
+            const skeleton = document.getElementById("chart-skeleton");
+            const grantContainer = document.getElementById('grant-results-container');
+
+            if (skeleton) {
+                skeleton.style.display = "flex"; // Show skeleton while loading
+                console.log("Chart skeleton displayed, starting data fetch...");
+            }
+
+            // 1. Prepare UI states before fetching
+            if (chartDiv) chartDiv.classList.remove("loaded"); // Reset loaded state for fade-in
+
+            try {
+                /* here we are using the /api/portfolio/categories endpoint to get the funding distribution for the specified year */
+                const response = await fetch(`/api/portfolio/categories?year=${year}`);
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                /* response is a JSON object */
+                const data = await response.json();
+                const sortedEntries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+
+                /* here labels are the category names and values are the corresponding funding amounts */
+                const labels = sortedEntries.map(entry => entry[0]);
+                const values = sortedEntries.map(entry => entry[1]);
+
+                const total = values.reduce((a, b) => a + b, 0);
+                const displayValues = values.map(v => v / 1000000000);
+
+                const formattedFunding = new Intl.NumberFormat(
+                    'en-US',
+                    {
+                        style: 'currency',
+                        currency: 'USD',
+                        notation: 'compact',
+                        maximumFractionDigits: 1
+                    }
+                ).format(total);
+
+                document.getElementById("portfolio-funding-amount").innerText = formattedFunding;
+
+                // Calculate responsive values based on mobile viewports
+                const isMobile = window.innerWidth <= 768;
+                const dynamicLeftMargin = isMobile ? 80 : 250;
+                const dynamicFontSize = isMobile ? 9 : 16;
+                const dynamicTitleSize = isMobile ? 13 : 25;
+
+                // Define your custom pixel-perfect mobile label overrides
+                const mobileLabelCustomMap = {
+                    "Mechanistic / Basic Science": "Basic Science",
+                    "Research Infrastructure": "Infrastructure",
+                    "Clinical / Health Systems": "Clinical",
+                    "Observational Epidemiology": "Epidemiology",
+                    "Education / Training": "Training"
+                };
+                const reverseMobileLabelMap = {
+                    "Basic Science": "Mechanistic / Basic Science",
+                    "Infrastructure": "Research Infrastructure",
+                    "Clinical": "Clinical / Health Systems",
+                    "Epidemiology": "Observational Epidemiology",
+                    "Training": "Education / Training"
+                };
+                const dynamicLabels = labels.map(label => {
+                    if (isMobile && mobileLabelCustomMap[label]) {
+                        return mobileLabelCustomMap[label]; // Serves up your perfect custom line breaks
+                    }
+                    return label; // Default layout fallback (Desktop view remains un-split)
+                });
+                // Add this variable optimization before your layout object
+                const dynamicAnnotations = isMobile ? [] : [
+                    {
+                        x: 0.87,
+                        y: 0.15,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: "Click on a bar<br> to see grants!",
+                        showarrow: false,
+                        xanchor: 'right',
+                        layer: 'above',
+                        font: { size: 15, family: "'Inter', sans-serif", color: 'red' }
+                    }
+                ];
+
+                const dynamicImages = isMobile ? [] : [{
+                    source: "/static/images/curved-thin-arrow-icon.svg",
+                    xref: "paper",
+                    yref: "paper",
+                    x: 0.87,
+                    y: 0.25,
+                    sizex: 0.15,
+                    sizey: 0.15,
+                    xanchor: "right",
+                    yanchor: "bottom",
+                    layer: "above"
+                }];
+
+                /* this is the Plotly code for creating category bar chart */
+                // We use await to guarantee Plotly is fully done drawing in the DOM
+                await Plotly.newPlot(
+                    "categoryChart",
+                    [{
+                        x: displayValues,
+                        y: dynamicLabels,
+                        type: "bar",
+                        orientation: "h",
+                        marker: {
+                            color: displayValues,
+                            colorscale: [
+                                [0, '#a5b4fc'], // Lightest bar color
+                                [1, '#12253d']  // Darkest bar color
+                            ],
+                            reversescale: false,
+                            line: {
+                                color: '#12253d',
+                                width: 1
+                            }
+                        },
+                        hovertemplate: "$%{x:.1f}B<extra></extra>",
+                    }],
+                    {
+                        title: {
+                            text: 'NIH Funding Distribution by Category',
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: dynamicTitleSize,
+                                color: '#12253d'
+                            },
+                            xref: isMobile ? 'container' : 'paper',
+
+                            x: isMobile ? 0.5 : 0,
+                            y: 1.1,
+                            pad: { b: 20 }
+                        },
+                        dragmode: false,
+                        hovermode: 'closest',
+                        hoverdistance: 5,
+                        hoverlabel: {
+                            bgcolor: "white",
+                            font: {
+                                color: "#12253d",
+                                family: "Inter, sans-serif",
+                                size: 20
+                            },
+                            bordercolor: "#12253d",
+                            align: "left"
+                        },
+                        annotations: dynamicAnnotations,
+                        images: dynamicImages,
+                        paper_bgcolor: "rgba(0,0,0,0)",
+                        plot_bgcolor: "rgba(0,0,0,0)",
+                        font: {
+                            family: "'Inter', sans-serif",
+                            size: 14,
+                            color: "#243b53"
+                        },
+                        margin: {
+                            t: isMobile ? 60 : 40,
+                            l: dynamicLeftMargin,
+                            r: 30,
+                            b: isMobile ? 60 : 80
+                        },
+                        bargap: isMobile ? 0.4 : 0.25,
+                        height: isMobile ? 360 : 500,
+                        xaxis: {
+                            title: {
+                                text: "Total Funding (Billions USD)",
+                                font: { size: isMobile ? 12 : 18, color: "#12253d", weight: 700 },
+                                standoff: isMobile ? 12 : 30
+                            },
+                            tickfont: { size: dynamicFontSize, color: "#243b53", weight: 700 },
+                            showgrid: false,
+                            zeroline: false,
+                            ticks: "",
+                            showline: false,
+                            fixedrange: true
+                        },
+                        yaxis: {
+                            autorange: "reversed",
+                            showgrid: false,
+                            tickfont: { size: dynamicFontSize, color: "#12253d", weight: 700 },
+                            ticks: "",
+                            showline: false,
+                            ticksuffix: "    ",
+                            fixedrange: true,
+                            tickalign: "center"
+                        }
+                    },
+                    {
+                        responsive: true,
+                        displayModeBar: false
+                    }
+                );
+                if (chartDiv) {
+                    chartDiv.classList.add("loaded"); // Trigger fade-in after plot is rendered
+                }
+
+                /* this is event listener for clicks on the bars */
+                chartDiv.on("plotly_click", async function (data) {
+                    let displayCategory = data.points[0].y;
+
+                    // THE FIX: If we are on mobile and using a shortened string, swap it back to the original key!
+                    if (isMobile && reverseMobileLabelMap[displayCategory]) {
+                        displayCategory = reverseMobileLabelMap[displayCategory];
+                    }
+
+                    const categoryCode = categoryMap[displayCategory];
+
+                    if (!categoryCode) {
+                        alert(`Error: The category "${displayCategory}" is not recognized.`);
+                        return;
+                    }
+
+                    // ─── 🛡️ CATEGORY LOCKED COMPLIANCE RE-CHECK ────────────────────────
+                    // Check if a category filter is already actively applied
+                    if (currentFilters.category) {
+                        // If they clicked the exact same bar twice, exit silently (stops mobile double-tap fires)
+                        if (currentFilters.category === categoryCode) {
+                            console.log("🔄 Matching category re-select or mobile bounce caught. Ignoring.");
+                            return;
+                        }
+
+                        // If they clicked a genuinely DIFFERENT bar without removing the old pill first, block them
+                        alert("Please remove your current category filter pill before selecting a new one.");
+                        return;
+                    }
+
+                    currentFilters.category = categoryCode;
+                    activeCategory = categoryCode;
+
+                    grantContainer.classList.add('show');
+                    grantContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    applyFilters(displayCategory);
+                });
+
+                chartDiv.on('plotly_hover', function () {
+                    const dragLayer = chartDiv.querySelector('.nsewdrag');
+                    if (dragLayer) dragLayer.style.setProperty('cursor', 'pointer', 'important');
+                });
+
+                chartDiv.on('plotly_unhover', function () {
+                    const dragLayer = chartDiv.querySelector('.nsewdrag');
+                    if (dragLayer) dragLayer.style.setProperty('cursor', 'default', 'important');
+                });
+
+
+            } catch (err) {
+                console.error("Failed to load chart data:", err);
+                if (skeleton) {
+                    skeleton.innerHTML = `<div style="color: #ef4444; font-weight: bold;">⚠️ Error loading analytics layout.</div>`;
+                }
+            } finally {
+                // Drop the skeleton loader overlay behind the chart view
+                if (skeleton) {
+                    skeleton.style.display = "none";
+                    console.log("Chart skeleton hidden, revealing chart.");
+                }
+
+                // Force Plotly to recalculate SVG element paths based on the layout space
+                if (chartDiv) {
+                    Plotly.Plots.resize(chartDiv);
+                    console.log("Plotly resize triggered to adjust to container.");
+                }
+            }
+        }
+        async function applyFilters() {
+            // ✨ FIX: If baseline category is cleared out completely, don't ping the network.
+            // Reset data points array and drop out silently.
+            if (!currentFilters.category) {
+                allGrants = [];
+                dataHistory = [];
+                currentPage = 1;
+                // Clean up UI metrics safely
+                const countEl = document.getElementById("filter-count");
+                const fundingEl = document.getElementById("filter-total-funding");
+                if (countEl) countEl.innerText = "0 Grants Found";
+                if (fundingEl) fundingEl.innerText = "Total Funding: $0";
+                return;
+            }
+
+            const loadingEl = document.getElementById("loading-message");
+            if (loadingEl) loadingEl.style.display = "flex";
+
+            const category = currentFilters.category || "";
+            const queriesArray = currentFilters.queries || [];
+            const year = "2025";
+
+            // Get ID of latest query entered
+            const latestQuery = queriesArray[queriesArray.length - 1] || "";
+
+            // Collect IDs of current results to "lock" the next search into this set
+            // KEEP this as an array of strings instead of calling .join(",")
+            const validIds = allGrants
+                .map(g => g.grant_id)
+                .filter(id => id != null && id !== "");
+
+            const categoryCode = currentFilters.category || "";
+            const humanName = Object.keys(categoryMap).find(key => categoryMap[key] === categoryCode) || categoryCode;
+
+            let url;
+            let fetchOptions = { method: "GET" }; // Scope this out here so it's accessible globally to fetch()
+
+            // Choose the endpoint based on presence of a query
+            if (latestQuery === "") {
+                // Use the standard endpoint that returns ALL grants for a category
+                url = `/api/portfolio/grants?year=${year}&category=${category}`;
+            } else {
+                // Use the search endpoint for semantic filtering
+                url = `/api/portfolio/grants/search`;
+                fetchOptions = {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        year: year,
+                        category: category,
+                        query: latestQuery,
+                        existing_ids: validIds, // Send the clean array object directly to match Pydantic List[str]
+                        query_history_count: currentFilters.queries.length
+                    })
+                };
+            }
+
+            console.log("Fetching finalized URL:", url);
+
+            try {
+                // Pass fetchOptions dynamically (handles GET or POST configuration automatically)
+                const response = await fetch(url, fetchOptions);
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    console.error("Error details:", errorBody);
+                    return;
+                }
+                const data = await response.json();
+
+                allGrants = data.grants || [];
+
+                if (latestQuery === "") {
+                    // First link in the chain: Seed the baseline array layer
+                    dataHistory = [[...allGrants]];
+                } else {
+                    // Sequential step: Push this search result snapshot onto the stack matrix
+                    dataHistory.push([...allGrants]);
+                }
+                currentPage = 1; // Always reset to page 1 on new filter
+
+                // Update the UI
+                renderFilters(humanName);
+                updateTotals(allGrants);
+                renderPage(1);
+
+            } catch (err) {
+                console.error("Filtering failed:", err);
+            } finally {
+                if (document.getElementById("loading-message")) {
+                    document.getElementById("loading-message").style.display = "none";
+                }
+            }
+        }
+
+        /* this function cleans up whitespace in the abstract text for better display in the modal */
+
+        function cleanAbstract(text) {
+
+            if (!text) return "";
+
+            return text
+
+                // remove carriage returns
+                .replace(/\r/g, "")
+
+                // collapse ALL single newlines into spaces
+                .replace(/\n/g, " ")
+
+                // collapse repeated spaces
+                .replace(/\s+/g, " ")
+
+
+                .trim();
+        }
+        async function loadCategoryGrants(displayName, category) {
+            const response = await fetch(`/api/portfolio/grants?year=2025&category=${category}`);
+            const data = await response.json();
+
+            // store full list
+            // Fix: If data.grants doesn't exist, default to an empty array []
+            allGrants = data.grants || [];
+            currentPage = 1;
+
+            // update totals
+            updateTotals(allGrants);
+
+            renderHeader(displayName);
+            updateTotals(allGrants); // Now .length won't crash
+            renderPage(1);
+        }
+        function renderFilters(category) {
+            const container = document.getElementById("grant-results-filters");
+            container.innerHTML = ""; // Clear existing
+
+            const titleEl = document.getElementById("grant-results-title");
+            if (titleEl) {
+                titleEl.style.display = "block";
+                titleEl.innerText = "grant results"; // Ensures lowercase/uppercase consistency
+            }
+
+
+            // Year Pill (Static)
+            addPill(container, `Year: 2025`, false);
+
+            // 2. Category Pill (Removable ONLY if no search queries exist yet)
+            if (category) {
+                const hasActiveQueries = currentFilters.queries.length > 0;
+
+                if (hasActiveQueries) {
+                    // Category is locked while sub-queries exist
+                    addPill(container, `Category: ${category}`, false);
+                } else {
+                    // Category can be closed normally if it's the last remaining filter link
+                    addPill(container, `Category: ${category}`, true, () => {
+                        currentFilters.category = "";
+                        currentFilters.queries = [];
+                        if (typeof activeCategory !== 'undefined') activeCategory = "";
+
+                        const targetContainer = document.getElementById('grant-results-container');
+                        if (targetContainer) {
+                            targetContainer.classList.remove('show');
+                        }
+
+                        const chartDiv = document.getElementById("categoryChart");
+                        if (chartDiv) {
+                            chartDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+
+                        applyFilters();
+                    });
+                }
+            }
+
+            // 3. Query Pills (Removable ONLY for the most recent query)
+            if (currentFilters.queries.length > 0) {
+                currentFilters.queries.forEach((q, index) => {
+                    // Check if this specific pill is the absolute end of the linear stack
+                    const isLatestQuery = index === currentFilters.queries.length - 1;
+
+                    if (isLatestQuery) {
+                        // The most recent query pill gets a close button and the interactive pop animation
+                        addPill(container, `Search: ${q}`, true, () => {
+                            currentFilters.queries.splice(index, 1); // Remove from filter configuration
+
+                            // Pop the matrix layer back to reveal previous historical dataset snapshot
+                            if (dataHistory.length > 1) {
+                                dataHistory.pop();
+                                allGrants = [...dataHistory[dataHistory.length - 1]];
+                            }
+
+                            // Refresh UI components instantly using cached data matrix states
+                            currentPage = 1;
+                            renderFilters(category);
+                            updateTotals(allGrants);
+                            renderPage(1);
+                        });
+                    } else {
+                        // Older query pills are locked down and un-clickable to prevent state desync
+                        addPill(container, `Search: ${q}`, false);
+                    }
+                });
+            }
+
+        }
+        function addPill(target, text, isRemovable, onRemove = null) {
+            const pill = document.createElement("div");
+            pill.className = "filter-pill";
+
+            if (isRemovable && onRemove) {
+                pill.innerHTML = `${text} <span class="remove-pill" style="cursor:pointer; margin-left:8px; font-weight:bold; color:#ef4444;">×</span>`;
+                pill.onclick = onRemove;
+            } else {
+                pill.innerHTML = text;
+                pill.style.opacity = "0.75"; // Subtly distinguish un-clickable foundation metrics
+                pill.style.cursor = "default";
+            }
+
+            target.appendChild(pill);
+        }
+
+        function renderHeader(categoryName) {
+            console.log("renderHeader received category:", categoryName);
+
+            const titleEl = document.getElementById("grant-results-title");
+
+            titleEl.style.display = "block";
+            titleEl.innerText = "Grant Results";
+
+            document.getElementById("grant-results-filters").innerHTML = `
+            <div class="filter-pill">Fiscal Year: 2025</div>
+            <div class="filter-pill">Category: ${categoryName}</div>
+        `;
+        }
+        function updateTotals(grants) {
+            const count = grants.length;
+            const totalDollars = grants.reduce((sum, grant) => sum + (grant.funding || 0), 0);
+
+            const formattedTotal = new Intl.NumberFormat(
+                'en-US',
+                {
+                    style: 'currency',
+                    currency: 'USD',
+                    notation: 'compact',
+                    maximumFractionDigits: 1
+                }
+            ).format(totalDollars);
+
+            document.getElementById("filter-count").innerText = `${count} Grants Found`;
+            document.getElementById("filter-total-funding").innerText = `Total Funding: ${formattedTotal}`;
+
+        }
+        // --- PAGINATED RENDER SETUP ---
+        function renderPage(page) {
+            const container = document.getElementById("grant-results-list");
+            container.innerHTML = "";
+
+            const start = (page - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageItems = allGrants.slice(start, end);
+
+            pageItems.forEach(grant => {
+                const card = createGrantCard(grant);
+                container.appendChild(card);
+            });
+
+            updatePaginationControls();
+        }
+
+        // --- MODAL VIEW FOR ABSTRACTS (Lazy-Loading for portfolio.html) ---
+        function showGrantDetail(grant) {
+            const oldModal = document.getElementById("grant-modal");
+            if (oldModal) oldModal.remove();
+
+            const isMobile = window.innerWidth <= 768;
+
+            // Format currency cleanly
+            const funding = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(grant.funding || 0);
+
+            const modal = document.createElement("div");
+            modal.id = "grant-modal";
+            modal.className = "grant-modal-overlay";
+
+            // Dynamic Blueprint Generation based on Viewport Size
+            if (isMobile) {
+                // MOBILE BLUEPRINT: Minimalist, clean tracking, local summary data focus
+                modal.innerHTML = `
+            <div class="grant-modal-content">
+                <span class="grant-modal-close">&times;</span>
+                <div class="grant-modal-header">
+                    <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
+                </div>
+                <div class="grant-detail-abstract">
+                    <div class="summary-badge">
+                        <i data-lucide="sparkles"></i> Brief Summary
+                    </div>
+                    <div id="modal-abstract-viewport">
+                        <p>${grant.summary || "No summary overview recorded for this entry."}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+            } else {
+                // DESKTOP BLUEPRINT: Deep metadata tracking + lazy loading endpoint connection layout
+                modal.innerHTML = `
+            <div class="grant-modal-content">
+                <span class="grant-modal-close">&times;</span>
+                <div class="grant-modal-header">
+                    <h2 class="grant-detail-title">${grant.title || "No Title Provided"}</h2>
+                    <div class="grant-modal-meta">
+                        <strong>Organization:</strong> ${grant.organization || "Unknown Organization"}<br>
+                        <strong>Principal Investigator:</strong> ${grant.pi || "Unknown"}<br>
+                        <strong>Funding Amount:</strong> ${funding}<br>
+                        <strong>Awarding Agency / IC:</strong> ${grant.agency_ic || "N/A"}<br>
+                        <strong>Activity Mechanism:</strong> ${grant.activity_code || "N/A"}
+                    </div>
+                </div>
+                <hr class="modal-divider">
+                <div class="grant-detail-abstract">
+                    <h3>Abstract</h3>
+                    <div id="modal-abstract-viewport" class="abstract-loading-state">
+                        <p style="color: #6b7280; font-style: italic;">Loading project documentation summary...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+            }
+
+            document.body.appendChild(modal);
+
+            // Re-draw Lucide SVGs if the framework is active
+            if (window.lucide) lucide.createIcons();
+
+            setTimeout(() => modal.classList.add("active"), 10);
+
+            modal.querySelector(".grant-modal-close").onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
+
+            // Short-circuit API calculations if mobile is loaded
+            if (isMobile) return;
+
+            // Desktop API connection logic remains untouched
+            const targetId = grant.grant_id;
+            if (targetId) {
+                fetch(`/api/grant/${targetId}/abstract`)
+                    .then(response => {
+                        if (!response.ok) throw new Error("Network record fetch anomaly.");
+                        return response.json();
+                    })
+                    .then(data => {
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            viewport.innerHTML = `<p>${cleanAbstract(data.abstract) || "No abstract data recorded for this entry."}</p>`;
+                        }
+                    })
+                    .catch(err => {
+                        console.error("❌ Lazy-loading failure:", err);
+                        const viewport = document.getElementById("modal-abstract-viewport");
+                        if (viewport) {
+                            viewport.innerHTML = `<p style="color: #ef4444;">Failed to load project summary documentation dynamically.</p>`;
+                        }
+                    });
+            }
+        }
+        // --- CLEAN HELPER TO GENERATE GRANT CARDS ---
+        function createGrantCard(grant) {
+            const funding = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                notation: 'compact',
+                maximumFractionDigits: 1
+            }).format(grant.funding || 0);
+
+            const card = document.createElement("div");
+            card.className = "grant-card-row";
+            card.onclick = () => showGrantDetail(grant);
+
+            // Extracting fields or rendering fallback text
+            const agency = grant.agency_ic || "N/A";
+            const activity = grant.activity_code || "N/A";
+            const idString = grant.grant_id || "N/A"; // Extract the grant ID
+
+            card.innerHTML = `
+                <div class="grant-row-identity">
+                    <h3 class="grant-title">${grant.title || "No Title Provided"}</h3>
+                    <div class="grant-details">
+                        <span class="grant-org">${grant.organization || "Unknown Organization"}</span>
+                        <span class="grant-divider">•</span>
+                        <span class="grant-pi">PI: ${grant.pi || "Unknown"}</span>
+                    </div>
+                    <div class="grant-agency-track">
+                        <span class="grant-id-label">${grant.grant_id || "N/A"}</span>
+                        <span class="agency-label">${grant.agency_ic || "N/A"}</span>
+                        <span class="activity-code-label">${grant.activity_code || "N/A"}</span>
+                    </div>
+                    <div class="grant-funding-badge">${funding}</div>
+                </div>
+                
+                <div class="grant-row-summary mobile-hide">
+                    <div class="summary-badge"><i data-lucide="sparkles"></i> Brief Summary</div>
+                    <p>${grant.summary || "No summary available."}</p>
+                </div>
+            `;
+
+            // Re-trigger Lucide to render the sparkles icon inside the new card row dynamically
+            setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 10);
+
+            return card;
+        }
+        // --- MODAL CLOSE HELPER ---
+        function closeModal() {
+            const modal = document.getElementById("grant-modal");
+            if (modal) {
+                modal.classList.remove("active");
+                // Remove from DOM completely after transition finishes
+                setTimeout(() => modal.remove(), 200);
+            }
+        }
+        function updatePaginationControls() {
+            const totalPages = Math.ceil(allGrants.length / itemsPerPage);
+            const pageInfo = document.getElementById("page-info");
+
+            if (pageInfo) {
+                pageInfo.innerText = `Page ${currentPage} of ${totalPages}`;
+            }
+
+            document.getElementById("prev-btn").disabled = (currentPage == 1);
+            document.getElementById("next-btn").disabled = (currentPage === totalPages || totalPages === 0);
+
+        }
+        // Event Listeners for the arrows
+        document.getElementById("prev-btn").onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+                document.getElementById("grant-results-container").scrollIntoView({ behavior: 'smooth' });
+            }
+        };
+
+        document.getElementById("next-btn").onclick = () => {
+            const totalPages = allGrants ? Math.ceil(allGrants.length / itemsPerPage) : 0;
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage(currentPage);
+                document.getElementById("grant-results-container").scrollIntoView({ behavior: 'smooth' });
+            }
+        };
+
+        // Simple text formatter to safely clean basic Markdown headers if you aren't using marked.js
+        function formatMarkdown(text) {
+            return text
+                .replace(/### (.*)\n/g, '<h3>$1</h3>')
+                .replace(/## (.*)\n/g, '<h2>$1</h2>')
+                .replace(/\n\n/g, '<br><br>');
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById("grant-search-input");
+            const searchForm = document.getElementById("grant-search-form");
+
+
+
+            searchForm.addEventListener("submit", function (event) {
+
+                event.preventDefault();
+
+                // 1. Check if a category is selected (Successive requirement)
+                if (!currentFilters.category) {
+                    alert("Please select a category from the chart first.");
+                    return;
+                }
+
+                // 2. Update the GLOBAL state with the search term
+                const queryValue = searchInput.value.trim();
+                if (queryValue) {
+                    // Add the new word to our array
+                    currentFilters.queries.push(queryValue);
+                    // Clear the input box so user can type the NEXT word
+                    searchInput.value = "";
+                    applyFilters();
+                }
+            });
+        });
+
+        loadCategoryChart();
+
+    </script>
+    <script>lucide.createIcons(); </script>
+    <script src="/static/js/script.js"></script>
+
+</body>
+
+</html>

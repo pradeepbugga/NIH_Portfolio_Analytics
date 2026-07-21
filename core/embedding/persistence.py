@@ -1,7 +1,10 @@
-#this script contains functions for persisting grant embeddings to the database
+def upsert_embedding(cur, grant_id: str, content_hash: str, cfg: object, vector: list): 
+    """
+    Inserts or updates an embedding in its dedicated table.
 
-#this function inserts or updates a grant embedding in the database
-def upsert_embedding(cur, grant_id, content_hash, cfg, vector):
+    Parameters:
+
+    """
     cur.execute(
         """
         INSERT INTO GrantEmbeddings
@@ -28,13 +31,13 @@ def upsert_embedding(cur, grant_id, content_hash, cfg, vector):
             cfg.normalization,
             cfg.embedding_version,
             vector.tolist(),
-        )
+        ),
     )
 
-#this function counts the number of grants that need to be embedded
+
+# this function counts the number of grants that need to be embedded
 def count_grants_to_embed(cur) -> int:
-    cur.execute(
-        """
+    cur.execute("""
         SELECT COUNT(*)
         FROM ResearchGrants rg
         LEFT JOIN GrantEmbeddings ge
@@ -47,6 +50,57 @@ def count_grants_to_embed(cur) -> int:
              OR ge.is_valid = FALSE
              OR ge.content_hash <> rg.content_hash
           )
+        """)
+    return cur.fetchone()[0]
+
+
+def upsert_summary_embedding(cur, grant_id, content_hash, cfg, vector):
+    """
+    Inserts or updates a summary embedding in its dedicated table.
+    """
+    cur.execute(
         """
+        INSERT INTO GrantSummaryEmbeddings
+            (grant_id, content_hash, embedding_model,
+             text_recipe, normalization, embedding_version,
+             embedding, is_valid)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+        ON CONFLICT (grant_id) 
+        DO UPDATE SET
+            content_hash = EXCLUDED.content_hash,
+            embedding_model = EXCLUDED.embedding_model,
+            text_recipe = EXCLUDED.text_recipe,
+            embedding_version = EXCLUDED.embedding_version,
+            embedding = EXCLUDED.embedding,
+            is_valid = TRUE,
+            created_at = CURRENT_TIMESTAMP
+        """,
+        (
+            grant_id,
+            content_hash,
+            cfg.model_name,
+            cfg.text_recipe,
+            cfg.normalization,
+            cfg.embedding_version,
+            vector.tolist(),
+        ),
     )
+
+
+def count_summaries_to_embed(cur) -> int:
+    """
+    Counts remaining summaries left to process.
+    """
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM grant_summaries gs
+        LEFT JOIN GrantSummaryEmbeddings gse
+          ON gs.grant_id = gse.grant_id
+        WHERE gs.two_sentence_summary IS NOT NULL
+          AND (
+                gse.grant_id IS NULL
+             OR gse.is_valid = FALSE
+             OR gse.content_hash <> MD5(gs.two_sentence_summary)
+          )
+        """)
     return cur.fetchone()[0]

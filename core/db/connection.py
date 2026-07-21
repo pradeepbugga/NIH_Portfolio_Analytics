@@ -1,20 +1,20 @@
-# this script provides functions to get database connections for PostgreSQL, SQLite, and SQLAlchemy
-
 import psycopg2
-import sqlite3
-import sqlalchemy
-from core.config import POSTGRES_CONFIG
 
 
 def get_db_connection():
-    return psycopg2.connect(**POSTGRES_CONFIG)
+    """
+    Get a connection to the PostgreSQL database using psycopg2.
 
-def get_sqlite_connection(db_path: str):
-    conn = sqlite3.connect(db_path)
+    Returns:
+        psycopg2.extensions.connection: A connection object to the PostgreSQL database.
+    """
+
+    from core.config import POSTGRES_CONFIG
+
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    cur = conn.cursor()
+
+    cur.execute("SET work_mem = '64MB';")
+    cur.close()
+
     return conn
-
-def get_sqlalchemy_engine():
-    return sqlalchemy.create_engine(
-        f"postgresql+psycopg2://{POSTGRES_CONFIG['user']}:{POSTGRES_CONFIG['password']}@{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}/{POSTGRES_CONFIG['dbname']}",
-        pool_pre_ping=True
-    )
