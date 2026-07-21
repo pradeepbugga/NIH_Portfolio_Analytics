@@ -51,7 +51,7 @@ async def application_lifespan(app: FastAPI):
             GLOBAL_AGENCIES_LIST = df.sort_values(by="agency_ic").to_dict(
                 orient="records"
             )
-            logger.info(f"Loaded {len(GLOBAL_AGENCIES_LIST)} agency records.")
+            logger.info("Loaded %d agency records.", len(GLOBAL_AGENCIES_LIST))
         except Exception:
             logger.exception(f"❌ Failed to load agency reference data")
 
@@ -63,12 +63,9 @@ async def application_lifespan(app: FastAPI):
         try:
             df_activity = pd.read_csv(activity_csv_path)
             GLOBAL_VALID_ACTIVITY_CODES = (
-                df_activity["Ac
-                
-
-            logger.info(
-                f"✅ Loaded {len(GLOBAL_VALID_ACTIVITY_CODES)} activity codes."
+                df_activity["Activity_Code"].str.upper().tolist()
             )
+            logger.info("✅ Loaded %d activity codes.", len(GLOBAL_VALID_ACTIVITY_CODES))  
         except Exception:
             logger.exception(f"❌ Failed to load activity code reference data")
 
@@ -80,9 +77,7 @@ async def application_lifespan(app: FastAPI):
         try:
             with open(synonym_json_path, "r") as f:
                 GLOBAL_SYNONYM_REGISTRY = json.load(f)
-            logger.info(
-                f"✅ Loaded {len(GLOBAL_SYNONYM_REGISTRY)} query synonyms."
-            )
+            logger.info("✅ Loaded %d query synonyms.", len(GLOBAL_SYNONYM_REGISTRY))
         except Exception:
             logger.exception(f"❌ Failed to load query synonyms.")
             GLOBAL_SYNONYM_REGISTRY = {}
