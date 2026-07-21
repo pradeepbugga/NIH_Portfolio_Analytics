@@ -497,6 +497,11 @@ async def _rerank_and_format(query: str, docs: list[dict], rerank_fn) -> list[di
     # Score documents with the remote cross-encoder
     scores = await rerank_fn.remote.aio(query, doc_texts)
 
+    pairs = sorted(zip(docs['grant_id'], scores), key=lambda x: x[1], reverse=True)
+
+    for gid, score in pairs[:20]:
+        logger.info("Grant ID: %s, Score: %.4f", gid, score)
+
     def finalize():
 
         ranked = combine_and_sort_semantic_filter(
