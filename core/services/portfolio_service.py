@@ -228,10 +228,12 @@ async def search_portfolio(payload: SearchRequest, rerank_fn) -> dict:
         payload.year,
     )
 
-    if payload.category not in VALID_CATEGORY_COLUMNS:
-        raise ValueError(f"Invalid category '{payload.category}'")
+    column = None
 
-    column = payload.category  # Use the category directly as the column name
+    if payload.category:
+        if payload.category not in VALID_CATEGORY_COLUMNS:
+            raise ValueError(f"Invalid category '{payload.category}'")
+        column = payload.category
 
     conn = await anyio.to_thread.run_sync(get_db_connection)
     cur = conn.cursor()
@@ -492,19 +494,10 @@ async def _rerank_and_format(query: str, docs: list[dict], rerank_fn) -> list[di
     if not docs:
         return []
 
-    doc_texts = [doc["text"] for doc in docs]
+    grant_ids = [doc["grant_id"] for doc in docs]
 
     # Score documents with the remote cross-encoder
-    scores = await rerank_fn.remote.aio(query, doc_texts)
-
-    pairs = sorted(
-        zip(docs, scores),
-        key=lambda x: x[1],
-        reverse=True,
-    )
-
-    for doc, score in pairs[:20]:
-        print(score, doc["grant_id"], doc["title"])
+    scores = await rerank_fn.remote.aio(query, grant_ids)
 
     def finalize():
 
