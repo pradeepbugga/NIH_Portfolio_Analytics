@@ -99,3 +99,189 @@ Automatically categorizes grants into eight research stages:
 <img width="2736" height="1517" alt="image" src="https://github.com/user-attachments/assets/b6acd3cf-a1ea-4cc8-935d-8e715de58038" />
 
 ### 6. Repository Structure
+
+├── .github/
+│   └── workflows/
+│       └── tests.yaml
+├── .gitignore
+├── LICENSE
+├── README.md
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── startup.py
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── styles.css
+│   │   │   └── styles_v12.css
+│   │   ├── fonts/
+│   │   │   └── primer.ttf
+│   │   ├── images/
+│   │   │   └── curved-thin-arrow-icon.svg
+│   │   └── js/
+│   │       └── script.js
+│   └── templates/
+│       ├── categories.html
+│       ├── contact_us.html
+│       ├── index.html
+│       ├── partials/
+│       │   └── search_bar.html
+│       ├── portfolio.html
+│       └── results.html
+├── core/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── constants.py
+│   ├── db/
+│   │   ├── __init__.py
+│   │   └── connection.py
+│   ├── embedding/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── embedding_job.py
+│   │   ├── model.py
+│   │   ├── persistence.py
+│   │   └── selection.py
+│   ├── ingest/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── hashing.py
+│   │   ├── ingest.py
+│   │   ├── normalize.py
+│   │   ├── org_resolution.py
+│   │   ├── persistence.py
+│   │   ├── process.py
+│   │   └── reporter_client.py
+│   ├── llm/
+│   │   ├── __init__.py
+│   │   ├── batch.py
+│   │   ├── constants.py
+│   │   ├── parser.py
+│   │   ├── prompt_loader.py
+│   │   └── prompts/
+│   │       └── README.md
+│   ├── logging_config.py
+│   ├── search/
+│   │   ├── __init__.py
+│   │   ├── cache.py
+│   │   ├── candidate_retrieval.py
+│   │   ├── combine.py
+│   │   ├── constants.py
+│   │   ├── fill_abstract.py
+│   │   ├── hybrid.py
+│   │   ├── load_docs.py
+│   │   ├── modal_reranker.py
+│   │   ├── postprocess.py
+│   │   ├── query_embedding.py
+│   │   └── reranker.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── activity_service.py
+│   │   ├── agency_service.py
+│   │   ├── formatting.py
+│   │   ├── grant_service.py
+│   │   ├── portfolio_service.py
+│   │   └── search_service.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── abstract_tokens.py
+│       ├── compile_parquet.py
+│       └── query_expansion.py
+├── data/
+│   ├── activity_code_list.csv
+│   ├── agencies_list.csv
+│   └── rcdc_synonyms.json
+├── evaluation/
+│   ├── __init__.py
+│   ├── categorization/
+│   │   ├── __init__.py
+│   │   ├── challenge_sets/
+│   │   │   └── research_tool.csv
+│   │   ├── classify.py
+│   │   ├── grant_loader.py
+│   │   ├── metrics.py
+│   │   └── run_eval.py
+│   └── search/
+│       ├── __init__.py
+│       ├── benchmark.csv
+│       ├── ground_truth/
+│       │   ├── Alzheimer's_Disease.csv
+│       │   ├── Amyotrophic_Lateral Sclerosis_(ALS).csv
+│       │   ├── Amyotrophic_Lateral_Sclerosis_(ALS).csv
+│       │   ├── Asthma.csv
+│       │   ├── Autism.csv
+│       │   ├── Breast_Cancer.csv
+│       │   ├── Crohn's_Disease.csv
+│       │   ├── Cystic_Fibrosis.csv
+│       │   ├── Depression.csv
+│       │   ├── Diabetes.csv
+│       │   ├── Endometriosis.csv
+│       │   ├── HIV_AIDS.csv
+│       │   ├── Heart_Disease.csv
+│       │   ├── Lupus.csv
+│       │   ├── Multiple_Sclerosis.csv
+│       │   └── Parkinson's_Disease.csv
+│       ├── metrics.py
+│       ├── rcdc.py
+│       └── run_eval.py
+├── modal/
+│   ├── __init__.py
+│   └── reranker_app.py
+├── pipelines/
+│   ├── __init__.py
+│   ├── ingest_nih.py
+│   ├── llm/
+│   │   ├── __init__.py
+│   │   ├── combine_results.py
+│   │   ├── generate_classification_batch.py
+│   │   ├── generate_summary_batch.py
+│   │   ├── import_classification_results.py
+│   │   ├── import_summary_results.py
+│   │   ├── retrieve_batch.py
+│   │   └── submit_batch.py
+│   ├── migration/
+│   │   ├── __init__.py
+│   │   └── hash_historical.py
+│   ├── run_embedding.py
+│   └── train_reranker.py
+├── requirements.txt
+├── scripts/
+│   ├── compare_pairs_reranker.py
+│   └── update_agency_code.py
+└── tests/
+    ├── embedding/
+    │   ├── test_embedding_job.py
+    │   ├── test_model.py
+    │   ├── test_persistence.py
+    │   └── test_selection.py
+    ├── ingest/
+    │   ├── test_config.py
+    │   ├── test_hashing.py
+    │   ├── test_ingest.py
+    │   ├── test_normalize.py
+    │   ├── test_org_resolution.py
+    │   ├── test_persistence.py
+    │   ├── test_process.py
+    │   └── test_reporter_client.py
+    ├── llm/
+    │   ├── test_batch.py
+    │   ├── test_parser.py
+    │   └── test_prompt_loader.py
+    ├── search/
+    │   ├── test_cache.py
+    │   ├── test_candidate_retrieval.py
+    │   ├── test_combine.py
+    │   ├── test_fill_abstracts.py
+    │   ├── test_hybrid.py
+    │   ├── test_load_docs.py
+    │   ├── test_postprocess.py
+    │   ├── test_query_embedding.py
+    │   └── test_reranker.py
+    ├── services/
+    │   ├── test_formatting.py
+    │   ├── test_grant_service.py
+    │   ├── test_portfolio_service.py
+    │   └── test_search_service.py
+    ├── test_main.py
+    └── utils/
+        └── test_query_expansion.py
