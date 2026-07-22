@@ -3,12 +3,12 @@
 **NIH Audit is an interactive analytics platform for exploring the NIH research portfolio using semantic search, LLM-based grant classification, and funding visualization.**
 
 ### Table of Contents
-- [Overview](#overview)
-- [Demo](#demo)
-- [Features](#features)
-- [Technical Highlights](#technical_highlights)
-- [System Architecture](#system_architecture)
-- [Repository Structure](#repository_structure)
+- [Overview](#1-overview)
+- [Demo](#2-demo)
+- [Features](#3-features)
+- [Technical Highlights](#4-technical-highlights)
+- [System Architecture](#5-system-architecture)
+- [Repository Structure](#6-repository-structure)
 
 ### 1. Overview
 The NIH funds over $50 billion in biomedical research annually across hundreds of disease areas and research programs. While NIH RePORTER provides access to individual grants, it offers limited insight into the type of research being funded (e.g., basic science versus therapeutic development) across agencies, disease areas, or funding mechanisms.
