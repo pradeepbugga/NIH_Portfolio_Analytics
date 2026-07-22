@@ -100,6 +100,7 @@ Automatically categorizes grants into eight research stages:
 
 ### 6. Repository Structure
 
+```
 ├── .github/
 │   └── workflows/
 │       └── tests.yaml
@@ -285,3 +286,4 @@ Automatically categorizes grants into eight research stages:
     ├── test_main.py
     └── utils/
         └── test_query_expansion.py
+```
