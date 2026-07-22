@@ -9,6 +9,7 @@
 - [Technical Highlights](#4-technical-highlights)
 - [System Architecture](#5-system-architecture)
 - [Repository Structure](#6-repository-structure)
+- [Search Pipeline](#7-search-pipeline)
 
 ### 1. Overview
 The NIH funds over $50 billion in biomedical research annually across hundreds of disease areas and research programs. While NIH RePORTER provides access to individual grants, it offers limited insight into the type of research being funded (e.g., basic science versus therapeutic development) across agencies, disease areas, or funding mechanisms.
@@ -36,6 +37,11 @@ The application allows users to:
 - Analyze research portfolios by disease area
 - View funding distributions across eight LLM-derived research categories
 - Drill down from portfolio-level summaries to individual grant records
+
+<p align="center">
+  <img width="1365" height="803" alt="image" src="https://github.com/user-attachments/assets/beb393fa-5eb1-40f7-a9b7-45c74a6009fc" />
+</p>
+The above chart shows the categorical breakdown of NIH research grants in FY2025 for "multiple sclerosis."  One can easily observe that the majority of grants for this disease are in mechanistic / basic science, therapeutic, or research infrastructure (i.e. research centers).
 
 ### 3. Features
 
@@ -207,7 +213,6 @@ Automatically categorizes grants into eight research stages:
 │       ├── benchmark.csv
 │       ├── ground_truth/
 │       │   ├── Alzheimer's_Disease.csv
-│       │   ├── Amyotrophic_Lateral Sclerosis_(ALS).csv
 │       │   ├── Amyotrophic_Lateral_Sclerosis_(ALS).csv
 │       │   ├── Asthma.csv
 │       │   ├── Autism.csv
@@ -287,3 +292,20 @@ Automatically categorizes grants into eight research stages:
     └── utils/
         └── test_query_expansion.py
 ```
+### 7. Search Pipeline
+
+<p align="center">
+<img width="610" height="549" alt="image" src="https://github.com/user-attachments/assets/9a842964-6f77-4df2-ba58-1fb5704102e0" />
+</p>
+
+
+
+### 8. Ontology Development
+
+### 9. LLM Classification Pipeline
+
+### 10. Evaluation
+
+### 11. 
+
+
