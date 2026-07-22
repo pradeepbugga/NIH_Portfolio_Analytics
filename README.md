@@ -10,6 +10,9 @@
 - [System Architecture](#5-system-architecture)
 - [Repository Structure](#6-repository-structure)
 - [Search Pipeline](#7-search-pipeline)
+- [Ontology Development](#8-ontology-development)
+- [LLM Classification Pipeline](#9-llm-classification-pipeline)
+- 
 
 ### 1. Overview
 The NIH funds over $50 billion in biomedical research annually across hundreds of disease areas and research programs. While NIH RePORTER provides access to individual grants, it offers limited insight into the type of research being funded (e.g., basic science versus therapeutic development) across agencies, disease areas, or funding mechanisms.
@@ -298,11 +301,18 @@ Automatically categorizes grants into eight research stages:
 <img width="610" height="549" alt="image" src="https://github.com/user-attachments/assets/9a842964-6f77-4df2-ba58-1fb5704102e0" />
 </p>
 
-
+For our search pipeline, we use a vector similarity search (with a similarity threshold) to ensure high recall, then re-rank with a fine-tuned cross-encoder essential for achieving high precision.  Without the cross-encoder, a "multiple sclerosis" query would return confounding grants containing "systemic sclerosis", for example.      
 
 ### 8. Ontology Development
+<p align="center">
+<img width="514" height="636" alt="image" src="https://github.com/user-attachments/assets/5faed176-1140-409e-94ab-fe2919eebe59" />
+</p>
+It was not clear a priori how to categorize NIH research grants into meaningful translational research areas. We therefore developed an iterative pipeline (shown above) that proposed an initial ontology, refined it through repeated analysis of classification errors, and ultimately produced high-precision LLM prompts for large-scale annotation.
 
 ### 9. LLM Classification Pipeline
+<br>
+
+<img width="2752" height="1360" alt="image" src="https://github.com/user-attachments/assets/c026d145-d1eb-4923-846c-65ecd8440514" />
 
 ### 10. Evaluation
 
