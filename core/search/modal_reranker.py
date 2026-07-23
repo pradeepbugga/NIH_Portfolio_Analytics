@@ -1,8 +1,14 @@
 import modal
 
-rerank_fn = modal.Function.from_name("nih-reranker", "Reranker.rerank_batch")
+Reranker_cls = modal.Cls.from_name("nih-reranker", "Reranker")
 
+# create a reranker instance 
+reranker = Reranker_cls()
 
-distributed_rerank_fn = modal.Function.from_name("nih-reranker", "distributed_rerank")
+# access class methods
 
-rerank_test = modal.Function.from_name("nih-reranker", "Reranker.debug_score")
+rerank_fn = reranker.rerank_batch
+
+rerank_test = reranker.debug_score
+
+distributed_rerank_fn = modal.Function.lookup("nih-reranker", "distributed_rerank")
