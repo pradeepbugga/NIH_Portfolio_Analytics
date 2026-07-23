@@ -311,10 +311,24 @@ It was not clear a priori how to categorize NIH research grants into meaningful 
 
 ### 9. LLM Classification Pipeline
 <br>
-
-<img width="2752" height="1360" alt="image" src="https://github.com/user-attachments/assets/c026d145-d1eb-4923-846c-65ecd8440514" />
+<img width="2752" height="257" alt="image" src="https://github.com/user-attachments/assets/95ebf790-a97b-4b3b-a2e6-b1bcc0dba22c" />
 
 ### 10. Evaluation
+
+#### Semantic Search
+
+The semantic search pipeline was benchmarked against 15 NIH Research, Condition, and Disease Categorization (RCDC) portfolios spanning both narrowly defined diseases (e.g., Multiple Sclerosis, Endometriosis) and broader clinical concepts (e.g., Breast Cancer, Heart Disease). The RCDC categorization is what is officially used by NIH for congressional reporting and therefore makes for 
+the most suitable comparison.  Retrieval quality was measured using precision and recall before and after cross-encoder reranking.  
+
+<p align="center">
+<img width="600" height="600" alt="image" src="https://github.com/user-attachments/assets/cfa121f6-c924-4de8-b5b4-3ec73222f6c1" />
+</p>
+
+The evaluation above demonstrates the intended behavior of the hybrid retrieval architecture.
+
+First, high-recall embedding retrieval generates a broad candidate set.  Then, cross-encoder reranking substantially improves precision while preserving most relevant grants.  Varying the score threshold of our re-ranker can toggle the precision/recall tradeoff, but we found that threshold = -2.0 provides the right balance.
+
+#### Categorization
 
 ### 11. 
 
