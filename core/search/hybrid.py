@@ -1,5 +1,8 @@
 import time
 import anyio
+
+import logging
+
 from core.search.query_embedding import embed_query
 from core.search.candidate_retrieval import retrieve_candidates_range
 from core.search.load_docs import load_grant_texts
@@ -7,6 +10,8 @@ from core.search.combine import combine_and_sort
 from core.search.postprocess import dedupe_by_core_project
 from core.utils.query_expansion import expand_query_for_fts
 
+
+logger = logging.getLogger(__name__)
 
 async def hybrid_search_range(
     query: str,
@@ -62,7 +67,7 @@ async def hybrid_search_range(
     query_vec = embed_query(query)
     query_vec_list = query_vec.tolist()
 
-    print(f"Query embedded in {time.perf_counter() - t0:.4f}s")
+    logger.info("Query embedded in %.4fs", time.perf_counter() - t0)
 
     # 1b) Extract synonyms cleanly as an isolated list before running thread 🚀
     base_query, query_synonyms = expand_query_for_fts(query, synonym_registry or {})
@@ -80,7 +85,8 @@ async def hybrid_search_range(
         fiscal_years,  # Pass fiscal_years parameter (None or list)
         500000,  # max_results explicitly filled positionally
     )
-    print(f"Candidates retrieved in {time.perf_counter() - t1:.4f}s")
+
+    logger.info("Candidates retrieved in %.4fs", time.perf_counter() - t1)
 
     if not candidates:
         return {
@@ -91,38 +97,44 @@ async def hybrid_search_range(
             "candidates": [],  # Include empty candidates for debugging
         }
 
-    print(f"Retrieved {len(candidates)} candidates.")
+    logger.info("Retrieved %d candidates for query '%s'", len(candidates), query)
 
     t2 = time.perf_counter()
     vector_sim_map = {gid: sim for gid, sim in candidates}
     grant_ids = list(vector_sim_map.keys())
 
-    print("Loading document texts...")
 
     # 3) Rerank with cross-encoder (Passing ONLY IDs over the internet!) 🚀
-    print("Sending IDs to Modal for remote Cross-Encoder scoring...")
     t2 = time.perf_counter()
 
     # Use updated async/batch setup
     scores = await rerank_fn.remote.aio(query, grant_ids)
 
-    print(f"Candidates reranked on remote GPU in {time.perf_counter() - t2:.4f}s")
+    logger.info(
+        "Candidates reranked on remote GPU in %.4fs", time.perf_counter() - t2
+    )
 
-    # ⚠️ SAFETY ALIGNMENT: Match grant_ids exactly to what Modal actually scored
+    # ⚠️ ALIGNMENT: Match grant_ids exactly to what Modal actually scored
     if len(grant_ids) != len(scores):
-        print(
-            f"⚠️ Mismatch: {len(grant_ids)} grant_ids sent, but {len(scores)} scores returned"
+        logger.warning(
+            "Mismatch: %d grant_ids sent, but %d scores returned",
+            len(grant_ids),
+            len(scores),
         )
         return {"query": query, "model_version": "v1", "projects": [], "records": []}
 
     # 4) Hydrate Document Metadata locally *ONLY FOR SUCCESSFUL MATCHES*
-    print("Loading document metadata/titles for scored records...")
     t3 = time.perf_counter()
 
     # Pull data out of Postgres locally to render your frontend cards
     docs = await anyio.to_thread.run_sync(load_grant_texts, cur, grant_ids)
 
-    print(f"Document metadata loaded in {time.perf_counter() - t3:.4f}s")
+    logger.info(
+        "Document metadata loaded in %.4fs for %d grants",
+        time.perf_counter() - t3,
+        len(docs),
+    )
+
     if not docs:
         return {"query": query, "model_version": "v1", "projects": [], "records": []}
 
@@ -132,13 +144,15 @@ async def hybrid_search_range(
 
     # 5) Combine scores + Sort + Deduplicate
     t4 = time.perf_counter()
-    print("Combining, sorting, and deduplicating final results...")
 
     ranked = combine_and_sort(docs, scores, rerank_score_threshold)
     deduped = dedupe_by_core_project(ranked)
 
-    print(f"Results combined and deduplicated in {time.perf_counter() - t4:.4f}s")
-    print(f"Returning {len(deduped)} top matching projects.")
+    logger.info(
+        "Results combined, sorted, and deduplicated in %.4fs",
+        time.perf_counter() - t4,
+    )
+    logger.info("Returning %d top matching projects for query '%s'", len(deduped), query)
 
     return {
         "query": query,
