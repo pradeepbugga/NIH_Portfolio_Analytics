@@ -173,9 +173,7 @@ the most suitable comparison.  Retrieval quality was measured using precision an
 <img width="600" height="600" alt="image" src="https://github.com/user-attachments/assets/cfa121f6-c924-4de8-b5b4-3ec73222f6c1" />
 </p>
 
-The evaluation above demonstrates the intended behavior of the hybrid retrieval architecture.
-
-First, high-recall embedding retrieval generates a broad candidate set.  Then, cross-encoder reranking substantially improves precision while preserving most relevant grants.  Varying the score threshold of our reranker can toggle the precision/recall tradeoff, but we found that threshold = -2.0 provides the right balance.
+As the graph above demonstrates, high-recall embedding retrieval first generates a broad candidate set.  Then, cross-encoder reranking substantially improves precision while preserving most relevant grants.  Varying the score threshold of our reranker can toggle the precision/recall tradeoff, but we found that threshold = -2.0 provides the right balance.
 
 The key findings from evaluation were that narrowly defined disease entities (e.g., multiple Sclerosis, endometriosis) showed strong agreement with RCDC, while broader umbrella categories (e.g., heart disease) were more challenging.  Broad RCDC categories encompass diverse disease subtypes and clinical concepts, suggesting that additional query expansion, ontology-aware retrieval, or task-specific training examples may further improve recall.
 
@@ -222,7 +220,7 @@ Finally, our final production prompts achieved approximately 97% coverage across
 
 ### 11. Engineering Decisions
 
-#### *Why PubMedBert?*
+#### *Why PubMedBERT?*
 
   PubMedBert was trained on PubMed abstracts, therefore embedding representations are especially suited for the biomedical text found in NIH grant abstracts.  
 
@@ -251,6 +249,9 @@ Finally, our final production prompts achieved approximately 97% coverage across
   Binary classifier prompts allow independent characterization of categories per grant (with sufficient inclusion/exclusion criteria) while also allowing grants to receive multiple labels when appropriate.  Multi-label classification runs the risk of forcing mutually exclusive predictions.
 
 ### 12. Performance & Cost Optimizations
+
+
+
 
 ### 13. Repository Structure
 
