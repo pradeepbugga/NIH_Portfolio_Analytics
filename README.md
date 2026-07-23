@@ -12,7 +12,7 @@
 - [Search Pipeline](#7-search-pipeline)
 - [Ontology Development](#8-ontology-development)
 - [LLM Classification Pipeline](#9-llm-classification-pipeline)
-- 
+- [Evaluation](#10-evaluation)
 
 ### 1. Overview
 The NIH funds over $50 billion in biomedical research annually across hundreds of disease areas and research programs. While NIH RePORTER provides access to individual grants, it offers limited insight into the type of research being funded (e.g., basic science versus therapeutic development) across agencies, disease areas, or funding mechanisms.
@@ -317,7 +317,7 @@ It was not clear a priori how to categorize NIH research grants into meaningful 
 
 #### Semantic Search
 
-The semantic search pipeline was benchmarked against 15 NIH Research, Condition, and Disease Categorization (RCDC) portfolios spanning both narrowly defined diseases (e.g., Multiple Sclerosis, Endometriosis) and broader clinical concepts (e.g., Breast Cancer, Heart Disease). The RCDC categorization is what is officially used by NIH for congressional reporting and therefore makes for 
+The semantic search pipeline was benchmarked against 15 NIH Research, Condition, and Disease Categorization (RCDC) portfolios spanning both narrowly defined diseases (e.g., Multiple Sclerosis, Endometriosis) and broader clinical concepts (e.g., Breast Cancer, Heart Disease). The [RCDC categorization](https://report.nih.gov/funding/categorical-spending) is what is officially used by NIH for congressional reporting and therefore makes for 
 the most suitable comparison.  Retrieval quality was measured using precision and recall before and after cross-encoder reranking.  
 
 <p align="center">
