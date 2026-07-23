@@ -6,13 +6,19 @@
 - [Overview](#1-overview)
 - [Demo](#2-demo)
 - [Features](#3-features)
-- [Technical Highlights](#4-technical-highlights)
-- [System Architecture](#5-system-architecture)
-- [Repository Structure](#6-repository-structure)
+- [Tech Stack](#4-tech-stack)
+- [Technical Highlights](#5-technical-highlights)
+- [System Architecture](#6-system-architecture)
 - [Search Pipeline](#7-search-pipeline)
 - [Ontology Development](#8-ontology-development)
 - [LLM Classification Pipeline](#9-llm-classification-pipeline)
 - [Evaluation](#10-evaluation)
+- [Engineering Decisions/Challenges](#11-engineering-decisions/challenges)
+- [Performance & Cost Optimizations](#12-performance-&-cost-optimizations)
+- [Repository Structure](#13-repository-structure)
+- [Installation](#14-installation)
+- [Running](#15-running)
+
 
 ### 1. Overview
 The NIH funds over $50 billion in biomedical research annually across hundreds of disease areas and research programs. While NIH RePORTER provides access to individual grants, it offers limited insight into the type of research being funded (e.g., basic science versus therapeutic development) across agencies, disease areas, or funding mechanisms.
@@ -84,7 +90,39 @@ Automatically categorizes grants into eight research stages:
 - Compare funding across institutes, activity codes, disease areas, and research categories.
 - Aggregate award amounts and visualize portfolio composition.
 
-### 4. Technical Highlights
+### 4. Tech Stack
+
+<div align="center">
+
+<table>
+  <tr>
+    <th align="center">Layer</th>
+    <th align="center">Technologies</th>
+  </tr>
+  <tr>
+    <td align="center">
+      Frontend<br>
+      Backend<br>
+      Database<br>
+      AI/ML<br>
+      Infrastructure<br>
+      Tooling
+    </td>
+    <td align="center">
+      HTML, CSS, JavaScript, Plotly<br>
+      FastAPI, Python<br>
+      PostgreSQL, pgvector<br>
+      OpenAI GPT-5.4-mini, PubMedBERT, MS MARCO (cross-encoder)<br>
+      Modal, Hetzner VM<br>
+      Git, GitHub, pytest, logging
+    </td>
+  </tr>
+</table>
+
+</div>
+
+
+### 5. Technical Highlights
 - Incremental NIH data ingestion and normalization pipeline
 - Hybrid semantic retrieval (PubMedBERT embeddings + PostgreSQL pgvector)
 - Domain-aware keyword search with synonym expansion
@@ -94,7 +132,6 @@ Automatically categorizes grants into eight research stages:
 - Ontology development through iterative ML-assisted error analysis
 - LLM-based grant classification pipeline
 - OpenAI Batch API processing for large-scale annotation
-- Incremental NIH data ingestion and normalization pipeline
 - PostgreSQL relational database design
 - FastAPI REST API backend
 - Modal GPU inference for distributed reranking
@@ -103,11 +140,94 @@ Automatically categorizes grants into eight research stages:
 - GitHub Actions CI/CD
 - Structured logging and performance monitoring
 
-### 5. System Architecture
+### 6. System Architecture
 
 <img width="2736" height="1517" alt="image" src="https://github.com/user-attachments/assets/b6acd3cf-a1ea-4cc8-935d-8e715de58038" />
 
-### 6. Repository Structure
+### 7. Search Pipeline
+
+<p align="center">
+<img width="610" height="549" alt="image" src="https://github.com/user-attachments/assets/9a842964-6f77-4df2-ba58-1fb5704102e0" />
+</p>
+
+For our search pipeline, we use a vector similarity search (with a similarity threshold) to ensure high recall, then re-rank with a fine-tuned cross-encoder essential for achieving high precision.  Without the cross-encoder, a "multiple sclerosis" query would return confounding grants containing "systemic sclerosis", for example.      
+
+### 8. Ontology Development
+<p align="center">
+<img width="514" height="636" alt="image" src="https://github.com/user-attachments/assets/5faed176-1140-409e-94ab-fe2919eebe59" />
+</p>
+It was not clear a priori how to categorize NIH research grants into meaningful translational research areas. We therefore developed an iterative pipeline (shown above) that proposed an initial ontology, refined it through repeated analysis of classification errors, and ultimately produced high-precision LLM prompts for large-scale annotation.
+
+### 9. LLM Classification Pipeline
+<br>
+<img width="2752" height="257" alt="image" src="https://github.com/user-attachments/assets/95ebf790-a97b-4b3b-a2e6-b1bcc0dba22c" />
+
+### 10. Evaluation
+
+#### Semantic Search
+
+The semantic search pipeline was benchmarked against 15 NIH Research, Condition, and Disease Categorization (RCDC) portfolios spanning both narrowly defined diseases (e.g., Multiple Sclerosis, Endometriosis) and broader clinical concepts (e.g., Breast Cancer, Heart Disease). The [RCDC categorization](https://report.nih.gov/funding/categorical-spending) is what is officially used by NIH for congressional reporting and therefore makes for 
+the most suitable comparison.  Retrieval quality was measured using precision and recall before and after cross-encoder reranking.  
+
+<p align="center">
+<img width="600" height="600" alt="image" src="https://github.com/user-attachments/assets/cfa121f6-c924-4de8-b5b4-3ec73222f6c1" />
+</p>
+
+The evaluation above demonstrates the intended behavior of the hybrid retrieval architecture.
+
+First, high-recall embedding retrieval generates a broad candidate set.  Then, cross-encoder reranking substantially improves precision while preserving most relevant grants.  Varying the score threshold of our reranker can toggle the precision/recall tradeoff, but we found that threshold = -2.0 provides the right balance.
+
+The key findings from evaluation were that narrowly defined disease entities (e.g., multiple Sclerosis, endometriosis) showed strong agreement with RCDC, while broader umbrella categories (e.g., heart disease) were more challenging.  Broad RCDC categories encompass diverse disease subtypes and clinical concepts, suggesting that additional query expansion, ontology-aware retrieval, or task-specific training examples may further improve recall.
+
+
+#### LLM Categorization
+
+Because no public benchmark exists for categorizing NIH grants into the proposed translational research ontology, I used  expert-curated challenge sets rather than randomly sampled grants for evaluation.
+
+I constructed challenge sets by collecting grants that were difficult to classify during ontology development, including:
+
+- Grants with overlapping research objectives
+- False positives and false negatives identified during classifier evaluation
+- Semantically similar but conceptually distinct research projects
+- Borderline cases requiring careful interpretation of category definitions
+
+Below are examples of ambiguities in research categories represented in the challenge sets:
+
+<div align="center">
+
+<table>
+  <tr>
+    <th>Category</th>
+    <th>Difficult Distinction</th>
+  </tr>
+  <tr>
+    <td align="center">
+      Diagnostic<br>
+      Therapeutic<br>
+      Research Tool
+    </td>
+    <td align="left">
+      Diagnostic tool vs. biomarker discovery<br>
+      Therapeutic development vs. mechanistic biology<br>
+      Method development vs. use of an existing method
+    </td>
+  </tr>
+</table>
+
+</div>
+
+Model performance was evaluated using precision, recall, and F1 score. Though these metrics are far less than what they would be with a randomly sampled grant dataset, they provide a useful benchmark for future models.  
+
+Finally, our final production prompts achieved approximately 97% coverage across the NIH grant corpus for FY2025 (65K grants). The remaining ~3% of grants represented ambiguous or out-of-scope cases, requiring additional prompt optimization.
+
+### 11. Engineering Decisions
+
+### 12. Performance & Cost Optimizations
+
+### 13. Repository Structure
+
+
+### 7. Repository Structure
 
 ```
 ├── .github/
@@ -295,41 +415,5 @@ Automatically categorizes grants into eight research stages:
     └── utils/
         └── test_query_expansion.py
 ```
-### 7. Search Pipeline
-
-<p align="center">
-<img width="610" height="549" alt="image" src="https://github.com/user-attachments/assets/9a842964-6f77-4df2-ba58-1fb5704102e0" />
-</p>
-
-For our search pipeline, we use a vector similarity search (with a similarity threshold) to ensure high recall, then re-rank with a fine-tuned cross-encoder essential for achieving high precision.  Without the cross-encoder, a "multiple sclerosis" query would return confounding grants containing "systemic sclerosis", for example.      
-
-### 8. Ontology Development
-<p align="center">
-<img width="514" height="636" alt="image" src="https://github.com/user-attachments/assets/5faed176-1140-409e-94ab-fe2919eebe59" />
-</p>
-It was not clear a priori how to categorize NIH research grants into meaningful translational research areas. We therefore developed an iterative pipeline (shown above) that proposed an initial ontology, refined it through repeated analysis of classification errors, and ultimately produced high-precision LLM prompts for large-scale annotation.
-
-### 9. LLM Classification Pipeline
-<br>
-<img width="2752" height="257" alt="image" src="https://github.com/user-attachments/assets/95ebf790-a97b-4b3b-a2e6-b1bcc0dba22c" />
-
-### 10. Evaluation
-
-#### Semantic Search
-
-The semantic search pipeline was benchmarked against 15 NIH Research, Condition, and Disease Categorization (RCDC) portfolios spanning both narrowly defined diseases (e.g., Multiple Sclerosis, Endometriosis) and broader clinical concepts (e.g., Breast Cancer, Heart Disease). The [RCDC categorization](https://report.nih.gov/funding/categorical-spending) is what is officially used by NIH for congressional reporting and therefore makes for 
-the most suitable comparison.  Retrieval quality was measured using precision and recall before and after cross-encoder reranking.  
-
-<p align="center">
-<img width="600" height="600" alt="image" src="https://github.com/user-attachments/assets/cfa121f6-c924-4de8-b5b4-3ec73222f6c1" />
-</p>
-
-The evaluation above demonstrates the intended behavior of the hybrid retrieval architecture.
-
-First, high-recall embedding retrieval generates a broad candidate set.  Then, cross-encoder reranking substantially improves precision while preserving most relevant grants.  Varying the score threshold of our re-ranker can toggle the precision/recall tradeoff, but we found that threshold = -2.0 provides the right balance.
-
-#### Categorization
-
-### 11. 
 
 
