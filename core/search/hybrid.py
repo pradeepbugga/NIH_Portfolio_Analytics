@@ -67,6 +67,8 @@ async def hybrid_search_range(
     query_vec = embed_query(query)
     query_vec_list = query_vec.tolist()
 
+    print(query_vec_list)
+
     logger.info("Query embedded in %.4fs", time.perf_counter() - t0)
 
     # 1b) Extract synonyms cleanly as an isolated list before running thread 🚀
