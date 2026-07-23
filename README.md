@@ -222,12 +222,37 @@ Finally, our final production prompts achieved approximately 97% coverage across
 
 ### 11. Engineering Decisions
 
+#### *Why PubMedBert?*
+
+  PubMedBert was trained on PubMed abstracts, therefore embedding representations are especially suited for the biomedical text found in NIH grant abstracts.  
+
+#### *Why PostgreSQL + pgvector?*
+
+  This combination provides a unified database for grant metadata and embeddings, enabling straightforward joins and filtering.  In addition, this approach is free, enables simple construction of indices (HNSW and B-tree), and allows simple analysis of latency / performance.  
+
+#### *Why Hybrid Retrieval?*
+
+  Pure semantic search misses a subset of grants as in the case of the query "multiple sclerosis" failing to capture grants only mentioning the abbreviation ("MS").  Hybrid retrieval with keyword search ensures high recall of grants with synonymous terms.
+
+#### *Why Range Search Instead of Top-k?*
+
+  The goal of this application is to retrieve an exhaustive list of all NIH grants given a particular query to understand accurate funding allocation.  This is unlike traditional search systems where users are only looking for a few, highly relevant results.  
+
+#### *Why Cross-Encoder Reranking?*
+
+  While range hybrid search achieves high recall of all potentially relevant grants, precision suffers as a number of different biomedical terms carry similar lexical and semantic features (i.e. both "multiple sclerosis" and "systemic sclerosis" share "sclerosis"). 
+
+#### *Why Fine-Tune the Cross-Encoder?*
+
+  While the initial PubMedBERT model is training on biomedical text, the MS MARCO cross-encoder I used is a generalist model that lacks the ability to discern biomedical text associations (i.e. multiple sclerosis and myelin).  By manually generating labeled query-grant abstract pairs, I am able to significantly boost the precision of our cross-encoder.
+
+#### *Why Binary Classifier LLM Prompts?*
+
+  Binary classifier prompts allow independent characterization of categories per grant (with sufficient inclusion/exclusion criteria) while also allowing grants to receive multiple labels when appropriate.  Multi-label classification runs the risk of forcing mutually exclusive predictions.
+
 ### 12. Performance & Cost Optimizations
 
 ### 13. Repository Structure
-
-
-### 7. Repository Structure
 
 ```
 ├── .github/
