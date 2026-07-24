@@ -18,6 +18,7 @@
 - [Repository Structure](#13-repository-structure)
 - [Installation](#14-installation)
 - [Running](#15-running)
+- [License](#16-license)
 
 
 ### 1. Overview
