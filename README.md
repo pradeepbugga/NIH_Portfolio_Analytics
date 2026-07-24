@@ -55,20 +55,20 @@ The above chart shows the categorical breakdown of NIH research grants in FY2025
 
 ### 3. Features
 
-#### 📊 Interactive Portfolio Analytics
+#### 📊 *Interactive Portfolio Analytics*
 - Explore NIH funding across the entire research portfolio or within individual NIH institutes and centers.
 - Visualize funding distributions across eight research categories with interactive charts.
 
-#### 🔍 Semantic Grant Search
+#### 🔍 *Semantic Grant Search*
 - Search NIH grants using a hybrid semantic and keyword search engine.
 - Supports natural-language queries (e.g., *multiple sclerosis*, *CRISPR gene editing*, and *spatial transcriptomics*).
 
-#### 🧬 Data-Driven Ontology Development
+#### 🧬 *Data-Driven Ontology Development*
 - Developed an eight-category research ontology through an iterative machine learning workflow rather than defining categories *a priori*.
 - Proposed candidate research categories, trained embedding-based classifiers to identify systematic errors, and performed false positive/false negative analysis to refine category definitions.
 - Merged overlapping concepts, introduced new categories where necessary, and used the resulting ontology as the foundation for large-scale LLM classification of NIH grants.
 - 
-#### 🧠 LLM-Based Research Classification
+#### 🧠 *LLM-Based Research Classification*
 Automatically categorizes grants into eight research stages:
 
 - Mechanistic / Basic Science
@@ -80,14 +80,14 @@ Automatically categorizes grants into eight research stages:
 - Research Infrastructure
 - Education / Training
 
-#### 📂 Portfolio Drill-Down
+#### 📂 *Portfolio Drill-Down*
 - Navigate from portfolio-level funding summaries to individual grant records.
 - Filter portfolios by agency, activity code, research category, and search query.
 
-#### 📝 Grant Summaries
+#### 📝 *Grant Summaries*
 - Generate concise AI-written summaries of complex NIH abstracts.
 
-#### 💰 Funding Analytics
+#### 💰 *Funding Analytics*
 - Compare funding across institutes, activity codes, disease areas, and research categories.
 - Aggregate award amounts and visualize portfolio composition.
 
@@ -458,37 +458,37 @@ Finally, our final production prompts achieved approximately 97% coverage across
 
 ### 14. Installation
 
-##### Prerequisites
+##### *Prerequisites*
 - Python 3.10+
 - PostgreSQL 16+ with pgvector
 - OpenAI API key
 - Modal account (for GPU inference)
 
-##### Clone the Repository
+##### *Clone the Repository*
 ```
 git clone https://github.com/pradeepbugga/NIH_Portfolio-Analytics.git
 cd NIH_Portfolio_Analytics
 ```
 
-##### Create a Virtual Environment
+##### *Create a Virtual Environment*
 ```
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-##### Install Dependencies
+##### *Install Dependencies*
 ```
 pip install -r requirements.txt
 ```
 
-##### Configure Environment Variables
+##### *Configure Environment Variables*
 Create a .env file:
 ```
 OPENAI_API_KEY=...
 DATABASE_URL=...
 ```
 
-##### Tested Environment
+##### *Tested Environment*
 
 - Python 3.10.19 (local development)
 - Python 3.12 (production deployment)
@@ -525,7 +525,7 @@ Production prompt templates are proprietary and therefore not included in the pu
 
 ### 15. Running
 
-#### Running the Application
+#### *Running the Application*
 Start the API:
 ```
 uvicorn app.main:app --reload
@@ -535,7 +535,7 @@ Visit
 http://localhost:8000
 ```
 
-#### Running Tests
+#### *Running Tests*
 ```
 pytest
 ```
