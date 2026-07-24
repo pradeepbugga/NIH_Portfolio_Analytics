@@ -514,6 +514,13 @@ Generate embeddings:
 ```
 python -m pipelines.run_embeddings
 ```
+Fine-tuning cross-encoder:
+
+The training pipeline is included; proprietary training labels and final model weights are not distributed.
+
+LLM Categorization
+
+Production prompt templates are proprietary and therefore not included in the public repository.
 
 ### 15. Running
 
@@ -531,4 +538,6 @@ http://localhost:8000
 ```
 pytest
 ```
+### 16. License
+This repository is licensed under the MIT License. Certain proprietary assets—including production LLM prompts, manually curated training datasets, and fine-tuned model weights—are intentionally excluded from the public release.
 
