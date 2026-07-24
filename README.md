@@ -18,6 +18,7 @@
 - [Repository Structure](#13-repository-structure)
 - [Installation](#14-installation)
 - [Running](#15-running)
+- [License](#16-license)
 
 
 ### 1. Overview
@@ -54,20 +55,20 @@ The above chart shows the categorical breakdown of NIH research grants in FY2025
 
 ### 3. Features
 
-#### 📊 Interactive Portfolio Analytics
+#### 📊 *Interactive Portfolio Analytics*
 - Explore NIH funding across the entire research portfolio or within individual NIH institutes and centers.
 - Visualize funding distributions across eight research categories with interactive charts.
 
-#### 🔍 Semantic Grant Search
+#### 🔍 *Semantic Grant Search*
 - Search NIH grants using a hybrid semantic and keyword search engine.
 - Supports natural-language queries (e.g., *multiple sclerosis*, *CRISPR gene editing*, and *spatial transcriptomics*).
 
-#### 🧬 Data-Driven Ontology Development
+#### 🧬 *Data-Driven Ontology Development*
 - Developed an eight-category research ontology through an iterative machine learning workflow rather than defining categories *a priori*.
 - Proposed candidate research categories, trained embedding-based classifiers to identify systematic errors, and performed false positive/false negative analysis to refine category definitions.
 - Merged overlapping concepts, introduced new categories where necessary, and used the resulting ontology as the foundation for large-scale LLM classification of NIH grants.
 - 
-#### 🧠 LLM-Based Research Classification
+#### 🧠 *LLM-Based Research Classification*
 Automatically categorizes grants into eight research stages:
 
 - Mechanistic / Basic Science
@@ -79,14 +80,14 @@ Automatically categorizes grants into eight research stages:
 - Research Infrastructure
 - Education / Training
 
-#### 📂 Portfolio Drill-Down
+#### 📂 *Portfolio Drill-Down*
 - Navigate from portfolio-level funding summaries to individual grant records.
 - Filter portfolios by agency, activity code, research category, and search query.
 
-#### 📝 Grant Summaries
+#### 📝 *Grant Summaries*
 - Generate concise AI-written summaries of complex NIH abstracts.
 
-#### 💰 Funding Analytics
+#### 💰 *Funding Analytics*
 - Compare funding across institutes, activity codes, disease areas, and research categories.
 - Aggregate award amounts and visualize portfolio composition.
 
@@ -250,8 +251,21 @@ Finally, our final production prompts achieved approximately 97% coverage across
 
 ### 12. Performance & Cost Optimizations
 
+#### Performance Optimizations
+- Used B-tree indices to accelerate queries common to API endpoints
+- In-memory loading of cross-encoder model and grant metadata (Parquet) in Modal GPU containers
+- Distributed reranking across up to 10 Modal GPU workers
+- Cached search results so subsequent latencies are a few seconds
 
+#### Cost Optimizations
+- Used OpenAI Batch API for large-scale annotation
+- Modal scale-to-zero (not paying for warm GPUs)
+- Open-source embedding and cross-encoder models to obviate API inference costs
 
+#### Representative Latencies and Costs
+- Overall search pipeline: ~60 s (cache miss), ~ 5 s (cache hit)
+- Reranking ~ 60K grants: $0.10 (Modal GPU)
+- LLM annotation ~65k grants: ~$500 (OpenAI Batch API)
 
 ### 13. Repository Structure
 
@@ -379,7 +393,7 @@ Finally, our final production prompts achieved approximately 97% coverage across
 │       ├── metrics.py
 │       ├── rcdc.py
 │       └── run_eval.py
-├── modal/
+├── modal_deploy/
 │   ├── __init__.py
 │   └── reranker_app.py
 ├── pipelines/
@@ -442,4 +456,89 @@ Finally, our final production prompts achieved approximately 97% coverage across
         └── test_query_expansion.py
 ```
 
+### 14. Installation
+
+##### *Prerequisites*
+- Python 3.10+
+- PostgreSQL 16+ with pgvector
+- OpenAI API key
+- Modal account (for GPU inference)
+
+##### *Clone the Repository*
+```
+git clone https://github.com/pradeepbugga/NIH_Portfolio-Analytics.git
+cd NIH_Portfolio_Analytics
+```
+
+##### *Create a Virtual Environment*
+```
+python -m venv .venv
+source .venv/bin/activate
+```
+
+##### *Install Dependencies*
+```
+pip install -r requirements.txt
+```
+
+##### *Configure Environment Variables*
+Create a .env file:
+```
+OPENAI_API_KEY=...
+DATABASE_URL=...
+```
+
+##### *Tested Environment*
+
+- Python 3.10.19 (local development)
+- Python 3.12 (production deployment)
+- PostgreSQL 16.8
+- pgvector 0.6.0
+
+#### Database Setup
+```
+createdb nih_portfolio
+```
+Enable pgvector:
+```
+CREATE EXTENSION vector;
+```
+Run the schema:
+```
+psql -d nih_portfolio -f database/schema.sql
+```
+Import NIH data:
+```
+python -m pipelines.ingest_nih
+```
+Generate embeddings:
+```
+python -m pipelines.run_embeddings
+```
+Fine-tuning cross-encoder:
+
+The training pipeline is included; proprietary training labels and final model weights are not distributed.
+
+LLM Categorization
+
+Production prompt templates are proprietary and therefore not included in the public repository.
+
+### 15. Running
+
+#### *Running the Application*
+Start the API:
+```
+uvicorn app.main:app --reload
+```
+Visit
+```
+http://localhost:8000
+```
+
+#### *Running Tests*
+```
+pytest
+```
+### 16. License
+This repository is licensed under the MIT License. Certain proprietary assets—including production LLM prompts, manually curated training datasets, and fine-tuned model weights—are intentionally excluded from the public release.
 
