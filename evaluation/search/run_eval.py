@@ -13,6 +13,27 @@ from evaluation.search.rcdc import load_rcdc_portfolio
 
 async def main(threshold):
 
+    """
+    This script evaluates the performance of a hybrid search system against a benchmark challenge set of RCDC categories.
+    
+    It performs a hybrid search for each category, retrieves the results, 
+    and computes evaluation metrics by comparing the retrieved results against the ground-truth RCDC portfolio.
+    
+    The results, including metrics and summary statistics, are saved to CSV files for further analysis.
+
+    Parameters
+    ----------
+    threshold : float
+        The reranker score threshold to be used for filtering search results.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing two DataFrames:
+        - summary_df: A DataFrame containing detailed metrics for each category.
+        - mean_df: A DataFrame containing average metrics across all categories.
+    """
+
     # load benchmark data
     benchmark = pd.read_csv("./evaluation/search/benchmark.csv")
 

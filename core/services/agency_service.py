@@ -11,6 +11,36 @@ logger = logging.getLogger(__name__)
 
 async def get_agency_portfolio(agency_code: str, code_registry: list[dict]) -> dict:
 
+    """
+    Retrieves the portfolio of grants for a specific agency code.
+    Includes historical funding trends, ontology distribution, and detailed grant information.
+
+    Parameters
+    ----------
+    agency_code : str
+        The agency code to filter the grants by.
+    code_registry : list[dict]
+        A list of dictionaries containing valid agency codes and their associated metadata.
+    
+    Returns
+    -------
+    dict
+        A dictionary containing the aggregated results, including:
+        - ``query``: a string representation of the agency code.
+        - ``years``: a list of fiscal years for which data is available.
+        - ``funding``: a list of total funding amounts corresponding to each fiscal year.
+        - ``results``: a list of detailed grant records for the specified agency code.
+        - ``ontology_labels``: a list of ontology category labels.
+        - ``ontology_values``: a list of total funding amounts corresponding to each ontology category.
+
+    Raises
+    ------
+    ValueError
+        If the agency_code is empty or not found in the code_registry.
+    Exception
+        If there is an error during database operations.
+    """
+
     target_code = agency_code.upper()
 
     logger.info("Retrieving portfolio for agency code: %s", target_code)

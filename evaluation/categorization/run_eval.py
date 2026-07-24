@@ -7,72 +7,85 @@ from tqdm import tqdm
 
 from dotenv import load_dotenv
 
-load_dotenv()
+def main():
 
-category = "research_tool"
+    """
+    This script evaluates the performance of a classification model on a benchmark challenge set of grants.
+    It loads the challenge set, fetches the corresponding grant texts from the database, 
+    classifies each grant using a specified prompt, and computes evaluation metrics based on the predictions.
+
+    The results, including predictions and metrics, are saved to CSV files for further analysis.
+    """
+
+    load_dotenv()
+
+    category = "research_tool"
 
 
-benchmark = pd.read_csv(f"./evaluation/categorization/challenge_sets/{category}.csv")
-prompt_path = f"./core/llm/prompts/{category}.txt"
+    benchmark = pd.read_csv(f"./evaluation/categorization/challenge_sets/{category}.csv")
+    prompt_path = f"./core/llm/prompts/{category}.txt"
 
-with open(prompt_path, "r") as f:
-    prompt = f.read()
+    with open(prompt_path, "r") as f:
+        prompt = f.read()
 
-conn = get_db_connection()
-cur = conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-docs = load_grant_texts(cur, benchmark["grant_id"].tolist())
+    docs = load_grant_texts(cur, benchmark["grant_id"].tolist())
 
-conn.close()
+    conn.close()
 
-predictions = []
+    predictions = []
 
-for _, row in tqdm(
-    benchmark.iterrows(), total=len(benchmark), desc="Classifying grants"
-):
-    grant_id = row["grant_id"]
-    expected = row["label"]
+    for _, row in tqdm(
+        benchmark.iterrows(), total=len(benchmark), desc="Classifying grants"
+    ):
+        grant_id = row["grant_id"]
+        expected = row["label"]
 
-    doc = docs[grant_id]
+        doc = docs[grant_id]
 
-    title = doc["title"]
-    abstract = doc["abstract"]
+        title = doc["title"]
+        abstract = doc["abstract"]
 
-    result = classify_grant_text(title, abstract, prompt)
+        result = classify_grant_text(title, abstract, prompt)
 
-    if result["answer"].lower().strip() == "yes":
-        predicted = 1
-    elif result["answer"].lower().strip() == "no":
-        predicted = 0
-    else:
-        print(f"Unexpected answer for grant {grant_id}: {result['answer']}")
-        predicted = None
+        if result["answer"].lower().strip() == "yes":
+            predicted = 1
+        elif result["answer"].lower().strip() == "no":
+            predicted = 0
+        else:
+            print(f"Unexpected answer for grant {grant_id}: {result['answer']}")
+            predicted = None
 
-    predictions.append(
-        {
-            "grant_id": grant_id,
-            "expected": expected,
-            "predicted": predicted,
-            "reasoning": result["reasoning"],
-        }
+        predictions.append(
+            {
+                "grant_id": grant_id,
+                "expected": expected,
+                "predicted": predicted,
+                "reasoning": result["reasoning"],
+            }
+        )
+
+    predictions_df = pd.DataFrame(predictions)
+
+    predictions_df.to_csv(
+        f"./evaluation/categorization/reports/{category}_predictions.csv", index=False
     )
 
-predictions_df = pd.DataFrame(predictions)
+    metrics = compute_metrics(predictions_df)
 
-predictions_df.to_csv(
-    f"./evaluation/categorization/reports/{category}_predictions.csv", index=False
-)
+    print(metrics)
 
-metrics = compute_metrics(predictions_df)
+    metrics["false_positive"].to_csv(
+        f"./evaluation/categorization/reports/{category}_false_positive.csv",
+        index=False,
+    )
 
-print(metrics)
+    metrics["false_negative"].to_csv(
+        f"./evaluation/categorization/reports/{category}_false_negative.csv",
+        index=False,
+    )
 
-metrics["false_positive"].to_csv(
-    f"./evaluation/categorization/reports/{category}_false_positive.csv",
-    index=False,
-)
-
-metrics["false_negative"].to_csv(
-    f"./evaluation/categorization/reports/{category}_false_negative.csv",
-    index=False,
-)
+if __name__ == "__main__":
+    main()  

@@ -24,8 +24,7 @@ def stream_grants_to_embed(cur):
 
 def stream_summaries_to_embed(cur):
     """
-    Streams summaries from grant_summaries that lack an up-to-date
-    embedding in the GrantSummaryEmbeddings table.
+    Same as stream_grants_to_embed but for summaries instead of full grants.
     """
     cur.execute("""
         SELECT

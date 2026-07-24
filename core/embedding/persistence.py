@@ -2,7 +2,18 @@ def upsert_embedding(cur, grant_id: str, content_hash: str, cfg: object, vector:
     """
     Inserts or updates an embedding in its dedicated table.
 
-    Parameters:
+    Parameters
+    ---
+    cur :
+        A database cursor object used to execute SQL commands.
+    grant_id : str
+        The unique identifier for the grant.
+    content_hash : str
+        A hash representing the content of the grant, used to check for changes.
+    cfg : object
+        A configuration object containing embedding parameters such as model name, text recipe, normalization, and embedding version.
+    vector : list
+        The embedding vector to be stored in the database.  
 
     """
     cur.execute(
@@ -35,8 +46,22 @@ def upsert_embedding(cur, grant_id: str, content_hash: str, cfg: object, vector:
     )
 
 
-# this function counts the number of grants that need to be embedded
 def count_grants_to_embed(cur) -> int:
+
+    """
+    Counts the number of grants that need to be embedded.
+
+    Parameters
+    ---
+    cur :
+        A database cursor object used to execute SQL commands.
+    
+    Returns
+    ---
+    int
+        The count of grants that need to be embedded.
+    """
+
     cur.execute("""
         SELECT COUNT(*)
         FROM ResearchGrants rg

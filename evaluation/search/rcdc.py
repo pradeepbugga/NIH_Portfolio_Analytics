@@ -6,6 +6,23 @@ GROUND_TRUTH_DIR = Path(__file__).parent / "ground_truth"
 
 
 def load_rcdc_portfolio(category: str) -> pd.DataFrame:
+
+    """
+    Loads the ground-truth RCDC portfolio for a given category from a CSV file, 
+    processes the data to create a composite grant_id, and filters out duplicates, null values, and intramural grants.
+
+    Parameters:
+    ----------
+    category : str
+        The RCDC category for which the ground-truth portfolio is to be loaded.
+    
+    Returns:
+    -------
+    pd.DataFrame
+        A DataFrame containing the processed ground-truth RCDC portfolio for the specified category,
+        with columns for grant_id and Amount, and filtered to include only valid grants present in the database.
+    """
+
     conn = get_db_connection()
     cur = conn.cursor()
 

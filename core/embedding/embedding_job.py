@@ -12,6 +12,18 @@ from core.db.connection import get_db_connection
 
 
 def run_embedding_job(cfg: EmbeddingConfig):
+
+    """
+    Runs the embedding job for grants in the database.
+    Uses server-side cursors to stream grants because the dataset is large. Embeddings are computed in batches and upserted into the database.
+
+    Parameters
+    ---
+    cfg : EmbeddingConfig
+        Configuration object containing model and embedding parameters.
+    """
+
+
     read_conn = get_db_connection()
     write_conn = get_db_connection()
 
@@ -85,6 +97,14 @@ def run_embedding_job(cfg: EmbeddingConfig):
 
 
 def run_summary_embedding_job(cfg: EmbeddingConfig):
+
+    """
+    Runs the embedding job for grant summaries in the database.
+    Same as run_embedding_job but for summaries instead of full grants.
+
+    """
+
+
     read_conn = get_db_connection()
     write_conn = get_db_connection()
 

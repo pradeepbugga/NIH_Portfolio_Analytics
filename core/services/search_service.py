@@ -31,6 +31,37 @@ def save_debug_json(path: str, formatted_records: list[dict]):
 
 async def search(query: str, rerank_fn, synonym_registry: dict) -> dict:
 
+    """
+    Performs a hybrid search for the given query, retrieves cached results if available, 
+    and formats the output for frontend consumption.    
+
+    Parameters
+    ----------
+    query : str
+        The search query string.
+    rerank_fn : callable
+        A function to rerank the search results based on relevance.
+    synonym_registry : dict
+        A dictionary containing synonyms for query expansion.   
+
+    Returns
+    -------
+    dict
+        A dictionary containing the search results, including:
+        - ``query``: the original search query.
+        - ``years``: a list of fiscal years for which data is available.
+        - ``funding``: a list of total funding amounts corresponding to each fiscal year.
+        - ``results``: a list of detailed grant records matching the search query.
+        - ``ontology_labels``: a list of ontology category labels.
+        - ``ontology_values``: a list of total funding amounts corresponding to each ontology category.
+    
+    Raises
+    ------
+    Exception
+        If there is an error during the search process, including database operations or result formatting.
+    """
+
+
     start_time = time.perf_counter()
 
     query = normalize_query(query)
