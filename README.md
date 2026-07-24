@@ -250,8 +250,21 @@ Finally, our final production prompts achieved approximately 97% coverage across
 
 ### 12. Performance & Cost Optimizations
 
+#### Performance Optimizations
+- Used B-tree indices to accelerate queries common to API endpoints
+- In-memory loading of cross-encoder model and grant metadata (Parquet) in Modal GPU containers
+- Distributed reranking across up to 10 Modal GPU workers
+- Cached search results so subsequent latencies are a few seconds
 
+#### Cost Optimizations
+- Used OpenAI Batch API for large-scale annotation
+- Modal scale-to-zero (not paying for warm GPUs)
+- Open-source embedding and cross-encoder models to obviate API inference costs
 
+#### Representative Latencies and Costs
+- Overall search pipeline: ~60 s (cache miss), ~ 5 s (cache hit)
+- Reranking ~ 60K grants: $0.10 (Modal GPU)
+- LLM annotation ~65k grants: ~$500 (OpenAI Batch API)
 
 ### 13. Repository Structure
 
@@ -379,7 +392,7 @@ Finally, our final production prompts achieved approximately 97% coverage across
 │       ├── metrics.py
 │       ├── rcdc.py
 │       └── run_eval.py
-├── modal/
+├── modal_deploy/
 │   ├── __init__.py
 │   └── reranker_app.py
 ├── pipelines/
@@ -442,4 +455,80 @@ Finally, our final production prompts achieved approximately 97% coverage across
         └── test_query_expansion.py
 ```
 
+### 14. Installation
+
+##### Prerequisites
+- Python 3.10+
+- PostgreSQL 16+ with pgvector
+- OpenAI API key
+- Modal account (for GPU inference)
+
+##### Clone the Repository
+```
+git clone https://github.com/pradeepbugga/NIH_Portfolio-Analytics.git
+cd NIH_Portfolio_Analytics
+```
+
+##### Create a Virtual Environment
+```
+python -m venv .venv
+source .venv/bin/activate
+```
+
+##### Install Dependencies
+```
+pip install -r requirements.txt
+```
+
+##### Configure Environment Variables
+Create a .env file:
+```
+OPENAI_API_KEY=...
+DATABASE_URL=...
+```
+
+##### Tested Environment
+
+- Python 3.10.19 (local development)
+- Python 3.12 (production deployment)
+- PostgreSQL 16.8
+- pgvector 0.6.0
+
+#### Database Setup
+```
+createdb nih_portfolio
+```
+Enable pgvector:
+```
+CREATE EXTENSION vector;
+```
+Run the schema:
+```
+psql -d nih_portfolio -f database/schema.sql
+```
+Import NIH data:
+```
+python -m pipelines.ingest_nih
+```
+Generate embeddings:
+```
+python -m pipelines.run_embeddings
+```
+
+### 15. Running
+
+#### Running the Application
+Start the API:
+```
+uvicorn app.main:app --reload
+```
+Visit
+```
+http://localhost:8000
+```
+
+#### Running Tests
+```
+pytest
+```
 
